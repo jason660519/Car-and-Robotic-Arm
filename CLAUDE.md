@@ -20,7 +20,9 @@
 3. **不要幫使用者跑會讓馬達轉的程式。** 產生程式碼、說明怎麼跑即可，
    實際通電由使用者決定時機。
 4. **不要主動 commit / push。**
-5. 照片編號不重用、不重排（CONVENTIONS.md §3.3）。
+5. 硬體實測步驟以 [docs/setup/raspberry-pi-first-run.md](docs/setup/raspberry-pi-first-run.md)
+   為準，不要自己另發明一套順序。
+6. 照片編號不重用、不重排（CONVENTIONS.md §3.3）。
 
 ## 已知地雷
 

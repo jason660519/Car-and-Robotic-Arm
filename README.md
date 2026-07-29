@@ -17,14 +17,17 @@ I2C（位址 `0x40`）下指令控制 4 顆馬達、4 個舵機與板載燈效�
 
 ## 快速開始
 
+**樹莓派首次上路照這份走：[docs/setup/raspberry-pi-first-run.md](docs/setup/raspberry-pi-first-run.md)**
+—— 從開 I2C 到車子會動，每步都有可驗證的結果。
+
 ```bash
 uv sync
 ```
 
-在樹莓派上確認驅動板有回應：
-
 ```bash
-uv run python examples/01_i2c_probe.py
+uv run python examples/01_i2c_probe.py    # 確認通訊，不會讓任何東西動
+uv run python examples/02_motor_check.py  # 確認馬達對應（車子要架空）
+uv run python examples/03_drive.py        # 行駛測試（車子要架空）
 ```
 
 ## 這個 repo 有什麼
@@ -35,7 +38,7 @@ uv run python examples/01_i2c_probe.py
 | [docs/hardware/](docs/hardware/) | NeZha I2C 協定、Raspberry Pi 5 腳位、整合筆記 |
 | [docs/setup/](docs/setup/) | 環境建置步驟 |
 | [src/carbot/](src/carbot/) | Python 驅動與設定 |
-| [examples/](examples/) | 可直接跑的示範腳本 |
+| [examples/](examples/) | 可直接跑的示範腳本（01 → 02 → 03 依序） |
 | [site/](site/) | Astro 網站原始碼（專案報告、零件庫存、組裝指南） |
 | [assets/](assets/) | 零件照、組裝照、參考圖 |
 | [vendor/](vendor/) | 原廠資料（唯讀） |
