@@ -22,8 +22,7 @@
 | 路徑 | 說明 |
 |---|---|
 | `sdk/stm32/` `sdk/arduino/` `sdk/c51/` | 三個平台的驅動庫原始碼。I2C 協定就是從這裡反推的 |
-| `manual/NeZha总线驱动板使用手册.pdf` | 官方使用手冊，25 頁 |
-| `manual/多形态小车+机械臂组装说明--ABS材质.pdf` | 機構組裝說明書，50 頁 |
+| `manual/NeZha总线驱动板使用手册.pdf` | 官方使用手冊，25 頁。I2C 協定的權威來源 |
 | `wiring/` | 整車與各模組接線圖 |
 
 ## 匯入時剔除了什麼
@@ -32,6 +31,10 @@
 - `3.例程/*.zip` —— Keil 專案壓縮包，需要時再從原始下載解開
 - `5.外设及其相关资料/` —— PS2 遙控器、K210、巡線感測器資料，目前用不到
 - `7.…安装说明书/` 的影片檔
+- **組裝說明書 PDF（10.2MB）** —— 內容已經以 50 張頁面圖存在
+  [`assets/assembly-guide/pages/`](../../assets/assembly-guide/pages/)，
+  網頁版在 [`site/assembly-guide/`](../../site/assembly-guide/)。
+  原始 PDF 留在 `~/Downloads/Nezha哪吒总线方案/哪吒底盘+机械臂安装/安装说明书/`
 
 ## 整理過的版本
 
