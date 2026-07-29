@@ -1,7 +1,7 @@
 {
   "name": "car-and-robotic-arm-site",
   "version": "1.0.0",
-  "description": "專案報告靜態網站（Astro）。原始碼在 site/src/，見 docs/adr/0001-static-site-architecture.md",
+  "description": "Astro static site for the project report. Source lives in site/src/; see docs/adr/0001-static-site-architecture.md.",
   "directories": {
     "doc": "docs",
     "example": "examples",

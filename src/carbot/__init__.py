@@ -1,4 +1,4 @@
-"""Car and Robotic Arm — Raspberry Pi 端控制程式。"""
+"""Car and Robotic Arm control package for Raspberry Pi."""
 
 from carbot.car import Car
 from carbot.nezha import NeZha, NeZhaError

@@ -1,182 +1,187 @@
-# 樹莓派首次上路
+# Raspberry Pi First Bring-Up
 
-從零到車子會動。每一步都有可驗證的結果，**不要跳步**。
+This guide goes from zero to verified wheel movement. Every step has a concrete check. Do not skip steps.
 
-前置：Raspberry Pi 5 已裝好 Raspberry Pi OS 並能連上網。
+Prerequisite: Raspberry Pi 5 is running Raspberry Pi OS and has network access.
 
 ---
 
-## 0. 通電前先確認接線 ⚠️
+## 0. Verify Wiring Before Power-On
 
-| 檢查項 | 正確做法 |
+| Check | Correct wiring |
 |---|---|
-| 驅動板電源 | **12V** 接 12V 電池接口。正負極接反會燒板 |
-| Pi 的 5V | 從驅動板 I2C 接口的 `5V` 接到 Pi 的 **Pin 2 或 Pin 4** |
-| **不可同時供電** | 用驅動板餵 Pi 時，**絕對不要**再插 Pi 的 USB-C 電源 |
-| SDA | 驅動板 `SDA` → Pi **Pin 3** |
-| SCL | 驅動板 `SCL` → Pi **Pin 5** |
-| GND | 驅動板 `G` → Pi 任一 GND，**必須共地** |
-| 馬達接頭 | 2 線馬達插 **2 孔**接口。插進 4 孔編碼器接口會燒板 |
+| Driver board power | Connect **12V** to the 12V battery input. Reversed polarity can destroy the board. |
+| Raspberry Pi 5V input | Connect the board `5V` pin to Raspberry Pi **Pin 2** or **Pin 4** |
+| No dual power | If NeZha powers the Pi, do **not** also connect Raspberry Pi USB-C power |
+| SDA | Board `SDA` -> Raspberry Pi **Pin 3** |
+| SCL | Board `SCL` -> Raspberry Pi **Pin 5** |
+| GND | Board `G` -> any Raspberry Pi ground pin, with a shared ground |
+| Motor plug | Two-wire DC motors go into the **2-pin** motor connector, not the 4-pin encoder side |
 
-通電後看驅動板上的兩顆指示燈：**電源燈與固件燈都要長亮**。
-電源燈熄滅代表電路短路，**立刻斷電**。
+After power-on, both the power LED and firmware LED on the board should remain on. If the power LED
+turns off, disconnect power immediately and inspect for a short.
 
-## 1. 開啟 I2C
+## 1. Enable I2C
 
 ```bash
 sudo raspi-config
 ```
 
-`Interface Options` → `I2C` → `Yes`，然後重開機。
+Go to `Interface Options` -> `I2C` -> `Yes`, then reboot.
 
-裝工具並確認驅動板有回應：
+Install the tools and confirm that the board responds:
 
 ```bash
 sudo apt update && sudo apt install -y i2c-tools
-```
-
-```bash
 sudo i2cdetect -y 1
 ```
 
-**預期看到 `40`。** 看不到就回頭檢查第 0 步的接線與電源。
+You should see `40`. If not, go back to Step 0 and re-check power and wiring.
 
-> 不要去 `/boot/firmware/config.txt` 設 `dtparam=i2c_arm_baudrate=400000`。
-> 驅動板規格上限是 200kHz，Pi 預設的 100kHz 剛好。
+Do not set `dtparam=i2c_arm_baudrate=400000` in `/boot/firmware/config.txt`. The NeZha board is
+specified for up to 200kHz, and Raspberry Pi's default 100kHz is correct.
 
-把自己加進 `i2c` 群組，之後跑程式就不用 `sudo`：
+Add your user to the `i2c` group so later commands do not require `sudo`:
 
 ```bash
-sudo usermod -aG i2c $USER && echo "重新登入後生效"
+sudo usermod -aG i2c $USER && echo "Log out and back in for this to take effect"
 ```
 
-## 2. 把程式放上 Pi
+## 2. Clone the Repository onto the Raspberry Pi
 
 ```bash
 cd ~ && git clone https://github.com/jason660519/Car-and-Robotic-Arm.git && cd Car-and-Robotic-Arm
 ```
 
-## 3. 裝 uv 與相依套件
+## 3. Install `uv` and Dependencies
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-```bash
 source ~/.bashrc && uv sync
 ```
 
-## 4. 確認通訊 —— 不會讓任何東西動
+## 4. Verify Communication Without Moving Anything
 
 ```bash
 uv run python examples/01_i2c_probe.py
 ```
 
-**預期**：`✓ reset 指令送出成功，驅動板有回應`，然後前燈閃一下。
+Expected result: `✓ Reset command sent successfully; the driver board responded`, followed by a brief
+flash of the head LED.
 
-前燈有閃 = 指令通道確認可用。沒閃但沒報錯，代表指令送出去了但板子沒反應，
-回頭檢查固件指示燈。
+If the LED flashes, the command path is working. If there is no flash and no error, check the
+firmware status LED on the board.
 
-## 5. 確認馬達對應 —— ⚠️ 車子要架空
+## 5. Map the Motors With the Car Lifted
 
-**把車架起來，四個輪子離地。**
+Lift the car so that all four wheels are off the ground.
 
 ```bash
 uv run python examples/02_motor_check.py
 ```
 
-每顆馬達會正轉 1 秒、停、反轉 1 秒。拿紙筆記兩件事：
+Each motor runs forward for one second, stops, then runs in reverse for one second. Record:
 
-1. **M1／M2／M3／M4 分別是哪個輪子**（左前／右前／左後／右後）
-2. **「正轉」時輪子是往前還是往後**
+1. Which physical wheel corresponds to `M1`, `M2`, `M3`, and `M4`
+2. Whether the wheel moves forward or backward during the script's reported "forward" direction
 
-> 為什麼一定要做這步：原廠接線圖沒標「反面」是鏡像還是透視視角，
-> 而手冊 P.13 與原廠程式碼註解對正反轉的說法**互相矛盾**。
-> 只能實測。詳見 [nezha-i2c-protocol.md](../hardware/nezha-i2c-protocol.md)。
+This step is required because the vendor wiring diagrams and vendor code comments disagree about
+direction semantics. See [nezha-i2c-protocol.md](../hardware/nezha-i2c-protocol.md) for details.
 
-## 6. 把結果填進設定
+## 6. Apply the Verified Mapping
 
-編輯 [`src/carbot/config.py`](../../src/carbot/config.py)：
+Edit [`src/carbot/config.py`](../../src/carbot/config.py):
 
 ```python
 WHEEL_TO_MOTOR = {
-    "front_left": 4,   # ← 改成第 5 步實測的結果
+    "front_left": 4,
     "front_right": 3,
     "rear_left": 1,
     "rear_right": 2,
 }
 ```
 
-轉向的處理：
+Direction handling:
 
-| 狀況 | 怎麼改 |
+| Situation | What to change |
 |---|---|
-| **全部**四顆都反 | 改 `src/carbot/nezha.py` 的 `FORWARD_IS_MOTOR_A = False` |
-| 只有某幾顆反 | 把那幾顆的編號填進 `config.INVERTED_MOTORS`，例如 `frozenset({1, 3})` |
+| All four motors are reversed | Set `FORWARD_IS_MOTOR_A = False` in `src/carbot/nezha.py` |
+| Only some motors are reversed | Add their motor numbers to `config.INVERTED_MOTORS`, for example `frozenset({1, 3})` |
 
-## 7. 行駛測試 —— 還是架空
+## 7. Run the Minimal Driving Test
+
+Keep the car lifted.
 
 ```bash
 uv run python examples/03_drive.py
 ```
 
-依序跑前進、後退、左轉、右轉、原地左轉、原地右轉。
+The script tests:
 
-**每個動作的方向都要對。** 有一個不對就回第 6 步改設定再跑一次。
+- forward
+- backward
+- turn left
+- turn right
+- spin left
+- spin right
 
-## 8. 落地
+Every movement should match its label. If any movement is wrong, return to Step 6 and fix the configuration.
 
-全部方向都正確之後才放到地上。速度從 `SAFE_TEST_SPEED`（200）開始，
-確認能穩定直線行駛再往上調。
+## 8. Put the Car on the Ground
+
+Only place the car on the floor after all lifted tests are correct. Start with `SAFE_TEST_SPEED = 200`
+and increase only after confirming stable straight driving.
 
 ```python
 from carbot import Car
 
 with Car() as car:
-    car.move_for(1.0, 300, 300)   # 前進 1 秒後自動停
-    car.move_for(0.6, -250, 250)  # 原地左轉
+    car.move_for(1.0, 300, 300)
+    car.move_for(0.6, -250, 250)
 ```
 
-`Car` 是 context manager，離開 `with` 或程式出錯都會自動停車。
+`Car` is a context manager, so motors stop automatically when the `with` block exits or an exception occurs.
 
 ---
 
-## 排錯
+## Troubleshooting
 
 ### `OSError: [Errno 121] Remote I/O error`
 
-驅動板沒有正確回 ACK。原廠的 I2C 實作不檢查應答信號，Pi 的硬體 I2C 會檢查。
+The board is not acknowledging data correctly. Vendor I2C code does not check ACK handling, but
+Raspberry Pi hardware I2C does.
 
-1. 先確認 `i2cdetect -y 1` 還看得到 `40`
-2. 確認沒有把 I2C 速率調高過
-3. 都正常還是失敗的話，改用軟體 I2C —— 在 `/boot/firmware/config.txt` 加：
+1. Confirm that `i2cdetect -y 1` still shows `40`
+2. Confirm that the I2C speed has not been raised
+3. If it still fails, switch to software I2C by adding this to `/boot/firmware/config.txt`:
 
    ```
    dtoverlay=i2c-gpio,bus=3,i2c_gpio_sda=23,i2c_gpio_scl=24
    ```
 
-   接線改到 GPIO 23／24，程式改成 `NeZha(bus=3)`。
+   Then move the wiring to GPIO 23 and 24 and use `NeZha(bus=3)`.
 
-### `i2cdetect` 看不到 `40`
+### `i2cdetect` Does Not Show `40`
 
-- 驅動板電源開了嗎？電源燈與固件燈亮著嗎？
-- SDA／SCL 有沒有接反？（Pin 3 = SDA、Pin 5 = SCL）
-- GND 有共地嗎？只接訊號線不接地是最常見的失敗原因
-- 有插 PCA9685 的 HAT 嗎？它預設也是 `0x40`，會撞位址
+- Is the board powered on, with both status LEDs lit?
+- Are SDA and SCL swapped? (`Pin 3` is SDA, `Pin 5` is SCL)
+- Is ground shared between the board and the Raspberry Pi?
+- Is a PCA9685-based HAT connected? Its default address is also `0x40`.
 
-### 編碼器一直回 0
+### Encoders Always Read Zero
 
-正常。本車用的是兩線普通直流馬達，沒有編碼器。
-`config.HAS_ENCODERS = False` 就是在講這件事。
-換成 N20 編碼器馬達（6 線）後改成 `True`，並把編碼器線接到 MOTOR 接口的 4 孔側。
+That is expected for this build. The current car uses two-wire DC motors without encoders, so
+`config.HAS_ENCODERS = False` is correct. If you later switch to N20 encoder motors, set it to
+`True` and connect the encoder wires to the 4-pin side of each motor port.
 
-### 車子跑一跑突然停住 / Pi 重開
+### The Car Stops Suddenly or the Raspberry Pi Reboots
 
-供電不足。量一下：
+This usually indicates a power drop. Check:
 
 ```bash
 vcgencmd pmic_read_adc EXT5V_V && vcgencmd get_throttled
 ```
 
-`get_throttled` 不是 `0x0` 就是有掉壓。馬達啟動瞬間的電流會把 5V 拉下去 ——
-把測試速度降低，或改用獨立電源供 Pi（但**不能同時**接驅動板的 5V）。
+If `get_throttled` is anything other than `0x0`, the power rail has dipped. Reduce test speed or
+use a separate, known-good Raspberry Pi power source. Do not feed the Pi from both USB-C and the
+NeZha `5V` rail at the same time.

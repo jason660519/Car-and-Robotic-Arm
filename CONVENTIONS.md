@@ -1,75 +1,75 @@
-# 專案歸檔與命名規範
+# Project Archiving and Naming Conventions
 
-> 這份文件是本專案檔案擺放與命名的**單一真實來源（single source of truth）**。
-> 任何時候不確定「這個檔案該放哪、該叫什麼」，以本文件為準。
-> 與現況衝突時，是現況要改，不是本文件要改。
+> This document is the single source of truth for file placement and naming in this repository.
+> If you are unsure where a file belongs or how it should be named, follow this document.
+> If the repository disagrees with this document, update the repository layout instead of weakening the rule.
 
-最後更新：2026-07-30
+Last updated: 2026-07-30
 
 ---
 
-## 1. 資料夾結構
+## 1. Repository Structure
 
 ```
 Car-and-Robotic-Arm/
-├── README.md              專案入口
-├── CONVENTIONS.md         ← 本文件
-├── CLAUDE.md              AI agent 工作規則
-├── pyproject.toml         Python 專案定義（uv 管理）
+├── README.md              Project entry point
+├── CONVENTIONS.md         This file
+├── CLAUDE.md              AI agent working rules
+├── pyproject.toml         Python project definition (managed with uv)
 │
-├── docs/                  我們寫的文件（Markdown）
-│   ├── hardware/          硬體規格、通訊協定、接線
-│   ├── setup/             環境建置步驟
-│   ├── progress/          實作與實機測試進度紀錄
-│   └── adr/               架構決策紀錄
+├── docs/                  First-party project documentation
+│   ├── hardware/          Hardware specs, protocol notes, wiring
+│   ├── setup/             Bring-up and environment setup guides
+│   ├── progress/          Verified progress logs from real hardware work
+│   └── adr/               Architecture decision records
 │
-├── src/carbot/            Python package（實際會被 import 的程式）
-├── tests/                 測試
-├── examples/              可直接執行的示範腳本
-├── scripts/               一次性工具、產生器
+├── src/carbot/            Importable Python package
+├── tests/                 Automated tests
+├── examples/              Runnable example and verification scripts
+├── scripts/               One-off tools and validators
 │
-├── assets/                二進位資產
-│   ├── inventory/         零件庫存照（編號序列）
-│   ├── assembly/          組裝過程照（編號序列）
-│   ├── reference/         參考圖：接線圖、規格表、截圖
-│   └── assembly-guide/    組裝說明書的頁面圖與抽取文字
+├── assets/                Binary assets
+│   ├── inventory/         Inventory photos (numbered sequence)
+│   ├── assembly/          Assembly photos (numbered sequence)
+│   ├── reference/         Diagrams, screenshots, spec images
+│   └── assembly-guide/    Extracted assembly manual pages and text
 │
-├── site/                  Astro 網站原始碼
-│   ├── src/data/          頁面共用的資料檔 —— 中英文只有這一份
-│   ├── src/pages/         路由（zh 在根、en 在 /en/）
-│   ├── src/components/    元件
-│   ├── src/layouts/       版型
-│   ├── src/styles/        tokens.css + 各頁樣式
-│   └── public/            直接複製到輸出的靜態檔
+├── site/                  Astro website source
+│   ├── src/data/          Shared website data files
+│   ├── src/pages/         Routes (default locale at root, English under `/en/`)
+│   ├── src/components/    Components
+│   ├── src/layouts/       Layouts
+│   ├── src/styles/        Shared tokens and page styles
+│   └── public/            Static files copied as-is
 │
-├── astro.config.mjs       建置設定（輸出到 _site/，不進版控）
+├── astro.config.mjs       Build configuration (`_site/` output is not committed)
 ├── package.json
 │
-└── vendor/                原廠資料，唯讀
-    ├── yourfun-nezha/         有方機器人 NeZha 驅動板
-    ├── keyes-37in1-sensor-kit/  37 合 1 感測器套件
-    └── raspberry-pi/          Raspberry Pi 官方文件
+└── vendor/                Vendor material, kept read-only
+    ├── yourfun-nezha/
+    ├── keyes-37in1-sensor-kit/
+    └── raspberry-pi/
 ```
 
-## 2. 判斷檔案該放哪：只問一個問題
+## 2. Decide Placement by Asking One Question
 
-**「這個檔案是誰寫的？」**
+**Who created this file?**
 
-| 誰寫的 | 放哪 | 可否修改 |
+| Source | Where it goes | Editable |
 |---|---|---|
-| 我們寫的文件 | `docs/` | 可改 |
-| 我們寫的程式 | `src/` `tests/` `examples/` `scripts/` | 可改 |
-| 我們拍的照片 | `assets/` | **只增不改**（改了會讓編號失去意義） |
-| 網頁前端 | `site/` | 可改 |
-| 原廠給的 | `vendor/` | **唯讀**，改了就失去對照價值 |
-| 程式產生的暫存 | `scratch/` | 不進版控 |
+| First-party documentation | `docs/` | Yes |
+| First-party code | `src/`, `tests/`, `examples/`, `scripts/` | Yes |
+| Photos we captured | `assets/` | Append only |
+| Website frontend | `site/` | Yes |
+| Vendor-provided material | `vendor/` | No |
+| Generated scratch output | `scratch/` | Not committed |
 
-`vendor/` 是硬規則。要基於原廠程式碼改寫，複製一份到 `src/` 或 `scripts/` 再改，
-原始檔留在 `vendor/` 當對照組。
+`vendor/` is a hard boundary. If vendor code needs adaptation, copy it into `src/` or `scripts/`
+and keep the original files untouched for reference.
 
-## 3. 命名規則
+## 3. Naming Rules
 
-### 3.1 程式與文件 — `lower-kebab-case`
+### 3.1 Code and Documents: `lower-kebab-case`
 
 ```
 docs/hardware/nezha-i2c-protocol.md
@@ -77,169 +77,174 @@ scripts/build-assembly-html.py
 site/inventory/index.html
 ```
 
-**唯一例外**：Python 模組因為要被 `import`，用 `snake_case` —
-`src/carbot/nezha.py`、`scripts/build_assembly_html.py`。
+The only exception is Python modules, which use `snake_case` because they must be imported, for
+example `src/carbot/nezha.py`.
 
-### 3.2 雙語文件 — 主檔 + `.en` 後綴
+### 3.2 Single-Language Project Docs
+
+Outside the website, project documentation is written in English and should use plain
+`name.md` filenames:
 
 ```
-raspberry-pi-5-pinout.md      繁體中文（主檔）
-raspberry-pi-5-pinout.en.md   English
+raspberry-pi-5-pinout.md
+raspberry-pi-first-run.md
 ```
 
-不用 `_EN.md`。`.en.md` 是 i18n 慣例，建置工具認得。
-只有單一語言版本時，直接用 `name.md`，語言在文件開頭標示。
+Website content can remain bilingual where needed, but repository-level documentation should not
+depend on language suffixes unless there is a strong product reason.
 
-### 3.3 資產照片 — `NNN_Title_Case_Description.ext`
+### 3.3 Asset Photos: `NNN_Title_Case_Description.ext`
 
 ```
 assets/inventory/027_Waveshare_PanTilt_HAT_Front.jpg
 assets/assembly/003_Car_Chassis_Bottom_Wiring.jpg
 ```
 
-- `NNN` 是**入庫流水號，三位數補零**
-- **編號一旦分配就不重用、不重排、不回收**。零件退掉了，編號也留著空著。
-- 編號是**跨資料夾全域唯一**的：`assets/inventory/` 和 `assets/assembly/` 共用同一個序列
-- 目前用到 `091`，已知空號 `048`（從未使用）。**下一個新照片從 092 開始**
+- `NNN` is a three-digit inventory number.
+- Once assigned, a number is never reused, reordered, or recycled.
+- The numbering sequence is global across `assets/inventory/` and `assets/assembly/`.
+- The current highest number is `091`. Number `048` is intentionally unused. The next photo starts at `092`.
 
-這裡刻意不用 kebab-case。編號是有意義的識別碼、且 `site/inventory/` 的網頁有硬編引用，
-維持 Title_Case 讓檔名在檔案總管裡好讀。**這是全專案唯一的例外軌道。**
+Title case is intentional here. The number is part of the identity, and these filenames are easier
+to browse visually than kebab case. This is the only repository-wide exception to the standard naming style.
 
-### 3.4 參考圖 — `lower-kebab-case`，日期相關加 ISO 前綴
+### 3.4 Reference Images: `lower-kebab-case`
+
+Use an ISO date prefix when the image is tied to a dated observation.
 
 ```
 assets/reference/raspberry-pi-5/gpio-pinout-diagram.png
 assets/reference/nezha/2026-07-30-stm32-car-wiring-diagram.png
 ```
 
-`assets/reference/` 放**沒有入庫編號**的東西：規格圖、接線圖、截圖。
-按來源分子資料夾（`raspberry-pi-5/`、`nezha/`）。
+`assets/reference/` stores unnumbered diagrams, screenshots, and spec sheets grouped by source.
 
-### 3.5 硬性禁止
+### 3.5 Hard Prohibitions
 
-進 repo 前一定要改掉：
+Rename these before adding them to the repository:
 
 ```
-❌ Screenshot 2026-07-30 at 3.30.58 AM.png    有空格、格式不明
-❌ IMG_0325.JPG                                無語意
-❌ G SDA SCL 5V.JPG                            有空格
-❌ 未命名.pdf                                  中文檔名
+bad: Screenshot 2026-07-30 at 3.30.58 AM.png
+bad: IMG_0325.JPG
+bad: G SDA SCL 5V.JPG
+bad: untitled.pdf
 
-✅ assets/reference/nezha/2026-07-30-i2c-header-g-sda-scl-5v.jpg
-✅ assets/inventory/091_HXS_18650_Battery_Pack_Label.jpg
+good: assets/reference/nezha/2026-07-30-i2c-header-g-sda-scl-5v.jpg
+good: assets/inventory/091_HXS_18650_Battery_Pack_Label.jpg
 ```
 
-- **禁止空格**、全形括號、中文檔名
-- **副檔名一律小寫**（`.JPG` → `.jpg`）
-- 日期一律 ISO `YYYY-MM-DD`
+- No spaces
+- No non-English first-party filenames
+- File extensions must be lowercase
+- Dates must use ISO `YYYY-MM-DD`
 
-**唯一例外是 `vendor/`** — 原廠檔案保持原名（含中文），才能跟官方目錄、下載頁對照。
+The only exception is `vendor/`, where original filenames are preserved for traceability.
 
-## 4. `vendor/` 匯入規則
+## 4. `vendor/` Import Rules
 
-每個 `vendor/<供應商>/` 底下**必須有 `README.md`**，記錄：
+Every `vendor/<supplier>/` directory must contain a `README.md` that records:
 
-1. 供應商名稱與官方連結
-2. 下載日期與版本
-3. 原始壓縮檔／光碟的存放位置
-4. 匯入時剔除了什麼
+1. Supplier name and official link
+2. Download date and version
+3. Location of the original archive or media
+4. What was excluded during import
 
-**匯入時一律剔除編譯產物**（`.o` `.crf` `.d` `.lst` `.dep` `.map` `.axf` `.uvoptx` 等，
-完整清單見 `.gitignore`）。這些可以從原始碼重建，卻佔掉大部分體積 ——
-本專案初次整理時光這一項就清掉 5,838 個檔案、約 1GB。
+Always remove generated build artifacts such as `.o`, `.crf`, `.d`, `.lst`, `.dep`, `.map`,
+`.axf`, and `.uvoptx`. The full ignore list lives in `.gitignore`. These files can be rebuilt and
+consume most of the unnecessary space in imported SDKs.
 
-## 4.5 網頁資料
+## 4.5 Website Data
 
-**頁面內容資料一律放 `site/data/`，不要寫死在 HTML 裡。**
+Keep page content in data files instead of hardcoding it inside HTML or component markup.
 
-中英文共用同一份資料檔，語言相關欄位放在 `i18n.zh` / `i18n.en` 底下：
+The website uses a single shared dataset with localized fields under `i18n.zh` and `i18n.en`:
 
 ```js
-{ id, number, name, category, tags, images,
-  i18n: { zh: { title, desc, specs, ... },
-          en: { title, desc, specs, ... } } }
+{
+  id, number, name, category, tags, images,
+  i18n: {
+    zh: { title, desc, specs, ... },
+    en: { title, desc, specs, ... }
+  }
+}
 ```
 
-`images` 存**相對 repo 根目錄**的路徑（`assets/inventory/001_....jpg`），
-頁面自己加前綴。這樣資料檔不會綁死在某個目錄深度。
+`images` stores paths relative to the repository root, such as
+`assets/inventory/001_Example_Module.jpg`.
 
-資料檔位置：
+Current data files:
 
-| 檔案 | 內容 |
+| File | Purpose |
 |---|---|
-| `site/src/data/modules.json` | 零件庫存 26 個模組 |
-| `site/src/data/assembly-guide.json` | 組裝指南 7 章節 25 個步驟 |
-| `site/src/data/categories.ts` | 庫存分類標籤 |
+| `site/src/data/modules.json` | Inventory catalog |
+| `site/src/data/assembly-guide.json` | Assembly guide content |
+| `site/src/data/categories.ts` | Inventory category labels |
 
-改完資料跑一次驗證，它會檢查圖片存在、id 不重複、雙語欄位齊全、
-檔名符合 §3.3：
+After changing website data, run:
 
 ```bash
 uv run python scripts/check_inventory_data.py
 ```
 
-### 本機預覽
+The validator checks that assets exist, IDs are unique, bilingual fields are present, and asset
+filenames follow the `NNN_` rule from §3.3.
+
+### Local Preview
 
 ```bash
 npm run dev
 ```
 
-網址是 <http://localhost:4321/Car-and-Robotic-Arm/>（`base` 要跟 GitHub Pages 的
-repo 路徑一致，所以本機也帶前綴）。
-
-> 這條規則的由來：庫存頁原本中英文各自嵌一份 `MODULES_DATA`，
-> 已經漂移到頁首顯示「收錄模組 90 項」但實際只有 26 筆。
+The site is served at <http://localhost:4321/Car-and-Robotic-Arm/> so the local path matches the
+GitHub Pages base path.
 
 ## 5. Git
 
-### Commit message
+### Commit Messages
 
-Conventional Commits，scope 用頂層資料夾名：
+Use Conventional Commits, with the top-level folder as the scope when helpful:
 
+```text
+docs: add NeZha register mapping notes
+src: add Python driver for the NeZha board
+assets: add binocular camera photos 092-093
+vendor: import 37-in-1 sensor kit vendor files
+site: fix inventory image paths
+chore: add gitignore
 ```
-docs: 補上 NeZha I2C 協定的暫存器對照表
-src: 加入 NeZha 驅動板 Python 驅動
-assets: 新增雙目相機模組照片 092-093
-vendor: 匯入 37 合 1 感測器套件原廠資料
-site: 修正庫存頁圖片路徑
-chore: 建立 .gitignore
-```
 
-body 可中英混雜，重點寫**為什麼**，不寫做了什麼（diff 看得到）。
+Prefer commit bodies that explain **why** the change exists rather than repeating the diff.
 
-### 體積警戒線 ⚠️
+### Size Guardrails
 
-這個 repo 的歷史裡有大量二進位檔，目前狀態：
+This repository contains many binary assets. Keep these limits in mind:
 
-| 項目 | 現況 | 上限 |
+| Item | Current state | Limit |
 |---|---|---|
-| 工作目錄 | ~195MB | — |
-| `.git` 歷史 | ~83MB | GitHub 建議 < 1GB |
-| 單一檔案 | 最大 2.4MB（原廠手冊 PDF） | GitHub 硬限制 100MB |
-| `assets/` | 45MB | GitHub Pages 發布上限 **1GB** |
+| Working tree | ~195MB | n/a |
+| `.git` history | ~83MB | GitHub recommends under 1GB |
+| Largest file | ~2.4MB | GitHub hard limit is 100MB |
+| `assets/` | ~45MB | GitHub Pages publish limit is 1GB |
 
-**規則：**
+Rules:
 
-- 單張照片進 repo 前壓到 **1MB 以下**（1600px 長邊、JPEG q82 大約 500KB）
-- PDF 等文件型檔案放寬到 **10MB**，超過先問
-- 影片、韌體映像檔、壓縮包**不進 repo**，放外部儲存並在 README 記位置
+- Compress single photos below **1MB** before committing them.
+- PDF and document-like files should stay below **10MB** unless discussed first.
+- Videos, firmware images, and archives do not belong in this repository.
 
-`git rm` 不會縮小 `.git` 歷史 —— 舊 blob 還在。2026-07-30 已用 `git filter-repo`
-改寫過一次歷史（616MB → 83MB）並 force push。這是 destructive 操作，會讓所有既有
-clone 失效，再做之前必須先討論。
+`git rm` does not shrink history by itself. The repository history was rewritten once on
+2026-07-30 with `git filter-repo` to reduce size. That kind of operation is destructive and must
+always be discussed before repeating it.
 
-> 當時的教訓：`--strip-blobs-bigger-than 1M` 會連**工作目錄**裡的大檔一起清掉，
-> 4 份原廠 PDF 因此消失，事後才從原始下載復原。跑之前先列出會被砍的清單。
+## 6. Scratch Files
 
-## 6. 暫存檔
+Experimental output and temporary files belong in `scratch/`, which is already ignored. Do not
+scatter files such as `test.py`, `tmp.json`, or generic placeholders in the repository root.
 
-跑實驗、產生中間結果，一律放 repo 根目錄的 `scratch/`（已在 `.gitignore`）。
-不要散在專案各處，也不要用 `test.py`、`tmp.json`、`未命名 2.py` 這種檔名佔住根目錄。
+## 7. Checklist Before Adding a File
 
-## 7. 新增檔案前的檢查清單
-
-1. 這是誰寫的？→ 決定頂層資料夾（§2）
-2. 檔名有沒有空格、中文、大寫副檔名？（§3.5）
-3. 是照片嗎？→ 拿下一個流水號，**不要重用舊號**（§3.3）
-4. 超過 1MB 嗎？→ 先壓縮（§5）
-5. 是原廠資料嗎？→ 剔除編譯產物 + 寫 `README.md`（§4）
+1. Who created it? Choose the top-level directory from §2.
+2. Does the filename contain spaces, non-English text, or uppercase extensions?
+3. Is it a photo? Assign the next number and never reuse an old one.
+4. Is it larger than 1MB? Compress it first.
+5. Is it vendor material? Remove build artifacts and add a `README.md`.

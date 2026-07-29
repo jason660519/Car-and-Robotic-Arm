@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""驗證 site/data/modules.js 的完整性。
+"""Validate the website inventory dataset.
 
-抽出資料後檢查：圖片檔案存在、id 不重複、中英文欄位齊全、
-圖片路徑符合 CONVENTIONS.md §3.3 的 NNN_ 命名。
+Checks that image files exist, IDs are unique, bilingual fields are complete, and asset filenames
+follow the `NNN_` naming rule described in `CONVENTIONS.md`.
 
     uv run python scripts/check_inventory_data.py
 """
@@ -17,8 +17,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "site" / "src" / "data" / "modules.json"
 LANGS = ("zh", "en")
-# 必填。arduinoWiring / stm32Wiring 刻意不列入 —— 樹莓派專用模組
-# （M.2 HAT、USB 相機）本來就沒有 Arduino / STM32 接線，空陣列是正確資料。
+# Required localized fields. `arduinoWiring` and `stm32Wiring` are intentionally excluded because
+# Raspberry Pi specific modules such as the M.2 HAT or USB camera do not have those variants.
 I18N_FIELDS = ("title", "desc", "specs", "codeSnippet")
 ASSET_NAME = re.compile(r"^\d{3}_[A-Za-z0-9_]+\.(jpg|png)$")
 
@@ -33,32 +33,32 @@ def main() -> int:
 
     seen_ids: set[str] = set()
     for m in modules:
-        mid = m.get("id", "<無 id>")
+        mid = m.get("id", "<missing id>")
         if mid in seen_ids:
-            problems.append(f"{mid}: id 重複")
+            problems.append(f"{mid}: duplicate id")
         seen_ids.add(mid)
 
         for key in ("number", "name", "category", "tags", "images"):
             if not m.get(key):
-                problems.append(f"{mid}: 缺少語言無關欄位 {key}")
+                problems.append(f"{mid}: missing shared field {key}")
 
         for lang in LANGS:
             block = m.get("i18n", {}).get(lang)
             if not block:
-                problems.append(f"{mid}: 缺少 {lang} 語言區塊")
+                problems.append(f"{mid}: missing {lang} localization block")
                 continue
             for field in I18N_FIELDS:
                 if not block.get(field):
-                    problems.append(f"{mid}: {lang}.{field} 是空的")
+                    problems.append(f"{mid}: {lang}.{field} is empty")
 
         for rel in m.get("images", []):
             path = REPO / rel
             if not path.exists():
-                problems.append(f"{mid}: 圖片不存在 {rel}")
+                problems.append(f"{mid}: missing image {rel}")
             elif not ASSET_NAME.match(path.name):
-                problems.append(f"{mid}: 檔名不符 CONVENTIONS.md §3.3 — {path.name}")
+                problems.append(f"{mid}: filename does not match CONVENTIONS.md §3.3 - {path.name}")
 
-    # 反向檢查：assets/inventory/ 裡有哪些照片還沒被任何模組收錄
+    # Reverse check: which inventory photos are not referenced by any module entry.
     used = {REPO / p for m in modules for p in m.get("images", [])}
     orphans = sorted(
         p.name
@@ -66,19 +66,19 @@ def main() -> int:
         if p.suffix.lower() in (".jpg", ".png") and p not in used
     )
 
-    print(f"模組 {len(modules)} 個，引用圖片 {len(used)} 張")
+    print(f"Modules: {len(modules)}, referenced images: {len(used)}")
     if orphans:
-        print(f"\n未被收錄的照片 {len(orphans)} 張（不是錯誤，但值得補進去）：")
+        print(f"\nUnreferenced inventory photos: {len(orphans)} (not an error, but worth reviewing):")
         for name in orphans:
-            print(f"  · {name}")
+            print(f"  - {name}")
 
     if problems:
-        print(f"\n✗ {len(problems)} 個問題：")
+        print(f"\n✗ {len(problems)} problem(s):")
         for p in problems:
             print(f"  {p}")
         return 1
 
-    print("\n✓ 資料完整")
+    print("\n✓ Dataset is complete")
     return 0
 
 

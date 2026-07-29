@@ -1,9 +1,9 @@
-"""本台車的硬體對應表。
+"""Hardware mapping for the current car build.
 
-## 已從原廠文件確定的事
+## Confirmed from vendor documentation
 
-1. **驅動板背面的馬達接口幾何**（`vendor/yourfun-nezha/wiring/1. NeZha-STM32小车整车接线图.pdf`
-   右半頁「NeZha驅動板反面」）：
+1. **Motor port geometry on the back of the driver board**
+   (`vendor/yourfun-nezha/wiring/1. NeZha-STM32小车整车接线图.pdf`, right-side diagram):
 
    ```
    M3 ┌───────────┐ M4
@@ -11,15 +11,15 @@
    M2 └───────────┘ M1
    ```
 
-2. **舵機排針（`S1 S2 S3 S4`）那一側是車頭。**
-   依據：該側兩個角落各有一顆白色 LED，就是指令集裡的 `HEADLED`（前燈）。
-   另一側是 I2C 排針 `G SDA SCL 5V` 加上 `BT_LED`（固件指示）與 `PG_LED`（電源指示），
-   那兩顆是狀態燈不是車燈。
+2. **The servo header side (`S1 S2 S3 S4`) is the front of the car.**
+   That side has the two white LEDs used as `HEADLED` in the command set. The opposite side carries
+   the I2C header and the firmware/power status LEDs.
 
-## 已由實機確認的事
+## Confirmed on real hardware
 
-2026-07-30 以 `examples/02_motor_check.py` 確認：
-M1 = 左後、M2 = 右後、M3 = 右前、M4 = 左前；M2 與 M3 的接線方向需要反轉。
+On 2026-07-30, `examples/02_motor_check.py` confirmed:
+M1 = rear left, M2 = rear right, M3 = front right, M4 = front left.
+M2 and M3 need inversion.
 """
 
 from __future__ import annotations
@@ -28,9 +28,8 @@ from typing import Literal
 
 Wheel = Literal["front_left", "front_right", "rear_left", "rear_right"]
 
-# 車輪 -> 驅動板 MOTOR 接口編號（1–4）
-#
-# 2026-07-30 實機驗證。
+# Wheel -> driver board motor port number (1-4).
+# Verified on real hardware on 2026-07-30.
 WHEEL_TO_MOTOR: dict[Wheel, int] = {
     "front_right": 3,
     "front_left": 4,
@@ -38,16 +37,16 @@ WHEEL_TO_MOTOR: dict[Wheel, int] = {
     "rear_left": 1,
 }
 
-# 某幾顆馬達實際轉向與預期相反時列進來，不用改 nezha.py。
-# 若「全部」都相反，改 nezha.py 的 FORWARD_IS_MOTOR_A 才是對的做法。
+# List motors here when only some motors need direction inversion.
+# If all motors are reversed, change `FORWARD_IS_MOTOR_A` in `nezha.py` instead.
 INVERTED_MOTORS: frozenset[int] = frozenset({2, 3})
 
-# 本車使用的是兩線（紅黑）普通直流馬達，沒有霍爾編碼器。
-# 驅動板支援編碼器，但 encoder() 在這台車上一律回 0。
-# 換成 N20 編碼器馬達（6 線）後把這個改成 True，並接上 MOTOR 接口的 4 孔側。
+# This build uses two-wire DC motors without Hall encoders.
+# The board supports encoders, but `encoder()` always reads zero on this hardware.
+# Switch this to True only after moving to encoder motors and wiring the 4-pin encoder side.
 HAS_ENCODERS = False
 
-# 機械臂關節 -> 驅動板 SERVO 接口編號（1–4）
+# Robotic arm joint -> driver board servo port number (1-4).
 ARM_JOINT_TO_SERVO: dict[str, int] = {
     "base": 1,
     "shoulder": 2,
@@ -55,7 +54,7 @@ ARM_JOINT_TO_SERVO: dict[str, int] = {
     "gripper": 4,
 }
 
-# 各關節的安全角度範圍，避免結構互撞。未實際量測前一律保守。
+# Conservative joint limits to reduce the chance of self-collision.
 ARM_JOINT_LIMITS: dict[str, tuple[float, float]] = {
     "base": (0.0, 180.0),
     "shoulder": (20.0, 160.0),
@@ -63,5 +62,5 @@ ARM_JOINT_LIMITS: dict[str, tuple[float, float]] = {
     "gripper": (30.0, 120.0),
 }
 
-# 第一次通電測試用的速度。車架空、確認方向正確之後再往上調。
+# Safe starting speed for first powered tests. Increase only after lifted verification passes.
 SAFE_TEST_SPEED = 200

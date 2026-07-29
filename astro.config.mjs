@@ -2,9 +2,9 @@
 import { defineConfig } from 'astro/config';
 
 /**
- * 網頁原始碼放 site/src/，建置輸出到 _site/（見 CONVENTIONS.md §1）。
- * assets/ 留在 repo 根目錄不動，圖片透過 astro:assets 的 import.meta.glob 取用，
- * 由 Astro 自動產生 WebP 與多尺寸 —— 這樣 CONVENTIONS.md 的資產命名規則不用改。
+ * Website source lives in site/src and the build output goes to _site/.
+ * Assets stay at the repository root and are resolved through astro:assets with import.meta.glob,
+ * so the repository asset naming rules do not need any special-case build copies.
  */
 export default defineConfig({
   site: 'https://jason660519.github.io',

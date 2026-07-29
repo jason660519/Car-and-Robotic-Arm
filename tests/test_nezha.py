@@ -1,6 +1,6 @@
-"""驗證送出的 byte 序列與 vendor/yourfun-nezha/sdk/ 的原廠實作一致。
+"""Verify that emitted byte sequences match the vendor SDK behavior.
 
-用假的 SMBus 攔截呼叫，不需要真的硬體。
+The tests intercept calls with a fake SMBus object, so no hardware is required.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from carbot.nezha import NeZha, NeZhaError
 
 
 class FakeBus:
-    """記錄所有 I2C 呼叫的假 bus。"""
+    """Fake SMBus implementation that records all I2C calls."""
 
     def __init__(self, encoder_words: dict[int, list[int]] | None = None) -> None:
         self.calls: list[tuple] = []
@@ -40,7 +40,7 @@ def bus() -> FakeBus:
 @pytest.fixture
 def board(bus: FakeBus) -> NeZha:
     b = NeZha(bus, init_motors=False)
-    bus.calls.clear()  # 丟掉建構時的 reset
+    bus.calls.clear()  # Ignore the reset sent during construction.
     return b
 
 
@@ -53,7 +53,7 @@ def test_construction_resets_and_inits_motors(bus: FakeBus):
 
 
 def test_motor_forward_matches_vendor_frame(board: NeZha, bus: FakeBus):
-    """原廠 NeZha_Motor1_SetPwm：先寫命令暫存器，再送 4 bytes。"""
+    """Vendor `NeZha_Motor1_SetPwm` writes the command register, then 4 data bytes."""
     board.motor(1, 1000)
     assert bus.calls == [
         ("write_byte_data", 0x40, 0x00, 0x05),
@@ -83,14 +83,14 @@ def test_motor_command_codes(board: NeZha, bus: FakeBus, n: int, cmd: int):
 
 
 def test_motor_never_sets_both_channels(board: NeZha, bus: FakeBus):
-    """手冊：motor_a 與 motor_b 同時有值是無效組合。"""
+    """The vendor manual marks simultaneous motor_a and motor_b values as invalid."""
     for speed in (-1000, -1, 0, 1, 1000):
         bus.calls.clear()
         board.motor(1, speed)
         _, _, _, data = bus.calls[-1]
         a = data[0] << 8 | data[1]
         b = data[2] << 8 | data[3]
-        assert a == 0 or b == 0, f"speed={speed} 送出 a={a} b={b}"
+        assert a == 0 or b == 0, f"speed={speed} emitted a={a} b={b}"
 
 
 @pytest.mark.parametrize("speed", [-1001, 1001, 5000])
@@ -111,7 +111,7 @@ def test_stop_zeroes_all_four(board: NeZha, bus: FakeBus):
     assert cmds == [0x05, 0x09, 0x0D, 0x11]
 
 
-# ------------------------------------------------------------------ 編碼器
+# -------------------------------------------------------------- Encoders
 def test_encoder_reads_signed_big_endian():
     bus = FakeBus(encoder_words={0x16: [0xFF, 0x9C]})  # -100
     board = NeZha(bus, init_motors=False)
@@ -130,7 +130,7 @@ def test_encoder_init_codes(board: NeZha, bus: FakeBus, n: int, cmd: int):
     assert bus.calls == [("write_byte_data", 0x40, 0x00, cmd)]
 
 
-# -------------------------------------------------------------------- 舵機
+# ---------------------------------------------------------------- Servos
 def test_servo_angle_maps_to_pwm_range(board: NeZha, bus: FakeBus):
     for angle, pwm in ((0, 50), (90, 150), (180, 250)):
         bus.calls.clear()
@@ -156,7 +156,7 @@ def test_servo_command_codes(board: NeZha, bus: FakeBus, n: int, cmd: int):
     assert bus.calls[0] == ("write_byte_data", 0x40, 0x00, cmd)
 
 
-# ---------------------------------------------------------------------- 燈
+# -------------------------------------------------------------------- LEDs
 @pytest.mark.parametrize(
     "name,on,off,toggle",
     [
@@ -178,7 +178,7 @@ def test_led_rejects_unknown_name(board: NeZha):
         board.led("underglow", True)
 
 
-# -------------------------------------------------------------- 錯誤與收尾
+# ---------------------------------------------------------- Errors and cleanup
 def test_oserror_becomes_nezha_error(board: NeZha, bus: FakeBus):
     def boom(*_):
         raise OSError(121, "Remote I/O error")
@@ -193,16 +193,16 @@ def test_context_manager_stops_motors_and_keeps_borrowed_bus_open(bus: FakeBus):
         bus.calls.clear()
     cmds = [c[3] for c in bus.calls if c[0] == "write_byte_data"]
     assert cmds == [0x05, 0x09, 0x0D, 0x11]  # stop()
-    assert not bus.closed  # 不是我們開的 bus，不該關掉
+    assert not bus.closed  # Borrowed buses should not be closed here.
 
 
 # ---------------------------------------------------------------------- Car
 class TestCar:
-    """驗證差速層有正確套用 config 的車輪對應與反轉設定。"""
+    """Verify that the differential-drive layer applies config mappings and inversion correctly."""
 
     @staticmethod
     def _motor_calls(bus: FakeBus) -> dict[int, int]:
-        """從 write_i2c_block_data 還原出「指令碼 -> 有號速度」。"""
+        """Reconstruct signed motor speeds from `write_i2c_block_data` calls."""
         from carbot.nezha import CMD_MOTOR_SET
 
         out: dict[int, int] = {}
@@ -217,7 +217,7 @@ class TestCar:
 
     @classmethod
     def _logical_motor_calls(cls, bus: FakeBus) -> dict[int, int]:
-        """把實機接線反轉還原後，回傳各馬達的邏輯速度。"""
+        """Return logical motor speeds after undoing hardware-specific inversion."""
         from carbot import config
 
         return {

@@ -1,7 +1,7 @@
 [project]
 name = "carbot"
 version = "0.1.0"
-description = "Raspberry Pi 控制 NeZha 驅動板的小車與機械臂"
+description = "Raspberry Pi control package for the NeZha-driven car and robotic arm"
 requires-python = ">=3.11"
 dependencies = [
     "smbus2>=0.5.0",
