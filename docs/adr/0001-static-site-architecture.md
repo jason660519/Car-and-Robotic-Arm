@@ -71,7 +71,7 @@ markup、英文版 `<script>` 沒收尾、gallery 沒接上 lightbox。三頁都
 | 0 | 修好既有頁面、統一資產路徑 | ✅ 完成 |
 | 1 | 資料抽出成中英共用一份 | ✅ 完成 |
 | 2 | 導入 Astro，改成 layout + component | ✅ 完成 |
-| 3 | GitHub Actions 自動部署 | 待辦 |
+| 3 | GitHub Actions 自動部署 | ⏸ workflow 寫好但停用 |
 
 ### 階段 2 實際做了什麼
 
@@ -88,6 +88,18 @@ markup、英文版 `<script>` 沒收尾、gallery 沒接上 lightbox。三頁都
 
 原訂階段 3 才做，但用 `astro:assets` 是轉換過程中最自然的寫法，硬要延後等於做兩次。
 建置時自動產生 WebP 與多尺寸，實測單張 356kB → 155kB。
+
+### 階段 3 目前的狀態
+
+`.github/workflows/deploy-pages.yml` 已寫好並驗證過（YAML 合法、`npm ci` +
+`npm run build` 在乾淨環境跑得起來、資料驗證用系統 python3 即可執行），
+但**只保留手動觸發**。
+
+原因：GitHub Pages 的 Source 還沒在 Settings → Pages 設成「GitHub Actions」，
+那個設定只能在網頁上點。在那之前開自動觸發，只會在每次 push 得到一個必定失敗
+的部署。要啟用時把 workflow 裡 `push:` 那段的註解拿掉。
+
+優先權讓給實體車輛的驅動驗證 —— 網站發布可以等，硬體不能瞎猜。
 
 ### 刪掉的東西
 
