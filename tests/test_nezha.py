@@ -196,6 +196,15 @@ def test_context_manager_stops_motors_and_keeps_borrowed_bus_open(bus: FakeBus):
     assert not bus.closed  # Borrowed buses should not be closed here.
 
 
+def test_close_can_skip_motor_stop(bus: FakeBus):
+    board = NeZha(bus, init_motors=False)
+    bus.calls.clear()
+
+    board.close(stop_motors=False)
+
+    assert bus.calls == []
+
+
 # ---------------------------------------------------------------------- Car
 class TestCar:
     """Verify that the differential-drive layer applies config mappings and inversion correctly."""

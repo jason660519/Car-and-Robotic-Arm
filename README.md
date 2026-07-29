@@ -29,6 +29,7 @@ uv sync
 uv run python examples/01_i2c_probe.py
 uv run python examples/02_motor_check.py
 uv run python examples/03_drive.py
+uv run python examples/04_servo_check.py
 ```
 
 Run the examples in order:
@@ -36,6 +37,8 @@ Run the examples in order:
 1. `01_i2c_probe.py` checks communication without moving the hardware.
 2. `02_motor_check.py` maps each wheel to `M1`-`M4` and confirms direction.
 3. `03_drive.py` runs a minimal differential-drive movement test.
+4. `04_servo_check.py` interactively checks arm servos `S2`-`S4`, one channel at a time, while
+   the operator remains beside the robot.
 
 ## Repository Layout
 
