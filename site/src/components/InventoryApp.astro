@@ -1,0 +1,175 @@
+---
+import ModuleCard from './ModuleCard.astro';
+import { CATEGORIES } from '../data/categories';
+import modules from '../data/modules.json';
+import { t, type Locale } from '../i18n/ui';
+import '../styles/inventory.css';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const tr = t(locale);
+---
+
+<header class="inventory-header">
+  <div class="header-container">
+    <div>
+      <h1>{tr('inventory.title')}</h1>
+      <p class="header-sub">{tr('site.subtitle')}</p>
+    </div>
+    <div class="header-right">
+      <span class="stat-pill">
+        {tr('inventory.count')}：<strong id="stat-count">{modules.length}</strong>
+        {tr('inventory.unit')}
+      </span>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="search-input" class="search-input" placeholder={tr('inventory.search')} />
+  </div>
+  <div class="category-tabs" id="category-tabs">
+    {
+      CATEGORIES.map((c, i) => (
+        <button class:list={['tab-btn', { active: i === 0 }]} data-cat={c.key}>
+          {c[locale]}
+        </button>
+      ))
+    }
+  </div>
+</div>
+
+<main class="inventory-grid" id="inventory-grid">
+  {modules.map((mod) => <ModuleCard module={mod} locale={locale} />)}
+  <div class="empty-state" id="empty-state" hidden>
+    <h3>{tr('inventory.empty.title')}</h3>
+    <p>{tr('inventory.empty.desc')}</p>
+  </div>
+</main>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h2 id="modal-title-zh"></h2>
+        <p id="modal-title-en"></p>
+      </div>
+      <button class="close-btn" id="modal-close" aria-label="close">&times;</button>
+    </div>
+    <div class="modal-content" id="modal-content"></div>
+  </div>
+</div>
+
+<div class="lightbox-overlay" id="lightbox-overlay">
+  <button class="lightbox-close-btn" id="lightbox-close" aria-label="close">&times;</button>
+  <div class="lightbox-img-container">
+    <img id="lightbox-img" src="" alt="" />
+  </div>
+  <div class="lightbox-caption-bar">
+    <h4 id="lightbox-caption-type"></h4>
+    <p id="lightbox-caption-filename"></p>
+  </div>
+</div>
+
+<script>
+  const $ = <T extends Element = HTMLElement>(id: string) =>
+    document.getElementById(id) as unknown as T;
+
+  const cards = [...document.querySelectorAll<HTMLElement>('.module-card')];
+  const grid = $('inventory-grid');
+  const empty = $('empty-state');
+  const statCount = $('stat-count');
+  const searchInput = $<HTMLInputElement>('search-input');
+  const tabs = $('category-tabs');
+
+  /* ---------------- 篩選 ---------------- */
+  let currentCat = 'all';
+
+  const haystack = new WeakMap<HTMLElement, string>();
+  for (const card of cards) {
+    haystack.set(card, (card.textContent ?? '').toLowerCase());
+  }
+
+  function applyFilter() {
+    const q = searchInput.value.toLowerCase().trim();
+    let shown = 0;
+    for (const card of cards) {
+      const matchCat = currentCat === 'all' || card.dataset.cat === currentCat;
+      const matchQuery = !q || (haystack.get(card) ?? '').includes(q);
+      const visible = matchCat && matchQuery;
+      card.hidden = !visible;
+      if (visible) shown++;
+    }
+    statCount.textContent = String(shown);
+    empty.hidden = shown > 0;
+  }
+
+  searchInput.addEventListener('input', applyFilter);
+  tabs.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('.tab-btn');
+    if (!btn) return;
+    tabs.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentCat = btn.dataset.cat ?? 'all';
+    applyFilter();
+  });
+
+  /* ---------------- Modal ---------------- */
+  const modal = $('modal-overlay');
+  const modalContent = $('modal-content');
+
+  function openModal(card: HTMLElement) {
+    const tpl = card.querySelector('template.module-detail') as HTMLTemplateElement;
+    modalContent.replaceChildren(tpl.content.cloneNode(true));
+    $('modal-title-zh').textContent = card.querySelector('.card-title-zh')?.textContent ?? '';
+    $('modal-title-en').textContent = card.querySelector('.card-title-en')?.textContent ?? '';
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  for (const card of cards) {
+    card.addEventListener('click', () => openModal(card));
+  }
+  $('modal-close').addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  /* ---------------- Lightbox ---------------- */
+  const lightbox = $('lightbox-overlay');
+
+  function closeLightbox() {
+    lightbox.classList.remove('active');
+  }
+
+  modalContent.addEventListener('click', (e) => {
+    const wrap = (e.target as HTMLElement).closest<HTMLElement>('.gallery-img-wrap');
+    if (!wrap) return;
+    $<HTMLImageElement>('lightbox-img').src = wrap.dataset.full ?? '';
+    $('lightbox-caption-type').textContent = wrap.dataset.caption ?? '';
+    $('lightbox-caption-filename').textContent = wrap.dataset.filename ?? '';
+    lightbox.classList.add('active');
+  });
+
+  $('lightbox-close').addEventListener('click', closeLightbox);
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (lightbox.classList.contains('active')) closeLightbox();
+    else if (modal.classList.contains('active')) closeModal();
+  });
+
+  applyFilter();
+</script>

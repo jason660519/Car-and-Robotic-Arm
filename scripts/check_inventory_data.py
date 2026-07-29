@@ -11,12 +11,11 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-DATA = REPO / "site" / "data" / "modules.js"
+DATA = REPO / "site" / "src" / "data" / "modules.json"
 LANGS = ("zh", "en")
 # 必填。arduinoWiring / stm32Wiring 刻意不列入 —— 樹莓派專用模組
 # （M.2 HAT、USB 相機）本來就沒有 Arduino / STM32 接線，空陣列是正確資料。
@@ -25,22 +24,7 @@ ASSET_NAME = re.compile(r"^\d{3}_[A-Za-z0-9_]+\.(jpg|png)$")
 
 
 def load_modules() -> list[dict]:
-    """用 node 求值資料檔，回傳模組陣列。
-
-    modules.js 是給瀏覽器用的 classic script，`const MODULES` 不會掛到 module.exports，
-    所以不能用 require()，要在 vm context 裡跑完再取完成值。
-    """
-    script = f"""
-        const fs = require('fs'), vm = require('vm');
-        const src = fs.readFileSync({json.dumps(str(DATA))}, 'utf8');
-        process.stdout.write(vm.runInNewContext(src + '\\nJSON.stringify(MODULES)'));
-    """
-    result = subprocess.run(
-        ["node", "-e", script], capture_output=True, text=True, cwd=REPO, check=False
-    )
-    if result.returncode != 0:
-        sys.exit(f"無法載入 {DATA.relative_to(REPO)}：\n{result.stderr}")
-    return json.loads(result.stdout)
+    return json.loads(DATA.read_text())
 
 
 def main() -> int:

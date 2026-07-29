@@ -1,58 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danny's Hardware & Sensor Inventory Documentation (English)</title>
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-dark: #0b0f19;
-            --bg-card: #151c2c;
-            --bg-card-hover: #1e293b;
-            --bg-glass: rgba(21, 28, 44, 0.75);
-            --border-color: #2a364f;
-            --border-glow: #38bdf8;
-            
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            
-            --accent-cyan: #38bdf8;
-            --accent-blue: #3b82f6;
-            --accent-indigo: #6366f1;
-            --accent-purple: #a855f7;
-            --accent-emerald: #10b981;
-            --accent-amber: #f59e0b;
-            --accent-rose: #f43f5e;
-            
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 18px;
-            --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
-            --shadow-glow: 0 0 20px rgba(56, 189, 248, 0.2);
-            --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        * {
+* {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-        }
-
-        body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-            background-image: 
-                radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
-                radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.08) 0%, transparent 40%);
-            background-attachment: fixed;
         }
 
         /* Top Header */
@@ -108,33 +57,6 @@
         .title-group p {
             font-size: 0.85rem;
             color: var(--text-secondary);
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .lang-switch-btn {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(56, 189, 248, 0.2));
-            border: 1px solid var(--accent-indigo);
-            color: var(--accent-cyan);
-            padding: 0.5rem 1rem;
-            border-radius: var(--radius-md);
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: var(--transition-smooth);
-        }
-
-        .lang-switch-btn:hover {
-            background: var(--accent-indigo);
-            color: white;
-            box-shadow: var(--shadow-glow);
         }
 
         .stats-badge {
@@ -314,10 +236,19 @@
         }
 
         .card-title-en {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-indigo);
+            margin-bottom: 0.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .card-title-zh {
             font-size: 1.1rem;
             font-weight: 700;
             color: var(--text-primary);
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.75rem;
             line-height: 1.3;
         }
 
@@ -683,309 +614,36 @@
             margin-bottom: 0.5rem;
         }
 
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .lang-switch-btn {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(56, 189, 248, 0.2));
+            border: 1px solid var(--accent-indigo);
+            color: var(--accent-cyan);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: var(--transition-smooth);
+        }
+
+        .lang-switch-btn:hover {
+            background: var(--accent-indigo);
+            color: white;
+            box-shadow: var(--shadow-glow);
+        }
+
         @media (max-width: 768px) {
             header { padding: 1rem; }
             .controls-section { padding: 0 1rem; }
             .inventory-grid { padding: 0 1rem; }
             .modal-overlay { padding: 1rem; }
         }
-    </style>
-</head>
-<body>
-
-    <header>
-        <div class="header-container">
-            <div class="logo-group">
-                <div class="logo-icon">⚡</div>
-                <div class="title-group">
-                    <h1>Danny's Hardware & Sensor Inventory</h1>
-                    <p>Robotics, Microcontrollers & Sensor Modules Documentation</p>
-                </div>
-            </div>
-            <div class="header-right">
-                <a href="index.html" class="lang-switch-btn">🌐 Switch to Bilingual (中英文版)</a>
-                <div class="stats-badge">
-                    <div class="stat-chip">Items: <strong id="stat-count">90</strong></div>
-                    <div class="stat-chip">Platforms: <strong>Arduino / STM32 / Pi</strong></div>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <div class="controls-section">
-        <div class="search-wrapper">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="search-input" class="search-input" placeholder="Search modules, chips, or keywords (e.g. MPU6050, Servo, PCA9685, Ultrasonic, Tracing)...">
-        </div>
-        <div class="category-tabs" id="category-tabs">
-            <button class="tab-btn active" data-cat="all">All Modules</button>
-            <button class="tab-btn" data-cat="controllers">Controllers & MCU</button>
-            <button class="tab-btn" data-cat="motion">Motion & Servo Drivers</button>
-            <button class="tab-btn" data-cat="sensors">Sensors & Vision</button>
-            <button class="tab-btn" data-cat="display_audio">Display & Audio</button>
-            <button class="tab-btn" data-cat="power">Power & Adapters</button>
-            <button class="tab-btn" data-cat="kit37">37-in-1 Sensor Kit</button>
-        </div>
-    </div>
-
-    <main class="inventory-grid" id="inventory-grid">
-        <!-- Cards injected dynamically via JS -->
-    </main>
-
-    <!-- Modal Dialog -->
-    <div class="modal-overlay" id="modal-overlay">
-        <div class="modal-container">
-            <div class="modal-header">
-                <div class="modal-title-wrap">
-                    <h2 id="modal-title-en">Module Title</h2>
-                    <p id="modal-id">Item #00</p>
-                </div>
-                <button class="close-btn" id="modal-close">&times;</button>
-            </div>
-            <div class="modal-content" id="modal-content">
-                <!-- Modal content dynamically injected -->
-            </div>
-        </div>
-    </header>
-
-    <script src="../data/modules.js"></script>
-    <script>
-        const MODULES_DATA = buildModules('en', '../../');
-</script>
-
-    <!-- Lightbox Overlay for Fullscreen High-Res Image View -->
-    <div class="lightbox-overlay" id="lightbox-overlay">
-        <button class="lightbox-close-btn" id="lightbox-close">&times;</button>
-        <div class="lightbox-img-container">
-            <img id="lightbox-img" src="" alt="Full Resolution Image">
-        </div>
-        <div class="lightbox-caption-bar">
-            <h4 id="lightbox-caption-type">Photo Category</h4>
-            <p id="lightbox-caption-filename">Filename</p>
-        </div>
-    </div>
-
-    <script>
-        // Helper: Extract photo caption from filename
-        function getImageCaption(filename) {
-            let type = '📷 Module Photo';
-            if (filename.includes('Front')) type = '📸 Front View & Components';
-            else if (filename.includes('Back')) type = '🔍 Back View & Pinout Labels';
-            else if (filename.includes('Angle')) type = '📐 3D Perspective Angle View';
-            else if (filename.includes('CloseUp') || filename.includes('Pinout')) type = '🔎 Pinout & Chip Detail Close-up';
-            else if (filename.includes('Sheet') || filename.includes('Chart') || filename.includes('Diagram') || filename.includes('Guide')) type = '📋 Reference Chart Sheet';
-            return { type, filename };
-        }
-
-        // Lightbox Functions
-        const lightboxOverlay = document.getElementById('lightbox-overlay');
-        const lightboxImg = document.getElementById('lightbox-img');
-        const lightboxCaptionType = document.getElementById('lightbox-caption-type');
-        const lightboxCaptionFilename = document.getElementById('lightbox-caption-filename');
-        const lightboxClose = document.getElementById('lightbox-close');
-
-        function openLightbox(imgSrc, captionType) {
-            lightboxImg.src = imgSrc;
-            lightboxCaptionType.textContent = captionType;
-            lightboxCaptionFilename.textContent = imgSrc;
-            lightboxOverlay.classList.add('active');
-        }
-
-        function closeLightbox() {
-            lightboxOverlay.classList.remove('active');
-        }
-
-        lightboxClose.onclick = closeLightbox;
-        lightboxOverlay.onclick = (e) => {
-            if (e.target === lightboxOverlay) closeLightbox();
-        };
-
-        // Render Cards
-        const grid = document.getElementById('inventory-grid');
-        const statCount = document.getElementById('stat-count');
-        const searchInput = document.getElementById('search-input');
-        const categoryTabs = document.getElementById('category-tabs');
-
-        function renderGrid(filterCategory = 'all', searchQuery = '') {
-            grid.innerHTML = '';
-            
-            const filtered = MODULES_DATA.filter(mod => {
-                const matchCat = (filterCategory === 'all') || (mod.category === filterCategory);
-                const query = searchQuery.toLowerCase().trim();
-                const matchQuery = !query || 
-                    mod.name.toLowerCase().includes(query) ||
-                    mod.desc.toLowerCase().includes(query) ||
-                    mod.tags.some(t => t.toLowerCase().includes(query));
-                return matchCat && matchQuery;
-            });
-
-            statCount.textContent = filtered.length;
-
-            if (filtered.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <h3>No matching modules found</h3>
-                        <p>Try searching for a different keyword or category.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            filtered.forEach(mod => {
-                const card = document.createElement('div');
-                card.className = 'module-card';
-                card.onclick = () => openModal(mod);
-
-                const coverImg = mod.images[0] || '22_SensorKit_37in1_Diagram_Chart.jpg';
-
-                card.innerHTML = `
-                    <div class="card-image-wrap">
-                        <img src="${coverImg}" alt="${mod.name}" class="card-image" loading="lazy">
-                        <span class="card-badge"># ${mod.number}</span>
-                        <span class="photo-count-badge">📷 ${mod.images.length} Captioned Photos</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="card-title-en">${mod.name}</div>
-                        <div class="card-desc">${mod.desc}</div>
-                        <div class="tag-list">
-                            ${mod.tags.map(t => `<span class="tag ${t.toLowerCase()}">${t}</span>`).join('')}
-                        </div>
-                    </div>
-                `;
-
-                grid.appendChild(card);
-            });
-        }
-
-        const modalOverlay = document.getElementById('modal-overlay');
-        const modalClose = document.getElementById('modal-close');
-        const modalTitleEn = document.getElementById('modal-title-en');
-        const modalId = document.getElementById('modal-id');
-        const modalContent = document.getElementById('modal-content');
-
-        function openModal(mod) {
-            modalTitleEn.textContent = mod.name;
-            modalId.textContent = `Item #${mod.number}`;
-
-            modalContent.innerHTML = `
-                <div class="section-block">
-                    <h3>Photos & Multi-Angle Hardware Views</h3>
-                    <div class="gallery-grid">
-                        ${mod.images.map(img => {
-                            const info = getImageCaption(img);
-                            return `
-                                <div class="gallery-card">
-                                    <div class="gallery-img-wrap" onclick="openLightbox('${img}', '${info.type}')">
-                                        <img src="${img}" alt="${img}" loading="lazy">
-                                        <div class="img-zoom-btn">🔍 Click to View High-Res Image</div>
-                                    </div>
-                                    <div class="gallery-img-caption">
-                                        <span class="caption-type">${info.type}</span>
-                                        <span class="caption-filename">${img}</span>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-
-                <div class="section-block">
-                    <h3>Description & Overview</h3>
-                    <p style="color: var(--text-secondary);">${mod.desc}</p>
-                </div>
-
-                <div class="section-block">
-                    <h3>Specifications & Parameters</h3>
-                    <table class="wiring-table">
-                        <tbody>
-                            ${mod.specs.map(s => `
-                                <tr>
-                                    <td style="width: 30%; color: var(--text-secondary);">${s.label}</td>
-                                    <td>${s.val}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-
-                ${mod.arduinoWiring && mod.arduinoWiring.length > 0 ? `
-                <div class="section-block">
-                    <h3>Arduino Wiring Pinout</h3>
-                    <table class="wiring-table">
-                        <thead>
-                            <tr><th>Module Pin</th><th>Arduino Connection</th></tr>
-                        </thead>
-                        <tbody>
-                            ${mod.arduinoWiring.map(w => `
-                                <tr><td>${w.pin}</td><td>${w.conn}</td></tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                ` : ''}
-
-                ${mod.stm32Wiring && mod.stm32Wiring.length > 0 ? `
-                <div class="section-block">
-                    <h3>STM32 (Blue Pill) Wiring Pinout</h3>
-                    <table class="wiring-table">
-                        <thead>
-                            <tr><th>Module Pin</th><th>STM32 GPIO</th></tr>
-                        </thead>
-                        <tbody>
-                            ${mod.stm32Wiring.map(w => `
-                                <tr><td>${w.pin}</td><td>${w.conn}</td></tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                ` : ''}
-
-                ${mod.codeSnippet ? `
-                <div class="section-block">
-                    <h3>Sample Code</h3>
-                    <div class="code-block">${escapeHtml(mod.codeSnippet)}</div>
-                </div>
-                ` : ''}
-            `;
-
-            modalOverlay.classList.add('active');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeModal() {
-            modalOverlay.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        modalClose.onclick = closeModal;
-        modalOverlay.onclick = (e) => {
-            if (e.target === modalOverlay) closeModal();
-        };
-
-        function escapeHtml(str) {
-            return str.replace(/&/g, "&amp;")
-                      .replace(/</g, "&lt;")
-                      .replace(/>/g, "&gt;")
-                      .replace(/"/g, "&quot;")
-                      .replace(/'/g, "&#039;");
-        }
-
-        let currentCat = 'all';
-
-        categoryTabs.addEventListener('click', (e) => {
-            if (e.target.classList.contains('tab-btn')) {
-                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
-                currentCat = e.target.dataset.cat;
-                renderGrid(currentCat, searchInput.value);
-            }
-        });
-
-        searchInput.addEventListener('input', (e) => {
-            renderGrid(currentCat, e.target.value);
-        });
-
-        renderGrid();
-    </script>
-</body>
-</html>

@@ -1,0 +1,53 @@
+/**
+ * 設計 token —— 全站共用，改配色只改這裡。
+ *
+ * 合併自原本兩個單檔 HTML 各自的 :root。庫存頁的 --bg-dark 與組裝頁的 --bg-main
+ * 指同一個顏色，兩個名稱都保留，才不用去改 661 + 549 行的既有樣式。
+ * 新寫的樣式一律用 --bg-dark。
+ */
+:root {
+  /* 背景 */
+  --bg-dark: #0b0f19;
+  --bg-main: #0b0f19; /* = --bg-dark，組裝頁沿用 */
+  --bg-card: #151c2c;
+  --bg-card-hover: #1e293b;
+  --bg-sidebar: #0e1422;
+  --bg-glass: rgba(21, 28, 44, 0.75);
+
+  /* 邊框 */
+  --border-color: #2a364f;
+  --border-glow: #38bdf8;
+  --border-highlight: #3b82f6;
+
+  /* 文字 */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* 強調色 */
+  --accent-cyan: #38bdf8;
+  --accent-blue: #3b82f6;
+  --accent-indigo: #6366f1;
+  --accent-purple: #a855f7;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
+
+  /* 圓角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  /* 陰影 */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px rgba(56, 189, 248, 0.2);
+
+  /* 版面 */
+  --site-nav-h: 57px;
+
+  /* 動態 */
+  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}

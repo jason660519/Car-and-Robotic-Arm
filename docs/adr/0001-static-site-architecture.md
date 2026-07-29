@@ -1,6 +1,6 @@
 # ADR 0001：專案報告網站的前端架構
 
-- **狀態**：提案中（待決定）
+- **狀態**：已採用，階段 0–2 完成
 - **日期**：2026-07-30
 
 ## 背景
@@ -66,14 +66,37 @@ markup、英文版 `<script>` 沒收尾、gallery 沒接上 lightbox。三頁都
 
 **建議選 B（Astro）**，但分階段導入，每個階段都能獨立驗收：
 
-| 階段 | 內容 | 產出 |
+| 階段 | 內容 | 狀態 |
 |---|---|---|
-| 0 | ~~修好既有頁面、統一資產路徑~~ | ✅ 已完成 |
-| 1 | 資料抽出到 `site/data/modules.json`，中英共用一份 | 去掉 zh/en 資料不同步 |
-| 2 | 導入 Astro，三頁改成 layout + component | 新增頁面不用再複製貼上 |
-| 3 | GitHub Actions 部署 + `astro:assets` 圖片優化 | 自動發布，體積再降一個量級 |
+| 0 | 修好既有頁面、統一資產路徑 | ✅ 完成 |
+| 1 | 資料抽出成中英共用一份 | ✅ 完成 |
+| 2 | 導入 Astro，改成 layout + component | ✅ 完成 |
+| 3 | GitHub Actions 自動部署 | 待辦 |
 
-階段 1 即使之後不走 Astro 也不會白做 —— 資料與呈現分離在任何方案下都是對的。
+### 階段 2 實際做了什麼
+
+- Astro 專案放 repo 根目錄，`srcDir: site/src`、`outDir: _site`。
+  `assets/` 留在原位不動，圖片透過 `site/src/lib/images.ts` 的
+  root-relative `import.meta.glob` 取用 —— CONVENTIONS.md 的資產命名規則不用改。
+- 兩份 `:root` 合併成 `site/src/styles/tokens.css`。庫存頁用 `--bg-dark`、
+  組裝頁用 `--bg-main` 指同一個顏色，兩個名稱都保留才不用改 1,200 行既有樣式。
+- 路由：zh 在根、en 在 `/en/`，共 6 頁。新增了專案總覽首頁。
+- 卡片由 Astro 靜態渲染（原本是全 client-side JS 產生），詳細內容放 `<template>`
+  由 JS clone 進 modal —— 內容留在 HTML 裡，不再依賴 JS 才看得到。
+
+### 圖片優化提前到階段 2
+
+原訂階段 3 才做，但用 `astro:assets` 是轉換過程中最自然的寫法，硬要延後等於做兩次。
+建置時自動產生 WebP 與多尺寸，實測單張 356kB → 155kB。
+
+### 刪掉的東西
+
+- `site/inventory/index.html`、`index.en.html`、`site/assembly-guide/index.en.html`
+  —— 已由 Astro 頁面取代，功能逐項比對過（26 張卡片、25 個步驟、搜尋、分類、
+  modal、lightbox、側欄 active 狀態）。
+- `scripts/build_assembly_html.py` —— 那支不是資料驅動的產生器，是 1,498 行硬編
+  HTML 字串。內容已抽成 `site/src/data/assembly-guide.json`（25/25 步驟全數保留）。
+  留著只會誤導後人以為可以重跑它。
 
 ## 影響
 
