@@ -1,43 +1,45 @@
-# 2026-07-30 小車首次實機上路
+# 2026-07-30 First Real Driving Test
 
-## 結果
+## Result
 
-Raspberry Pi 5 已能透過 I2C 控制 NeZha 驅動板。四顆馬達的實際接口與方向均已確認，
-差速控制的六種架空動作全部正確，落地後也完成低速短距離前進測試。
+The Raspberry Pi 5 successfully controlled the NeZha driver board over I2C. All four motor ports
+were verified against the actual wheel positions, all six lifted differential-drive movements were
+correct, and a short low-speed ground test completed successfully.
 
-## 通訊確認
+## Communication Check
 
-在 Raspberry Pi 上執行：
+Command:
 
 ```bash
 uv run python examples/01_i2c_probe.py
 ```
 
-確認結果：
+Verified results:
 
-- I2C bus 1 的 `0x40` 有回應
-- reset 指令成功
-- 本車使用兩線直流馬達，因此依設定跳過編碼器
-- 前燈控制正常
+- I2C bus 1 responded at address `0x40`
+- Reset command succeeded
+- Encoder reads were skipped because this build uses two-wire DC motors
+- Head LED control worked
 
-## 馬達實測
+## Motor Mapping Verification
 
-車身架空後執行：
+Command:
 
 ```bash
 uv run python examples/02_motor_check.py
 ```
 
-實測結果：
+Observed mapping:
 
-| 接口 | 輪位 | 正轉方向 |
+| Port | Wheel position | Reported forward rotation |
 |---|---|---|
-| M1 | 左後 | 往前 |
-| M2 | 右後 | 往後 |
-| M3 | 右前 | 往後 |
-| M4 | 左前 | 往前 |
+| M1 | Rear left | Forward |
+| M2 | Rear right | Backward |
+| M3 | Front right | Backward |
+| M4 | Front left | Forward |
 
-輪位對應與原本推論一致；M2、M3 的接線方向相反，因此設定為：
+This confirmed the expected physical wheel layout. M2 and M3 needed inversion, so the verified
+configuration is:
 
 ```python
 WHEEL_TO_MOTOR = {
@@ -50,43 +52,45 @@ WHEEL_TO_MOTOR = {
 INVERTED_MOTORS = frozenset({2, 3})
 ```
 
-四顆馬達並非全部反向，所以不修改 `nezha.py` 的 `FORWARD_IS_MOTOR_A`。
+Because not all motors were reversed, `FORWARD_IS_MOTOR_A` remained unchanged.
 
-## 行駛確認
+## Driving Verification
 
-保持車身架空並執行：
+Command:
 
 ```bash
 uv run python examples/03_drive.py
 ```
 
-以下六種動作方向全部正確：
+All of the following lifted movements matched their labels:
 
-- 前進
-- 後退
-- 左轉
-- 右轉
-- 原地左轉
-- 原地右轉
+- forward
+- backward
+- turn left
+- turn right
+- spin left
+- spin right
 
-落地後以速度 200 前進 0.5 秒，方向正確且程式結束後自動停止：
+After that, the car was placed on the ground and driven forward at speed 200 for 0.5 seconds. The
+direction was correct and the car stopped cleanly when the script ended.
 
 ```bash
 uv run python -c \
 'from carbot import Car; car = Car(); car.move_for(0.5, 200, 200); car.close()'
 ```
 
-## 程式驗證
+## Code Verification
 
-實機設定寫回 `src/carbot/config.py`，測試改以套用接線反轉後的邏輯速度驗證差速控制。
+The verified hardware mapping was written back into `src/carbot/config.py`. Automated checks then
+passed against the updated logical motor directions.
 
 ```text
 pytest: 44 passed
 ruff: All checks passed
 ```
 
-## 下一步
+## Next Steps
 
-- 在空曠地面逐步調整安全速度與直線行駛表現
-- 測量左右側馬達差異，必要時加入校正係數
-- 接上機械臂前先逐一確認舵機接口、零位與安全角度
+- Tune safe speed and straight-line behavior on open floor space
+- Measure left/right drivetrain imbalance and add calibration if needed
+- Verify servo ports, neutral positions, and safe angle limits before attaching the robotic arm

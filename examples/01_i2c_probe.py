@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""連線測試 —— 不會讓任何馬達或舵機動作。
+"""Communication check that does not move motors or servos.
 
-在樹莓派上執行：
+Run on the Raspberry Pi:
 
     uv run python examples/01_i2c_probe.py
 
-確認 I2C bus 通、驅動板在 0x40 有回應、reset 指令送得出去，
-以及編碼器讀得到值。這是通電後的第一個該跑的東西。
+This verifies that the I2C bus is alive, the driver board responds at `0x40`, the reset command
+works, and encoder reads are possible when enabled. Run this first after powering the system.
 """
 
 from __future__ import annotations
@@ -18,38 +18,38 @@ from carbot.nezha import DEFAULT_ADDRESS, DEFAULT_BUS, NeZha, NeZhaError
 
 
 def main() -> int:
-    print(f"開啟 I2C bus {DEFAULT_BUS}，位址 0x{DEFAULT_ADDRESS:02X} …")
+    print(f"Opening I2C bus {DEFAULT_BUS} at address 0x{DEFAULT_ADDRESS:02X}...")
 
     try:
         board = NeZha(init_motors=False)
     except NeZhaError as exc:
-        print(f"\n✗ 連線失敗：{exc}")
-        print("\n排查順序：")
-        print("  1. sudo i2cdetect -y 1  —— 0x40 有沒有出現？")
-        print("  2. SDA 接 Pin 3、SCL 接 Pin 5、GND 有沒有共地？")
-        print("  3. 驅動板 12V 電源開了嗎？固件指示燈亮著嗎？")
-        print("  4. Pan-Tilt HAT（PCA9685）也是 0x40，同時上線會撞位址")
+        print(f"\n✗ Connection failed: {exc}")
+        print("\nCheck in this order:")
+        print("  1. Run `sudo i2cdetect -y 1` and confirm that 0x40 appears")
+        print("  2. Confirm SDA -> Pin 3, SCL -> Pin 5, and shared ground")
+        print("  3. Confirm the board has 12V power and the firmware LED is on")
+        print("  4. Check for another device at 0x40, such as a PCA9685-based HAT")
         return 1
 
-    print("✓ reset 指令送出成功，驅動板有回應")
+    print("✓ Reset command sent successfully; the driver board responded")
 
     with board:
         if not HAS_ENCODERS:
-            print("\n跳過編碼器 —— config.HAS_ENCODERS = False（本車是兩線直流馬達）")
+            print("\nSkipping encoders because config.HAS_ENCODERS = False for this build")
         else:
-            print("\n讀取編碼器：")
+            print("\nReading encoder values:")
             for n in (1, 2, 3, 4):
                 board.init_encoder(n)
                 try:
                     print(f"  M{n}: {board.encoder(n):>6}")
                 except NeZhaError as exc:
-                    print(f"  M{n}: 讀取失敗 —— {exc}")
+                    print(f"  M{n}: read failed - {exc}")
 
-        print("\n閃一下前燈確認指令通道正常 …")
+        print("\nBlinking the head LED to confirm the command path...")
         board.led("head", True)
         board.led("head", False)
 
-    print("\n✓ 全部通過。下一步：examples/02_motor_check.py（請先把車架空）")
+    print("\n✓ Probe finished successfully. Next: `examples/02_motor_check.py` with the car lifted.")
     return 0
 
 

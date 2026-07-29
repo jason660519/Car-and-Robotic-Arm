@@ -1,62 +1,72 @@
 # Car and Robotic Arm
 
-樹莓派驅動的四輪小車 + 三自由度機械臂。
+A Raspberry Pi driven four-wheel robot car with a three-degree-of-freedom robotic arm.
 
-底盤與機械臂由**有方機器人 NeZha（哪吒）總線驅動板**驅動，Raspberry Pi 5 透過
-I2C（位址 `0x40`）下指令控制 4 顆馬達、4 個舵機與板載燈效，並讀取編碼器轉速。
+The chassis and arm are controlled by the **Yourfun NeZha bus driver board**. A Raspberry Pi 5
+communicates with the board over I2C at address `0x40` to drive four DC motors, four servo
+channels, the onboard LEDs, and optional encoder inputs.
 
-## 硬體
+## Hardware
 
-| 項目 | 型號 |
+| Item | Model |
 |---|---|
-| 主控 | Raspberry Pi 5 |
-| 驅動板 | 有方機器人 NeZha 總線驅動板（I2C `0x40`） |
-| 底盤 | 大聖多形態小車（ABS 材質），N20 馬達 ×4 |
-| 機械臂 | 桌面級 3 自由度 |
-| 電池 | HXS 18650 11.1V 1200mAh |
+| Main controller | Raspberry Pi 5 |
+| Driver board | Yourfun NeZha bus driver board (`0x40` over I2C) |
+| Chassis | Dasheng multi-form robot car chassis, 4x N20 motors |
+| Robotic arm | Desktop-class 3-DOF arm |
+| Battery | HXS 18650 11.1V 1200mAh |
 
-## 快速開始
+## Quick Start
 
-**樹莓派首次上路照這份走：[docs/setup/raspberry-pi-first-run.md](docs/setup/raspberry-pi-first-run.md)**
-—— 從開 I2C 到車子會動，每步都有可驗證的結果。
+Start with the verified bring-up guide:
+[docs/setup/raspberry-pi-first-run.md](docs/setup/raspberry-pi-first-run.md)
 
 ```bash
 uv sync
 ```
 
 ```bash
-uv run python examples/01_i2c_probe.py    # 確認通訊，不會讓任何東西動
-uv run python examples/02_motor_check.py  # 確認馬達對應（車子要架空）
-uv run python examples/03_drive.py        # 行駛測試（車子要架空）
+uv run python examples/01_i2c_probe.py
+uv run python examples/02_motor_check.py
+uv run python examples/03_drive.py
 ```
 
-## 這個 repo 有什麼
+Run the examples in order:
 
-| 路徑 | 內容 |
+1. `01_i2c_probe.py` checks communication without moving the hardware.
+2. `02_motor_check.py` maps each wheel to `M1`-`M4` and confirms direction.
+3. `03_drive.py` runs a minimal differential-drive movement test.
+
+## Repository Layout
+
+| Path | Purpose |
 |---|---|
-| [CONVENTIONS.md](CONVENTIONS.md) | **檔案擺放與命名規範 — 動手前先看這份** |
-| [docs/hardware/](docs/hardware/) | NeZha I2C 協定、Raspberry Pi 5 腳位、整合筆記 |
-| [docs/setup/](docs/setup/) | 環境建置步驟 |
-| [src/carbot/](src/carbot/) | Python 驅動與設定 |
-| [examples/](examples/) | 可直接跑的示範腳本（01 → 02 → 03 依序） |
-| [site/](site/) | Astro 網站原始碼（專案報告、零件庫存、組裝指南） |
-| [assets/](assets/) | 零件照、組裝照、參考圖 |
-| [vendor/](vendor/) | 原廠資料（唯讀） |
+| [CONVENTIONS.md](CONVENTIONS.md) | File placement and naming rules for this repository |
+| [docs/hardware/](docs/hardware/) | NeZha protocol notes, Raspberry Pi pinout, integration notes |
+| [docs/setup/](docs/setup/) | Setup and bring-up guides |
+| [src/carbot/](src/carbot/) | Python driver and control code |
+| [examples/](examples/) | Runnable hardware verification scripts |
+| [site/](site/) | Astro source for the project website |
+| [assets/](assets/) | Photos, diagrams, and other project assets |
+| [vendor/](vendor/) | Vendor material kept for reference |
 
-## 網頁
+## Website
 
 ```bash
-npm install && npm run dev
+npm install
+npm run dev
 ```
 
-<http://localhost:4321/Car-and-Robotic-Arm/> —— 專案總覽、零件庫存、組裝指南，
-中英雙語（英文在 `/en/`）。架構決策見
-[ADR 0001](docs/adr/0001-static-site-architecture.md)。
+Local preview:
+<http://localhost:4321/Car-and-Robotic-Arm/>
 
-## 安全注意事項
+The website includes both bilingual and English routes. Architecture notes are recorded in
+[ADR 0001](docs/adr/0001-static-site-architecture.md).
 
-- 驅動板需 **12V** 供電，正負極接反會燒板
-- 驅動板的 5V 可以餵 Pi（Pin 2/4），但**此時絕對不可同時接 Pi 的 USB-C 電源** ——
-  原廠手冊明文禁止雙電源
-- I2C 速率**不得超過 200kHz**。Pi 預設 100kHz，不要去調 `i2c_arm_baudrate`
-- 第一次跑馬達請把車架空
+## Safety Notes
+
+- The NeZha board must be powered from **12V**. Reversed polarity can destroy the board.
+- If the board's `5V` rail powers the Raspberry Pi through `Pin 2` or `Pin 4`, do **not**
+  connect USB-C power to the Raspberry Pi at the same time.
+- Keep the I2C clock at or below **200kHz**. Raspberry Pi defaults to 100kHz, which is correct.
+- Lift the car so all wheels are off the ground before the first motor test.
