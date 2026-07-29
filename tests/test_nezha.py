@@ -1,0 +1,196 @@
+"""驗證送出的 byte 序列與 vendor/yourfun-nezha/sdk/ 的原廠實作一致。
+
+用假的 SMBus 攔截呼叫，不需要真的硬體。
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from carbot.nezha import NeZha, NeZhaError
+
+
+class FakeBus:
+    """記錄所有 I2C 呼叫的假 bus。"""
+
+    def __init__(self, encoder_words: dict[int, list[int]] | None = None) -> None:
+        self.calls: list[tuple] = []
+        self.closed = False
+        self._encoder_words = encoder_words or {}
+
+    def write_byte_data(self, addr, reg, value):
+        self.calls.append(("write_byte_data", addr, reg, value))
+
+    def write_i2c_block_data(self, addr, reg, data):
+        self.calls.append(("write_i2c_block_data", addr, reg, list(data)))
+
+    def read_i2c_block_data(self, addr, reg, length):
+        self.calls.append(("read_i2c_block_data", addr, reg, length))
+        return self._encoder_words.get(reg, [0, 0])
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.fixture
+def bus() -> FakeBus:
+    return FakeBus()
+
+
+@pytest.fixture
+def board(bus: FakeBus) -> NeZha:
+    b = NeZha(bus, init_motors=False)
+    bus.calls.clear()  # 丟掉建構時的 reset
+    return b
+
+
+def test_construction_resets_and_inits_motors(bus: FakeBus):
+    NeZha(bus)
+    assert bus.calls == [
+        ("write_byte_data", 0x40, 0x00, 0xFF),  # CMD_RESET
+        ("write_byte_data", 0x40, 0x00, 0x01),  # CMD_MOTOR_INIT
+    ]
+
+
+def test_motor_forward_matches_vendor_frame(board: NeZha, bus: FakeBus):
+    """原廠 NeZha_Motor1_SetPwm：先寫命令暫存器，再送 4 bytes。"""
+    board.motor(1, 1000)
+    assert bus.calls == [
+        ("write_byte_data", 0x40, 0x00, 0x05),
+        ("write_i2c_block_data", 0x40, 0x05, [0x03, 0xE8, 0x00, 0x00]),
+    ]
+
+
+def test_motor_reverse_swaps_the_pair(board: NeZha, bus: FakeBus):
+    board.motor(1, -1000)
+    assert bus.calls[-1] == (
+        "write_i2c_block_data",
+        0x40,
+        0x05,
+        [0x00, 0x00, 0x03, 0xE8],
+    )
+
+
+def test_motor_zero_sends_both_zero(board: NeZha, bus: FakeBus):
+    board.motor(2, 0)
+    assert bus.calls[-1] == ("write_i2c_block_data", 0x40, 0x09, [0, 0, 0, 0])
+
+
+@pytest.mark.parametrize("n,cmd", [(1, 0x05), (2, 0x09), (3, 0x0D), (4, 0x11)])
+def test_motor_command_codes(board: NeZha, bus: FakeBus, n: int, cmd: int):
+    board.motor(n, 500)
+    assert bus.calls[0] == ("write_byte_data", 0x40, 0x00, cmd)
+
+
+def test_motor_never_sets_both_channels(board: NeZha, bus: FakeBus):
+    """手冊：motor_a 與 motor_b 同時有值是無效組合。"""
+    for speed in (-1000, -1, 0, 1, 1000):
+        bus.calls.clear()
+        board.motor(1, speed)
+        _, _, _, data = bus.calls[-1]
+        a = data[0] << 8 | data[1]
+        b = data[2] << 8 | data[3]
+        assert a == 0 or b == 0, f"speed={speed} 送出 a={a} b={b}"
+
+
+@pytest.mark.parametrize("speed", [-1001, 1001, 5000])
+def test_motor_rejects_out_of_range(board: NeZha, speed: int):
+    with pytest.raises(ValueError):
+        board.motor(1, speed)
+
+
+@pytest.mark.parametrize("n", [0, 5, -1])
+def test_channel_must_be_1_to_4(board: NeZha, n: int):
+    with pytest.raises(ValueError):
+        board.motor(n, 0)
+
+
+def test_stop_zeroes_all_four(board: NeZha, bus: FakeBus):
+    board.stop()
+    cmds = [c[3] for c in bus.calls if c[0] == "write_byte_data"]
+    assert cmds == [0x05, 0x09, 0x0D, 0x11]
+
+
+# ------------------------------------------------------------------ 編碼器
+def test_encoder_reads_signed_big_endian():
+    bus = FakeBus(encoder_words={0x16: [0xFF, 0x9C]})  # -100
+    board = NeZha(bus, init_motors=False)
+    assert board.encoder(1) == -100
+
+
+def test_encoder_positive():
+    bus = FakeBus(encoder_words={0x1F: [0x01, 0x2C]})  # 300
+    board = NeZha(bus, init_motors=False)
+    assert board.encoder(4) == 300
+
+
+@pytest.mark.parametrize("n,cmd", [(1, 0x15), (2, 0x18), (3, 0x1B), (4, 0x1E)])
+def test_encoder_init_codes(board: NeZha, bus: FakeBus, n: int, cmd: int):
+    board.init_encoder(n)
+    assert bus.calls == [("write_byte_data", 0x40, 0x00, cmd)]
+
+
+# -------------------------------------------------------------------- 舵機
+def test_servo_angle_maps_to_pwm_range(board: NeZha, bus: FakeBus):
+    for angle, pwm in ((0, 50), (90, 150), (180, 250)):
+        bus.calls.clear()
+        board.servo(1, angle)
+        assert bus.calls[-1] == ("write_i2c_block_data", 0x40, 0x22, [0, pwm])
+
+
+@pytest.mark.parametrize("pwm", [49, 251])
+def test_servo_pwm_bounds(board: NeZha, pwm: int):
+    with pytest.raises(ValueError):
+        board.servo_pwm(1, pwm)
+
+
+@pytest.mark.parametrize("angle", [-1, 181])
+def test_servo_angle_bounds(board: NeZha, angle: float):
+    with pytest.raises(ValueError):
+        board.servo(1, angle)
+
+
+@pytest.mark.parametrize("n,cmd", [(1, 0x22), (2, 0x25), (3, 0x28), (4, 0x2B)])
+def test_servo_command_codes(board: NeZha, bus: FakeBus, n: int, cmd: int):
+    board.servo(n, 90)
+    assert bus.calls[0] == ("write_byte_data", 0x40, 0x00, cmd)
+
+
+# ---------------------------------------------------------------------- 燈
+@pytest.mark.parametrize(
+    "name,on,off,toggle",
+    [
+        ("head", 0x2D, 0x2E, 0x2F),
+        ("tail_left", 0x30, 0x31, 0x32),
+        ("tail_right", 0x33, 0x34, 0x35),
+        ("ambient", 0x36, 0x37, 0x38),
+    ],
+)
+def test_led_codes(board: NeZha, bus: FakeBus, name, on, off, toggle):
+    for state, expected in ((True, on), (False, off), (None, toggle)):
+        bus.calls.clear()
+        board.led(name, state)
+        assert bus.calls == [("write_byte_data", 0x40, 0x00, expected)]
+
+
+def test_led_rejects_unknown_name(board: NeZha):
+    with pytest.raises(ValueError):
+        board.led("underglow", True)
+
+
+# -------------------------------------------------------------- 錯誤與收尾
+def test_oserror_becomes_nezha_error(board: NeZha, bus: FakeBus):
+    def boom(*_):
+        raise OSError(121, "Remote I/O error")
+
+    bus.write_byte_data = boom
+    with pytest.raises(NeZhaError, match="200kHz"):
+        board.motor(1, 100)
+
+
+def test_context_manager_stops_motors_and_keeps_borrowed_bus_open(bus: FakeBus):
+    with NeZha(bus, init_motors=False):
+        bus.calls.clear()
+    cmds = [c[3] for c in bus.calls if c[0] == "write_byte_data"]
+    assert cmds == [0x05, 0x09, 0x0D, 0x11]  # stop()
+    assert not bus.closed  # 不是我們開的 bus，不該關掉
