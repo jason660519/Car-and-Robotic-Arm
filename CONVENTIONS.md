@@ -34,6 +34,9 @@ Car-and-Robotic-Arm/
 │   └── assembly-guide/    組裝說明書的頁面圖與抽取文字
 │
 ├── site/                  靜態網頁（GitHub Pages 發布來源）
+│   ├── data/              頁面共用的資料檔 —— 中英文只有這一份
+│   ├── inventory/         零件庫存瀏覽器
+│   └── assembly-guide/    組裝指南
 │
 └── vendor/                原廠資料，唯讀
     ├── yourfun-nezha/         有方機器人 NeZha 驅動板
@@ -90,7 +93,7 @@ assets/assembly/003_Car_Chassis_Bottom_Wiring.jpg
 - `NNN` 是**入庫流水號，三位數補零**
 - **編號一旦分配就不重用、不重排、不回收**。零件退掉了，編號也留著空著。
 - 編號是**跨資料夾全域唯一**的：`assets/inventory/` 和 `assets/assembly/` 共用同一個序列
-- 目前用到 `091`；已知空號 `033`（PCB 圖）、`048`（從未使用）。**下一個新照片從 092 開始**
+- 目前用到 `091`，已知空號 `048`（從未使用）。**下一個新照片從 092 開始**
 
 這裡刻意不用 kebab-case。編號是有意義的識別碼、且 `site/inventory/` 的網頁有硬編引用，
 維持 Title_Case 讓檔名在檔案總管裡好讀。**這是全專案唯一的例外軌道。**
@@ -138,6 +141,31 @@ assets/reference/nezha/2026-07-30-stm32-car-wiring-diagram.png
 完整清單見 `.gitignore`）。這些可以從原始碼重建，卻佔掉大部分體積 ——
 本專案初次整理時光這一項就清掉 5,838 個檔案、約 1GB。
 
+## 4.5 網頁資料
+
+**頁面內容資料一律放 `site/data/`，不要寫死在 HTML 裡。**
+
+中英文共用同一份資料檔，語言相關欄位放在 `i18n.zh` / `i18n.en` 底下：
+
+```js
+{ id, number, name, category, tags, images,
+  i18n: { zh: { title, desc, specs, ... },
+          en: { title, desc, specs, ... } } }
+```
+
+`images` 存**相對 repo 根目錄**的路徑（`assets/inventory/001_....jpg`），
+頁面自己加前綴。這樣資料檔不會綁死在某個目錄深度。
+
+改完資料跑一次驗證，它會檢查圖片存在、id 不重複、雙語欄位齊全、
+檔名符合 §3.3：
+
+```bash
+uv run python scripts/check_inventory_data.py
+```
+
+> 這條規則的由來：庫存頁原本中英文各自嵌一份 `MODULES_DATA`，
+> 已經漂移到頁首顯示「收錄模組 90 項」但實際只有 26 筆。
+
 ## 5. Git
 
 ### Commit message
@@ -161,19 +189,23 @@ body 可中英混雜，重點寫**為什麼**，不寫做了什麼（diff 看得
 
 | 項目 | 現況 | 上限 |
 |---|---|---|
-| 工作目錄 | ~1.1GB | — |
-| `.git` 歷史 | ~568MB | GitHub 建議 < 1GB |
-| 單一檔案 | 最大 17MB | GitHub 硬限制 100MB |
-| GitHub Pages 發布體積 | 未發布 | **1GB** |
+| 工作目錄 | ~195MB | — |
+| `.git` 歷史 | ~83MB | GitHub 建議 < 1GB |
+| 單一檔案 | 最大 2.4MB（原廠手冊 PDF） | GitHub 硬限制 100MB |
+| `assets/` | 45MB | GitHub Pages 發布上限 **1GB** |
 
-**新增規則：**
+**規則：**
 
-- 單張照片進 repo 前先壓到 **1MB 以下**（現有零件照普遍 4.5MB，是後續要處理的技術債）
-- 超過 10MB 的檔案先問，不要直接 commit
+- 單張照片進 repo 前壓到 **1MB 以下**（1600px 長邊、JPEG q82 大約 500KB）
+- PDF 等文件型檔案放寬到 **10MB**，超過先問
 - 影片、韌體映像檔、壓縮包**不進 repo**，放外部儲存並在 README 記位置
 
-`git rm` 不會縮小 `.git` 歷史。真要瘦身需要 `git filter-repo` 改寫歷史（destructive，
-會讓所有既有 clone 失效），要做之前必須先討論。
+`git rm` 不會縮小 `.git` 歷史 —— 舊 blob 還在。2026-07-30 已用 `git filter-repo`
+改寫過一次歷史（616MB → 83MB）並 force push。這是 destructive 操作，會讓所有既有
+clone 失效，再做之前必須先討論。
+
+> 當時的教訓：`--strip-blobs-bigger-than 1M` 會連**工作目錄**裡的大檔一起清掉，
+> 4 份原廠 PDF 因此消失，事後才從原始下載復原。跑之前先列出會被砍的清單。
 
 ## 6. 暫存檔
 

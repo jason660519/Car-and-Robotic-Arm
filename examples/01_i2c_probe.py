@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import sys
 
+from carbot.config import HAS_ENCODERS
 from carbot.nezha import DEFAULT_ADDRESS, DEFAULT_BUS, NeZha, NeZhaError
 
 
@@ -33,13 +34,16 @@ def main() -> int:
     print("✓ reset 指令送出成功，驅動板有回應")
 
     with board:
-        print("\n讀取編碼器（沒接編碼器馬達的接口會回 0）：")
-        for n in (1, 2, 3, 4):
-            board.init_encoder(n)
-            try:
-                print(f"  M{n}: {board.encoder(n):>6}")
-            except NeZhaError as exc:
-                print(f"  M{n}: 讀取失敗 —— {exc}")
+        if not HAS_ENCODERS:
+            print("\n跳過編碼器 —— config.HAS_ENCODERS = False（本車是兩線直流馬達）")
+        else:
+            print("\n讀取編碼器：")
+            for n in (1, 2, 3, 4):
+                board.init_encoder(n)
+                try:
+                    print(f"  M{n}: {board.encoder(n):>6}")
+                except NeZhaError as exc:
+                    print(f"  M{n}: 讀取失敗 —— {exc}")
 
         print("\n閃一下前燈確認指令通道正常 …")
         board.led("head", True)
