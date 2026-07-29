@@ -20,6 +20,7 @@ Car-and-Robotic-Arm/
 ├── docs/                  我們寫的文件（Markdown）
 │   ├── hardware/          硬體規格、通訊協定、接線
 │   ├── setup/             環境建置步驟
+│   ├── progress/          實作與實機測試進度紀錄
 │   └── adr/               架構決策紀錄
 │
 ├── src/carbot/            Python package（實際會被 import 的程式）

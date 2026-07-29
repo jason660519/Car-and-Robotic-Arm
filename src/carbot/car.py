@@ -10,8 +10,8 @@
         time.sleep(1)
         car.stop()
 
-⚠️ `config.WHEEL_TO_MOTOR` 尚未在實機驗證過。第一次跑務必把車架空，
-先用 `examples/02_motor_check.py` 確認每顆馬達對應哪個輪子。
+`config.WHEEL_TO_MOTOR` 與反轉設定已在實機驗證。更換馬達接線後仍應把車架空，
+重新用 `examples/02_motor_check.py` 確認每顆馬達的對應與方向。
 """
 
 from __future__ import annotations
