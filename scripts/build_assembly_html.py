@@ -1,4 +1,3 @@
-import json
 import os
 
 html_content = """<!DOCTYPE html>

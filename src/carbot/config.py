@@ -1,10 +1,27 @@
 """本台車的硬體對應表。
 
-**這裡的對應關係尚未在實機上驗證。** 第一次跑之前請把車架空，
-用 `examples/02_motor_check.py` 逐顆確認，再把下面的常數改成實際值。
+## 已從原廠文件確定的事
 
-依據來源：`vendor/yourfun-nezha/wiring/` 的整車接線圖。接線圖畫的是驅動板**背面**，
-所以圖上的左右跟從車頭看過去是相反的 —— 這正是必須實測的原因。
+1. **驅動板背面的馬達接口幾何**（`vendor/yourfun-nezha/wiring/1. NeZha-STM32小车整车接线图.pdf`
+   右半頁「NeZha驅動板反面」）：
+
+   ```
+   M3 ┌───────────┐ M4
+      │           │
+   M2 └───────────┘ M1
+   ```
+
+2. **舵機排針（`S1 S2 S3 S4`）那一側是車頭。**
+   依據：該側兩個角落各有一顆白色 LED，就是指令集裡的 `HEADLED`（前燈）。
+   另一側是 I2C 排針 `G SDA SCL 5V` 加上 `BT_LED`（固件指示）與 `PG_LED`（電源指示），
+   那兩顆是狀態燈不是車燈。
+
+## 尚未確定的事 ⚠️
+
+原廠那張「反面」圖**沒有標示是鏡像視角還是透視視角**。這一個差別會讓左右相反，
+所以下面的對應表是推論值，不是查證值。
+
+`examples/02_motor_check.py` 跑一次就能定案，30 秒的事。在那之前不要相信這張表。
 """
 
 from __future__ import annotations
@@ -15,17 +32,25 @@ Wheel = Literal["front_left", "front_right", "rear_left", "rear_right"]
 
 # 車輪 -> 驅動板 MOTOR 接口編號（1–4）
 #
-# 接線圖背面標示：M3 左上、M4 右上、M2 左下、M1 右下。
-# 下面是「背面的上方 = 車頭、左右鏡像」的推論結果，**未驗證**。
+# 推論過程：舵機排針側為車頭，把該側朝上、從車底往上看（即原廠「反面」視角）時，
+# 螢幕上的左右與實車左右相反，所以背面圖的左上 M3 對應實車的前右。
+#
+# ⚠️ 未驗證。跑 examples/02_motor_check.py 後改成實測值。
 WHEEL_TO_MOTOR: dict[Wheel, int] = {
-    "front_left": 3,
-    "front_right": 4,
-    "rear_left": 2,
-    "rear_right": 1,
+    "front_right": 3,
+    "front_left": 4,
+    "rear_right": 2,
+    "rear_left": 1,
 }
 
-# 某一側的馬達實際轉向與預期相反時，把它列進來即可，不用改 nezha.py
+# 某幾顆馬達實際轉向與預期相反時列進來，不用改 nezha.py。
+# 若「全部」都相反，改 nezha.py 的 FORWARD_IS_MOTOR_A 才是對的做法。
 INVERTED_MOTORS: frozenset[int] = frozenset()
+
+# 本車使用的是兩線（紅黑）普通直流馬達，沒有霍爾編碼器。
+# 驅動板支援編碼器，但 encoder() 在這台車上一律回 0。
+# 換成 N20 編碼器馬達（6 線）後把這個改成 True，並接上 MOTOR 接口的 4 孔側。
+HAS_ENCODERS = False
 
 # 機械臂關節 -> 驅動板 SERVO 接口編號（1–4）
 ARM_JOINT_TO_SERVO: dict[str, int] = {
@@ -35,7 +60,7 @@ ARM_JOINT_TO_SERVO: dict[str, int] = {
     "gripper": 4,
 }
 
-# 各關節的安全角度範圍，避免結構互撞。未量測前一律保守。
+# 各關節的安全角度範圍，避免結構互撞。未實際量測前一律保守。
 ARM_JOINT_LIMITS: dict[str, tuple[float, float]] = {
     "base": (0.0, 180.0),
     "shoulder": (20.0, 160.0),
@@ -43,5 +68,5 @@ ARM_JOINT_LIMITS: dict[str, tuple[float, float]] = {
     "gripper": (30.0, 120.0),
 }
 
-# 第一次通電測試用的速度。車架空之後再往上調。
+# 第一次通電測試用的速度。車架空、確認方向正確之後再往上調。
 SAFE_TEST_SPEED = 200
