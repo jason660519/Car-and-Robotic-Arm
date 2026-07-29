@@ -1,15 +1,4 @@
-/**
- * 零件庫存資料 —— 中英文共用的單一真實來源。
- *
- * 不要在 HTML 裡再放一份。頁面用法：
- *
- *   <script src="../data/modules.js"></script>
- *   const MODULES_DATA = buildModules('zh', '../../');
- *
- * images 存的是相對 repo 根目錄的路徑，第二個參數是頁面到根目錄的前綴。
- * 新增模組請照 CONVENTIONS.md §3.3 先配流水號再補進這裡。
- */
-const MODULES = [
+[
   {
     "id": "mod-01",
     "number": "01/27/86/87",
@@ -2458,12 +2447,4 @@ const MODULES = [
       }
     }
   }
-];
-
-function buildModules(lang, assetBase = '') {
-  return MODULES.map((m) => ({
-    ...m,
-    ...m.i18n[lang],
-    images: m.images.map((p) => assetBase + p),
-  }));
-}
+]

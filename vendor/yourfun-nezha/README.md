@@ -33,7 +33,7 @@
 - `7.…安装说明书/` 的影片檔
 - **組裝說明書 PDF（10.2MB）** —— 內容已經以 50 張頁面圖存在
   [`assets/assembly-guide/pages/`](../../assets/assembly-guide/pages/)，
-  網頁版在 [`site/assembly-guide/`](../../site/assembly-guide/)。
+  網頁版在 [`site/src/pages/assembly-guide/`](../../site/src/pages/assembly-guide/)。
   原始 PDF 留在 `~/Downloads/Nezha哪吒总线方案/哪吒底盘+机械臂安装/安装说明书/`
 
 ## 整理過的版本

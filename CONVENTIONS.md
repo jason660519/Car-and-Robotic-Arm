@@ -33,10 +33,16 @@ Car-and-Robotic-Arm/
 │   ├── reference/         參考圖：接線圖、規格表、截圖
 │   └── assembly-guide/    組裝說明書的頁面圖與抽取文字
 │
-├── site/                  靜態網頁（GitHub Pages 發布來源）
-│   ├── data/              頁面共用的資料檔 —— 中英文只有這一份
-│   ├── inventory/         零件庫存瀏覽器
-│   └── assembly-guide/    組裝指南
+├── site/                  Astro 網站原始碼
+│   ├── src/data/          頁面共用的資料檔 —— 中英文只有這一份
+│   ├── src/pages/         路由（zh 在根、en 在 /en/）
+│   ├── src/components/    元件
+│   ├── src/layouts/       版型
+│   ├── src/styles/        tokens.css + 各頁樣式
+│   └── public/            直接複製到輸出的靜態檔
+│
+├── astro.config.mjs       建置設定（輸出到 _site/，不進版控）
+├── package.json
 │
 └── vendor/                原廠資料，唯讀
     ├── yourfun-nezha/         有方機器人 NeZha 驅動板
@@ -156,12 +162,29 @@ assets/reference/nezha/2026-07-30-stm32-car-wiring-diagram.png
 `images` 存**相對 repo 根目錄**的路徑（`assets/inventory/001_....jpg`），
 頁面自己加前綴。這樣資料檔不會綁死在某個目錄深度。
 
+資料檔位置：
+
+| 檔案 | 內容 |
+|---|---|
+| `site/src/data/modules.json` | 零件庫存 26 個模組 |
+| `site/src/data/assembly-guide.json` | 組裝指南 7 章節 25 個步驟 |
+| `site/src/data/categories.ts` | 庫存分類標籤 |
+
 改完資料跑一次驗證，它會檢查圖片存在、id 不重複、雙語欄位齊全、
 檔名符合 §3.3：
 
 ```bash
 uv run python scripts/check_inventory_data.py
 ```
+
+### 本機預覽
+
+```bash
+npm run dev
+```
+
+網址是 <http://localhost:4321/Car-and-Robotic-Arm/>（`base` 要跟 GitHub Pages 的
+repo 路徑一致，所以本機也帶前綴）。
 
 > 這條規則的由來：庫存頁原本中英文各自嵌一份 `MODULES_DATA`，
 > 已經漂移到頁首顯示「收錄模組 90 項」但實際只有 26 筆。

@@ -36,20 +36,19 @@ uv run python examples/01_i2c_probe.py
 | [docs/setup/](docs/setup/) | 環境建置步驟 |
 | [src/carbot/](src/carbot/) | Python 驅動與設定 |
 | [examples/](examples/) | 可直接跑的示範腳本 |
-| [site/](site/) | 靜態網頁（零件庫存瀏覽器、組裝指南） |
+| [site/](site/) | Astro 網站原始碼（專案報告、零件庫存、組裝指南） |
 | [assets/](assets/) | 零件照、組裝照、參考圖 |
 | [vendor/](vendor/) | 原廠資料（唯讀） |
 
 ## 網頁
 
-目前有兩個可直接用瀏覽器開的頁面：
-
 ```bash
-python3 -m http.server 8000
+npm install && npm run dev
 ```
 
-- 零件庫存：<http://localhost:8000/site/inventory/>
-- 組裝指南：<http://localhost:8000/site/assembly-guide/index.en.html>
+<http://localhost:4321/Car-and-Robotic-Arm/> —— 專案總覽、零件庫存、組裝指南，
+中英雙語（英文在 `/en/`）。架構決策見
+[ADR 0001](docs/adr/0001-static-site-architecture.md)。
 
 ## 安全注意事項
 

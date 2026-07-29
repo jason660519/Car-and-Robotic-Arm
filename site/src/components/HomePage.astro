@@ -1,0 +1,224 @@
+---
+import modules from '../data/modules.json';
+import guide from '../data/assembly-guide.json';
+import { href, type Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const zh = locale === 'zh';
+
+const stepCount = guide.sections.reduce((n, s) => n + s.steps.length, 0);
+const photoCount = new Set(modules.flatMap((m) => m.images)).size;
+
+const hardware = zh
+  ? [
+      ['主控', 'Raspberry Pi 5'],
+      ['驅動板', '有方機器人 NeZha 總線驅動板（I2C 0x40）'],
+      ['底盤', '大聖多形態小車（ABS），N20 馬達 ×4'],
+      ['機械臂', '桌面級 3 自由度'],
+      ['電池', 'HXS 18650 11.1V 1200mAh'],
+    ]
+  : [
+      ['Controller', 'Raspberry Pi 5'],
+      ['Motor driver', 'YOURFUN NeZha bus driver board (I2C 0x40)'],
+      ['Chassis', 'Dasheng multi-form car (ABS), 4× N20 motors'],
+      ['Arm', '3-DOF desktop robotic arm'],
+      ['Battery', 'HXS 18650 11.1V 1200mAh'],
+    ];
+
+const cards = zh
+  ? [
+      {
+        icon: '🧩',
+        title: '零件庫存',
+        desc: `${modules.length} 個模組、${photoCount} 張實體照片，含規格、接線與程式範例。`,
+        path: 'inventory',
+      },
+      {
+        icon: '🔧',
+        title: '組裝指南',
+        desc: `${guide.sections.length} 個章節、${stepCount} 個步驟，逐頁對照原廠說明書。`,
+        path: 'assembly-guide',
+      },
+    ]
+  : [
+      {
+        icon: '🧩',
+        title: 'Inventory',
+        desc: `${modules.length} modules and ${photoCount} photos, with specs, wiring and code samples.`,
+        path: 'inventory',
+      },
+      {
+        icon: '🔧',
+        title: 'Assembly Guide',
+        desc: `${guide.sections.length} sections, ${stepCount} steps, page-by-page against the vendor manual.`,
+        path: 'assembly-guide',
+      },
+    ];
+
+const warnings = zh
+  ? [
+      '驅動板需 12V 供電，正負極接反會燒板。',
+      '驅動板的 5V 餵給 Pi 時，絕對不可同時接 Pi 的 USB-C —— 原廠手冊明文禁止雙電源。',
+      'I2C 速率不得超過 200kHz。Pi 預設 100kHz，不要調 i2c_arm_baudrate。',
+      '馬達的 2 孔接頭插進 4 孔編碼器接口會燒板。',
+      '第一次跑馬達請把車架空。',
+    ]
+  : [
+      'The driver board needs 12V. Reversed polarity destroys it.',
+      'When the board feeds 5V to the Pi, never also plug in the Pi USB-C — the vendor manual forbids dual supplies.',
+      'I2C must stay under 200kHz. The Pi defaults to 100kHz; do not raise i2c_arm_baudrate.',
+      'Plugging a 2-pin motor lead into the 4-pin encoder port will destroy the board.',
+      'Lift the wheels off the ground before the first motor run.',
+    ];
+---
+
+<main class="home">
+  <section class="home-hero">
+    <p class="home-eyebrow">Raspberry Pi 5 · NeZha I2C · 3-DOF Arm</p>
+    <h1>{zh ? '小車 + 機械臂專案' : 'Smart Car + Robotic Arm'}</h1>
+    <p class="home-lede">
+      {
+        zh
+          ? '樹莓派透過 I2C 控制 NeZha 總線驅動板，驅動四顆馬達、四個舵機與板載燈效。這個網站收錄零件庫存、組裝步驟與硬體筆記。'
+          : 'A Raspberry Pi 5 drives the NeZha bus board over I2C — four motors, four servos and onboard lighting. This site collects the parts inventory, assembly steps and hardware notes.'
+      }
+    </p>
+  </section>
+
+  <section class="home-cards">
+    {
+      cards.map((c) => (
+        <a class="home-card" href={href(locale, c.path)}>
+          <span class="home-card__icon">{c.icon}</span>
+          <h2>{c.title}</h2>
+          <p>{c.desc}</p>
+        </a>
+      ))
+    }
+  </section>
+
+  <section class="home-split">
+    <div>
+      <h2>{zh ? '硬體組成' : 'Hardware'}</h2>
+      <table class="home-table">
+        <tbody>
+          {
+            hardware.map(([k, v]) => (
+              <tr>
+                <td>{k}</td>
+                <td>{v}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h2>{zh ? '安全注意事項' : 'Safety'}</h2>
+      <ul class="home-warnings">
+        {warnings.map((w) => <li>{w}</li>)}
+      </ul>
+    </div>
+  </section>
+</main>
+
+<style>
+  .home {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 1rem;
+  }
+  .home-hero {
+    padding: 2rem 0 3rem;
+  }
+  .home-eyebrow {
+    color: var(--accent-cyan);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .home-hero h1 {
+    margin: 0.6rem 0 1rem;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    line-height: 1.15;
+    background: linear-gradient(120deg, var(--text-primary), var(--accent-cyan));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .home-lede {
+    max-width: 62ch;
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+  }
+  .home-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+  .home-card {
+    display: block;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--bg-card);
+    color: inherit;
+    text-decoration: none;
+    transition: var(--transition-smooth);
+  }
+  .home-card:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-glow);
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-3px);
+  }
+  .home-card__icon {
+    font-size: 1.8rem;
+  }
+  .home-card h2 {
+    margin: 0.5rem 0 0.4rem;
+    font-size: 1.15rem;
+  }
+  .home-card p {
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+  }
+  .home-split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2.5rem;
+    margin-top: 3.5rem;
+  }
+  .home-split h2 {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+  }
+  .home-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+  }
+  .home-table td {
+    padding: 0.6rem 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: top;
+  }
+  .home-table td:first-child {
+    width: 32%;
+    color: var(--text-secondary);
+  }
+  .home-warnings {
+    padding-left: 1.1rem;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+  }
+  .home-warnings li {
+    margin-bottom: 0.6rem;
+  }
+  .home-warnings li::marker {
+    color: var(--accent-rose);
+  }
+</style>

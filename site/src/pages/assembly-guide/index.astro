@@ -1,0 +1,10 @@
+---
+import Base from '../../layouts/Base.astro';
+import AssemblyGuide from '../../components/AssemblyGuide.astro';
+import { t } from '../../i18n/ui';
+const tr = t('zh');
+---
+
+<Base locale="zh" page="assembly" title={`${tr('assembly.title')} | ${tr('site.title')}`} altPath="assembly-guide">
+  <AssemblyGuide locale="zh" />
+</Base>
