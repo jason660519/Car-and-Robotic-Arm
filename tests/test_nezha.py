@@ -194,3 +194,86 @@ def test_context_manager_stops_motors_and_keeps_borrowed_bus_open(bus: FakeBus):
     cmds = [c[3] for c in bus.calls if c[0] == "write_byte_data"]
     assert cmds == [0x05, 0x09, 0x0D, 0x11]  # stop()
     assert not bus.closed  # 不是我們開的 bus，不該關掉
+
+
+# ---------------------------------------------------------------------- Car
+class TestCar:
+    """驗證差速層有正確套用 config 的車輪對應與反轉設定。"""
+
+    @staticmethod
+    def _motor_calls(bus: FakeBus) -> dict[int, int]:
+        """從 write_i2c_block_data 還原出「指令碼 -> 有號速度」。"""
+        from carbot.nezha import CMD_MOTOR_SET
+
+        out: dict[int, int] = {}
+        for call in bus.calls:
+            if call[0] != "write_i2c_block_data":
+                continue
+            _, _, cmd, data = call
+            a = data[0] << 8 | data[1]
+            b = data[2] << 8 | data[3]
+            out[CMD_MOTOR_SET.index(cmd) + 1] = a if a else -b
+        return out
+
+    def test_forward_drives_all_four_the_same_way(self, bus: FakeBus):
+        from carbot.car import Car
+
+        car = Car(NeZha(bus, init_motors=False))
+        bus.calls.clear()
+        car.forward(300)
+        assert self._motor_calls(bus) == {1: 300, 2: 300, 3: 300, 4: 300}
+
+    def test_spin_left_opposes_the_two_sides(self, bus: FakeBus):
+        from carbot import config
+        from carbot.car import Car
+
+        car = Car(NeZha(bus, init_motors=False))
+        bus.calls.clear()
+        car.spin_left(400)
+        speeds = self._motor_calls(bus)
+        left = {speeds[config.WHEEL_TO_MOTOR[w]] for w in ("front_left", "rear_left")}
+        right = {speeds[config.WHEEL_TO_MOTOR[w]] for w in ("front_right", "rear_right")}
+        assert left == {-400} and right == {400}
+
+    def test_inverted_motors_are_flipped(self, bus: FakeBus, monkeypatch):
+        from carbot import config
+        from carbot.car import Car
+
+        target = config.WHEEL_TO_MOTOR["front_left"]
+        monkeypatch.setattr(config, "INVERTED_MOTORS", frozenset({target}))
+        car = Car(NeZha(bus, init_motors=False))
+        bus.calls.clear()
+        car.forward(300)
+        speeds = self._motor_calls(bus)
+        assert speeds[target] == -300
+        assert speeds[config.WHEEL_TO_MOTOR["rear_left"]] == 300
+
+    def test_drive_clamps_to_max_speed(self, bus: FakeBus):
+        from carbot.car import Car
+
+        car = Car(NeZha(bus, init_motors=False))
+        bus.calls.clear()
+        car.drive(5000, -5000)
+        assert set(self._motor_calls(bus).values()) == {1000, -1000}
+
+    def test_move_for_stops_even_if_interrupted(self, bus: FakeBus, monkeypatch):
+        from carbot.car import Car
+
+        car = Car(NeZha(bus, init_motors=False))
+        bus.calls.clear()
+
+        def boom(_seconds):
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr("carbot.car.time.sleep", boom)
+        with pytest.raises(KeyboardInterrupt):
+            car.move_for(1, 300, 300)
+        assert set(self._motor_calls(bus).values()) == {0}
+
+    def test_borrowed_board_is_not_closed(self, bus: FakeBus):
+        from carbot.car import Car
+
+        board = NeZha(bus, init_motors=False)
+        with Car(board):
+            pass
+        assert not bus.closed
