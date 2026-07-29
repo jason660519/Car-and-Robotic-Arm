@@ -16,12 +16,10 @@
    另一側是 I2C 排針 `G SDA SCL 5V` 加上 `BT_LED`（固件指示）與 `PG_LED`（電源指示），
    那兩顆是狀態燈不是車燈。
 
-## 尚未確定的事 ⚠️
+## 已由實機確認的事
 
-原廠那張「反面」圖**沒有標示是鏡像視角還是透視視角**。這一個差別會讓左右相反，
-所以下面的對應表是推論值，不是查證值。
-
-`examples/02_motor_check.py` 跑一次就能定案，30 秒的事。在那之前不要相信這張表。
+2026-07-30 以 `examples/02_motor_check.py` 確認：
+M1 = 左後、M2 = 右後、M3 = 右前、M4 = 左前；M2 與 M3 的接線方向需要反轉。
 """
 
 from __future__ import annotations
@@ -32,10 +30,7 @@ Wheel = Literal["front_left", "front_right", "rear_left", "rear_right"]
 
 # 車輪 -> 驅動板 MOTOR 接口編號（1–4）
 #
-# 推論過程：舵機排針側為車頭，把該側朝上、從車底往上看（即原廠「反面」視角）時，
-# 螢幕上的左右與實車左右相反，所以背面圖的左上 M3 對應實車的前右。
-#
-# ⚠️ 未驗證。跑 examples/02_motor_check.py 後改成實測值。
+# 2026-07-30 實機驗證。
 WHEEL_TO_MOTOR: dict[Wheel, int] = {
     "front_right": 3,
     "front_left": 4,
@@ -45,7 +40,7 @@ WHEEL_TO_MOTOR: dict[Wheel, int] = {
 
 # 某幾顆馬達實際轉向與預期相反時列進來，不用改 nezha.py。
 # 若「全部」都相反，改 nezha.py 的 FORWARD_IS_MOTOR_A 才是對的做法。
-INVERTED_MOTORS: frozenset[int] = frozenset()
+INVERTED_MOTORS: frozenset[int] = frozenset({2, 3})
 
 # 本車使用的是兩線（紅黑）普通直流馬達，沒有霍爾編碼器。
 # 驅動板支援編碼器，但 encoder() 在這台車上一律回 0。

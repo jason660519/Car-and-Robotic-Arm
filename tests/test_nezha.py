@@ -215,13 +215,23 @@ class TestCar:
             out[CMD_MOTOR_SET.index(cmd) + 1] = a if a else -b
         return out
 
+    @classmethod
+    def _logical_motor_calls(cls, bus: FakeBus) -> dict[int, int]:
+        """把實機接線反轉還原後，回傳各馬達的邏輯速度。"""
+        from carbot import config
+
+        return {
+            n: -speed if n in config.INVERTED_MOTORS else speed
+            for n, speed in cls._motor_calls(bus).items()
+        }
+
     def test_forward_drives_all_four_the_same_way(self, bus: FakeBus):
         from carbot.car import Car
 
         car = Car(NeZha(bus, init_motors=False))
         bus.calls.clear()
         car.forward(300)
-        assert self._motor_calls(bus) == {1: 300, 2: 300, 3: 300, 4: 300}
+        assert self._logical_motor_calls(bus) == {1: 300, 2: 300, 3: 300, 4: 300}
 
     def test_spin_left_opposes_the_two_sides(self, bus: FakeBus):
         from carbot import config
@@ -230,7 +240,7 @@ class TestCar:
         car = Car(NeZha(bus, init_motors=False))
         bus.calls.clear()
         car.spin_left(400)
-        speeds = self._motor_calls(bus)
+        speeds = self._logical_motor_calls(bus)
         left = {speeds[config.WHEEL_TO_MOTOR[w]] for w in ("front_left", "rear_left")}
         right = {speeds[config.WHEEL_TO_MOTOR[w]] for w in ("front_right", "rear_right")}
         assert left == {-400} and right == {400}
@@ -254,7 +264,7 @@ class TestCar:
         car = Car(NeZha(bus, init_motors=False))
         bus.calls.clear()
         car.drive(5000, -5000)
-        assert set(self._motor_calls(bus).values()) == {1000, -1000}
+        assert set(self._logical_motor_calls(bus).values()) == {1000, -1000}
 
     def test_move_for_stops_even_if_interrupted(self, bus: FakeBus, monkeypatch):
         from carbot.car import Car
