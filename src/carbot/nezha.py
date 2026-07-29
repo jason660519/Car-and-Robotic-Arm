@@ -129,10 +129,11 @@ class NeZha:
     def init_motors(self) -> None:
         self._command(CMD_MOTOR_INIT)
 
-    def close(self) -> None:
-        """Stop all motors and close the bus if this instance owns it."""
+    def close(self, *, stop_motors: bool = True) -> None:
+        """Close the bus, optionally stopping all wheel motors first."""
         try:
-            self.stop()
+            if stop_motors:
+                self.stop()
         finally:
             if self._owns_bus:
                 self._bus.close()
