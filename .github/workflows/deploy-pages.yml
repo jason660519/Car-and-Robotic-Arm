@@ -1,0 +1,72 @@
+name: Deploy site to GitHub Pages
+
+# 需要先在 GitHub repo 的 Settings → Pages 把 Source 設成「GitHub Actions」，
+# 否則 deploy 步驟會失敗（那個設定只能在網頁上點，workflow 改不了）。
+
+# 目前只能手動觸發（Actions 分頁 → Run workflow）。
+# 還沒在 Settings → Pages 把 Source 設成 GitHub Actions，自動觸發只會得到
+# 一個必定失敗的部署。要開始自動發布時，把下面 push: 那段的註解拿掉即可。
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+  #   # 只有影響網站輸出的路徑才觸發，改 Python 驅動不會浪費一次部署
+  #   paths:
+  #     - 'site/**'
+  #     - 'assets/**'
+  #     - 'astro.config.mjs'
+  #     - 'package.json'
+  #     - 'package-lock.json'
+  #     - '.github/workflows/deploy-pages.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時只跑一個部署，但不中斷進行中的 —— 中斷會留下半完成的發布
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安裝相依套件
+        run: npm ci
+
+      - name: 驗證庫存資料
+        # 圖片路徑錯、雙語欄位缺、檔名不符 CONVENTIONS.md §3.3 就擋下來，
+        # 不要等部署完才在網頁上看到破圖。
+        # 腳本只用標準函式庫，不需要 uv 或安裝任何套件。
+        run: python3 scripts/check_inventory_data.py
+
+      - name: 建置
+        run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          # 不是預設的 dist/ —— astro.config.mjs 把 outDir 設成 _site
+          path: ./_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
