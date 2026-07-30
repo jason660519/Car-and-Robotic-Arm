@@ -4,11 +4,17 @@ export type Locale = (typeof LOCALES)[number];
 export const ui = {
   zh: {
     'site.title': '丹尼的機器人與感測器模組庫',
-    'site.subtitle': 'Danny 的小車 + 機械臂專案報告',
+    'site.subtitle': 'Danny 的 Smart Car + Robotic 概念專案記錄',
     'nav.home': '專案總覽',
     'nav.inventory': '零件庫存',
     'nav.assembly': '組裝指南',
     'nav.switch': 'English',
+    'home.eyebrow': 'Raspberry Pi 5 · NeZha I2C · Smart Car + Robotic',
+    'home.title': 'Smart Car + Robotic 概念專案',
+    'home.lede':
+      '樹莓派透過 I2C 控制 NeZha 總線驅動板，驅動四顆馬達、四個舵機與板載燈效。這個網站收錄零件庫存、組裝步驟與硬體筆記。',
+    'project.note':
+      '並不是所有部件都會實際使用。專案可能因費用、軟硬體相容性或零件損壞而調整方向；目前整體仍以 Smart Car + Robotic 概念為主。',
     'inventory.title': '零件與感測器模組庫',
     'inventory.search': '搜尋模組名稱、晶片（例如：MPU6050, Servo, PCA9685, 超音波, 循跡）…',
     'inventory.count': '收錄模組',
@@ -29,12 +35,18 @@ export const ui = {
   },
   en: {
     'site.title': "Danny's Hardware & Sensor Inventory",
-    'site.subtitle': 'Smart Car + Robotic Arm Project Report',
+    'site.subtitle': 'Smart Car + Robotic Concept Project Notes',
     'nav.home': 'Overview',
-    'nav.inventory': 'Inventory',
+    'nav.inventory': 'My Inventory and Tools',
     'nav.assembly': 'Assembly Guide',
     'nav.switch': '繁體中文',
-    'inventory.title': 'Hardware & Sensor Module Inventory',
+    'home.eyebrow': 'Raspberry Pi 5 · NeZha I2C · Smart Car + Robotic',
+    'home.title': 'Smart Car + Robotic Concept Project',
+    'home.lede':
+      'A Raspberry Pi 5 drives the NeZha bus board over I2C - four motors, four servos and onboard lighting. This site collects the parts inventory, assembly steps and hardware notes.',
+    'project.note':
+      'Not every part in this inventory will be used in the final build. The project direction may change because of cost, hardware and software compatibility, or damaged parts, but the overall idea remains a Smart Car + Robotic concept.',
+    'inventory.title': 'My Inventory and Tools',
     'inventory.search': 'Search modules or chips (e.g. MPU6050, Servo, PCA9685, Ultrasonic)…',
     'inventory.count': 'Modules',
     'inventory.unit': '',

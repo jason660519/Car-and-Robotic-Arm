@@ -1,13 +1,14 @@
 ---
 import modules from '../data/modules.json';
 import guide from '../data/assembly-guide.json';
-import { href, type Locale } from '../i18n/ui';
+import { href, t, type Locale } from '../i18n/ui';
 
 interface Props {
   locale: Locale;
 }
 const { locale } = Astro.props;
 const zh = locale === 'zh';
+const tr = t(locale);
 
 const stepCount = guide.sections.reduce((n, s) => n + s.steps.length, 0);
 const photoCount = new Set(modules.flatMap((m) => m.images)).size;
@@ -17,14 +18,12 @@ const hardware = zh
       ['主控', 'Raspberry Pi 5'],
       ['驅動板', '有方機器人 NeZha 總線驅動板（I2C 0x40）'],
       ['底盤', '大聖多形態小車（ABS），N20 馬達 ×4'],
-      ['機械臂', '桌面級 3 自由度'],
       ['電池', 'HXS 18650 11.1V 1200mAh'],
     ]
   : [
       ['Controller', 'Raspberry Pi 5'],
       ['Motor driver', 'YOURFUN NeZha bus driver board (I2C 0x40)'],
       ['Chassis', 'Dasheng multi-form car (ABS), 4× N20 motors'],
-      ['Arm', '3-DOF desktop robotic arm'],
       ['Battery', 'HXS 18650 11.1V 1200mAh'],
     ];
 
@@ -46,7 +45,7 @@ const cards = zh
   : [
       {
         icon: '🧩',
-        title: 'Inventory',
+        title: 'My Inventory and Tools',
         desc: `${modules.length} modules and ${photoCount} photos, with specs, wiring and code samples.`,
         path: 'inventory',
       },
@@ -77,15 +76,10 @@ const warnings = zh
 
 <main class="home">
   <section class="home-hero">
-    <p class="home-eyebrow">Raspberry Pi 5 · NeZha I2C · 3-DOF Arm</p>
-    <h1>{zh ? '小車 + 機械臂專案' : 'Smart Car + Robotic Arm'}</h1>
-    <p class="home-lede">
-      {
-        zh
-          ? '樹莓派透過 I2C 控制 NeZha 總線驅動板，驅動四顆馬達、四個舵機與板載燈效。這個網站收錄零件庫存、組裝步驟與硬體筆記。'
-          : 'A Raspberry Pi 5 drives the NeZha bus board over I2C — four motors, four servos and onboard lighting. This site collects the parts inventory, assembly steps and hardware notes.'
-      }
-    </p>
+    <p class="home-eyebrow">{tr('home.eyebrow')}</p>
+    <h1>{tr('home.title')}</h1>
+    <p class="home-lede">{tr('home.lede')}</p>
+    <p class="home-note">{tr('project.note')}</p>
   </section>
 
   <section class="home-cards">
@@ -153,6 +147,12 @@ const warnings = zh
     max-width: 62ch;
     color: var(--text-secondary);
     font-size: 1.05rem;
+  }
+  .home-note {
+    max-width: 72ch;
+    margin-top: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
   }
   .home-cards {
     display: grid;
