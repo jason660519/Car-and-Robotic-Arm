@@ -14,8 +14,8 @@ export default defineConfig({
   outDir: './_site',
   build: { format: 'directory' },
   i18n: {
-    defaultLocale: 'zh',
-    locales: ['zh', 'en'],
+    defaultLocale: 'en',
+    locales: ['en', 'zh'],
     routing: { prefixDefaultLocale: false },
   },
 });
