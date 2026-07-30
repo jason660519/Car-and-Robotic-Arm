@@ -80,18 +80,39 @@ site/inventory/index.html
 The only exception is Python modules, which use `snake_case` because they must be imported, for
 example `src/carbot/nezha.py`.
 
-### 3.2 Single-Language Project Docs
+### 3.2 Document Language and Filenames
 
-Outside the website, project documentation is written in English and should use plain
-`name.md` filenames:
+Filenames never carry a language suffix. Use plain `name.md`:
 
 ```
-raspberry-pi-5-pinout.md
-raspberry-pi-first-run.md
+good: raspberry-pi-5-pinout.md
+good: mac-to-raspberry-pi-access.md
+bad:  deskflow-macos-raspberrypi.en.md
 ```
 
-Website content can remain bilingual where needed, but repository-level documentation should not
-depend on language suffixes unless there is a strong product reason.
+This rule costs nothing, because the website does not resolve language through filenames either.
+Localization is handled in three places, none of which is a filename:
+
+| Layer | Mechanism |
+|---|---|
+| Routes | Directory prefix — `site/src/pages/en/`, configured in `astro.config.mjs` (`defaultLocale: 'zh'`, `prefixDefaultLocale: false`) |
+| UI strings | `zh` / `en` keys in `site/src/i18n/ui.ts` |
+| Page data | `i18n.zh` / `i18n.en` fields inside `site/src/data/*.json` |
+
+Adding a `.en` or `.zh` suffix to a file therefore signals nothing to any build step, and only
+creates a second naming style to remember.
+
+**Language inside a document:** technical reference material — protocol notes, pinouts, ADRs,
+bring-up procedures — is written in English so that the terminology matches the code and vendor
+sources. Guides aimed at repository visitors rather than at contributors may be bilingual in a
+single file, English first and Traditional Chinese second within each section. Do not split a
+bilingual guide into two files.
+
+| Document | Language |
+|---|---|
+| `docs/hardware/`, `docs/adr/`, `docs/progress/` | English |
+| `docs/setup/mac-to-raspberry-pi-access.md` | Bilingual (visitor-facing) |
+| Other `docs/setup/` procedures | English |
 
 ### 3.3 Asset Photos: `NNN_Title_Case_Description.ext`
 

@@ -40,6 +40,22 @@ Run the examples in order:
 4. `04_servo_check.py` interactively checks arm servos `S2`-`S4`, one channel at a time, while
    the operator remains beside the robot.
 
+## Working From a Mac
+
+The code runs on the Raspberry Pi, not on your laptop — only the Pi is wired to the NeZha board
+over I2C. [docs/setup/mac-to-raspberry-pi-access.md](docs/setup/mac-to-raspberry-pi-access.md)
+covers how to reach it:
+
+| Method | Use it for |
+|---|---|
+| **SSH** | Terminal work — `git`, `uv`, running the examples. The everyday default. |
+| **[Raspberry Pi Connect](https://connect.raspberrypi.com)** | Reaching the Pi from outside your home network, through a browser. Free for personal use. |
+| **VNC** | The graphical desktop over the local network. |
+| **[Deskflow](docs/setup/deskflow-macos-raspberrypi.md)** | Sharing one keyboard and mouse across a Mac and a Pi on the same desk. |
+
+Read the safety section before running anything remotely: the motor and servo scripts assume an
+operator standing within reach of the main power switch.
+
 ## Repository Layout
 
 | Path | Purpose |
