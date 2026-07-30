@@ -46,9 +46,8 @@ Car-and-Robotic-Arm/
 ├── package.json
 │
 └── vendor/                Vendor material, kept read-only
-    ├── yourfun-nezha/
-    ├── keyes-37in1-sensor-kit/
-    └── raspberry-pi/
+    ├── yourfun-nezha/     NeZha SDK, manual, wiring — source of the I2C protocol
+    └── raspberry-pi/      BCM2711 peripherals datasheet (Pi 4 SoC, see its README)
 ```
 
 ## 2. Decide Placement by Asking One Question
@@ -242,10 +241,11 @@ This repository contains many binary assets. Keep these limits in mind:
 
 | Item | Current state | Limit |
 |---|---|---|
-| Working tree | ~195MB | n/a |
-| `.git` history | ~83MB | GitHub recommends under 1GB |
+| Working tree | ~52MB (excluding `node_modules/`, `.venv/`, build output) | n/a |
+| `.git` history | ~102MB | GitHub recommends under 1GB |
 | Largest file | ~2.4MB | GitHub hard limit is 100MB |
 | `assets/` | ~45MB | GitHub Pages publish limit is 1GB |
+| `vendor/` | ~7MB | Import only what the project actually cites |
 
 Rules:
 
