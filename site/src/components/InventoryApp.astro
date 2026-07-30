@@ -14,9 +14,10 @@ const tr = t(locale);
 
 <header class="inventory-header">
   <div class="header-container">
-    <div>
+    <div class="header-copy">
       <h1>{tr('inventory.title')}</h1>
       <p class="header-sub">{tr('site.subtitle')}</p>
+      <p class="header-note">{tr('project.note')}</p>
     </div>
     <div class="header-right">
       <span class="stat-pill">
@@ -173,3 +174,20 @@ const tr = t(locale);
 
   applyFilter();
 </script>
+
+<style>
+  .header-copy {
+    max-width: 76ch;
+  }
+
+  .header-sub {
+    margin-top: 0.25rem;
+  }
+
+  .header-note {
+    margin-top: 0.6rem;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+</style>
