@@ -1,6 +1,40 @@
 # Car and Robotic Arm
 
-A Raspberry Pi driven four-wheel robot car with a three-degree-of-freedom robotic arm.
+![Smart car and robotic arm build](assets/assembly/021_RobotCar_With_RoboticArm_Combined.jpg)
+
+A Raspberry Pi 5 smart car project with real hardware notes, verified wiring, and step-by-step build records.
+
+[Live Site](https://jason660519.github.io/Car-and-Robotic-Arm/) · [Inventory](https://jason660519.github.io/Car-and-Robotic-Arm/inventory/) · [Assembly Guide](https://jason660519.github.io/Car-and-Robotic-Arm/assembly-guide/)
+
+## Why This Repo
+
+- Verified Raspberry Pi 5 to NeZha I2C communication on real hardware
+- Real photos, wiring notes, and assembly references collected in one place
+- Runnable Python checks for bring-up, motor mapping, and basic driving
+- A bilingual project site for browsing parts and build progress
+
+## Current Status
+
+| Area | Status |
+|---|---|
+| I2C communication | Verified at address `0x40` |
+| Motor mapping | Verified and written back into `src/carbot/config.py` |
+| Driving test | First low-speed ground run passed |
+| Robotic arm | Still evolving because of damaged parts and compatibility tradeoffs |
+
+## Start Here
+
+1. Read the verified bring-up guide: [docs/setup/raspberry-pi-first-run.md](docs/setup/raspberry-pi-first-run.md)
+2. Browse the project website: [Live Site](https://jason660519.github.io/Car-and-Robotic-Arm/)
+3. Run the hardware checks in order:
+
+```bash
+uv sync
+uv run python examples/01_i2c_probe.py
+uv run python examples/02_motor_check.py
+uv run python examples/03_drive.py
+uv run python examples/04_servo_check.py
+```
 
 The chassis and arm are controlled by the **Yourfun NeZha bus driver board**. A Raspberry Pi 5
 communicates with the board over I2C at address `0x40` to drive four DC motors, four servo
@@ -17,20 +51,6 @@ channels, the onboard LEDs, and optional encoder inputs.
 | Battery | HXS 18650 11.1V 1200mAh |
 
 ## Quick Start
-
-Start with the verified bring-up guide:
-[docs/setup/raspberry-pi-first-run.md](docs/setup/raspberry-pi-first-run.md)
-
-```bash
-uv sync
-```
-
-```bash
-uv run python examples/01_i2c_probe.py
-uv run python examples/02_motor_check.py
-uv run python examples/03_drive.py
-uv run python examples/04_servo_check.py
-```
 
 Run the examples in order:
 
