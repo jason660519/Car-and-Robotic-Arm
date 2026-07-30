@@ -8,7 +8,7 @@ TMP_ROOT="${TMPDIR:-/tmp}"
 LOG_FILE="${TMP_ROOT%/}/car-and-robotic-arm-astro-dev.log"
 
 homepage_ready() {
-  curl -fsS "$URL" 2>/dev/null | grep -q "丹尼的機器人與感測器模組庫"
+  curl -fsS "$URL" 2>/dev/null | grep -q "Danny's Hardware & Sensor Inventory"
 }
 
 echo "Project directory: $PROJECT_DIR"

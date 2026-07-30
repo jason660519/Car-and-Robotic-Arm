@@ -1,4 +1,4 @@
-export const LOCALES = ['zh', 'en'] as const;
+export const LOCALES = ['en', 'zh'] as const;
 export type Locale = (typeof LOCALES)[number];
 
 export const ui = {
@@ -74,6 +74,6 @@ export function t(locale: Locale) {
 export function href(locale: Locale, path = ''): string {
   const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   const clean = path.replace(/^\/|\/$/g, '');
-  const prefix = locale === 'en' ? '/en' : '';
+  const prefix = locale === 'zh' ? '/zh' : '';
   return `${base}${prefix}${clean ? `/${clean}` : ''}/`;
 }
