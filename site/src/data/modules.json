@@ -39,6 +39,32 @@
             "val": "水平 180° / 垂直 180° 雲台結構"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "HAT 40-Pin",
+            "conn": "直接疊在 Raspberry Pi 5 的 40-Pin GPIO 排針（官方 HAT 用法）"
+          },
+          {
+            "pin": "VCC（杜邦線）",
+            "conn": "Pin 2 或 Pin 4（5V）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          },
+          {
+            "pin": "SDA",
+            "conn": "Pin 3（GPIO 2 / SDA）"
+          },
+          {
+            "pin": "SCL",
+            "conn": "Pin 5（GPIO 3 / SCL）"
+          },
+          {
+            "pin": "注意",
+            "conn": "PCA9685 預設 I2C 0x40，與本專案 NeZha 驅動板位址衝突，需改址或分時使用"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "VCC",
@@ -96,6 +122,32 @@
           {
             "label": "Rotation Angle",
             "val": "Pan 180° / Tilt 180° mechanical structure"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "HAT 40-Pin",
+            "conn": "Stack onto the Raspberry Pi 5 40-pin GPIO header (HAT mode)"
+          },
+          {
+            "pin": "VCC (jumpers)",
+            "conn": "Pin 2 or Pin 4 (5V)"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
+          },
+          {
+            "pin": "SDA",
+            "conn": "Pin 3 (GPIO 2 / SDA)"
+          },
+          {
+            "pin": "SCL",
+            "conn": "Pin 5 (GPIO 3 / SCL)"
+          },
+          {
+            "pin": "Note",
+            "conn": "PCA9685 defaults to I2C 0x40 — conflicts with this project's NeZha board; change address or use separately"
           }
         ],
         "arduinoWiring": [
@@ -175,6 +227,24 @@
             "val": "UART, SPI, I2C"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "USB",
+            "conn": "接 Raspberry Pi 5 USB-A，用於燒錄與 Serial 監控"
+          },
+          {
+            "pin": "Arduino RX",
+            "conn": "Raspberry Pi Pin 8（GPIO 14 / TXD）"
+          },
+          {
+            "pin": "Arduino TX",
+            "conn": "Raspberry Pi Pin 10（GPIO 15 / RXD）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）共地"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "USB",
@@ -208,6 +278,24 @@
           {
             "label": "Protocols",
             "val": "UART, SPI, I2C"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "USB",
+            "conn": "Raspberry Pi 5 USB-A for flashing and serial monitor"
+          },
+          {
+            "pin": "Arduino RX",
+            "conn": "Raspberry Pi Pin 8 (GPIO 14 / TXD)"
+          },
+          {
+            "pin": "Arduino TX",
+            "conn": "Raspberry Pi Pin 10 (GPIO 15 / RXD)"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND) shared ground"
           }
         ],
         "arduinoWiring": [
@@ -266,6 +354,24 @@
             "val": "SWD (SWDIO/SWCLK) 或 Serial Bootloader"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "PA10 (RX)",
+            "conn": "Raspberry Pi Pin 8（GPIO 14 / TXD）"
+          },
+          {
+            "pin": "PA9 (TX)",
+            "conn": "Raspberry Pi Pin 10（GPIO 15 / RXD）"
+          },
+          {
+            "pin": "3.3V",
+            "conn": "Pin 1 或 Pin 17（3.3V）；勿灌 5V 進 GPIO"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）共地"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "STM32Duino",
@@ -307,6 +413,24 @@
           {
             "label": "Debugging",
             "val": "SWD Header (SWDIO/SWCLK)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "PA10 (RX)",
+            "conn": "Raspberry Pi Pin 8 (GPIO 14 / TXD)"
+          },
+          {
+            "pin": "PA9 (TX)",
+            "conn": "Raspberry Pi Pin 10 (GPIO 15 / RXD)"
+          },
+          {
+            "pin": "3.3V",
+            "conn": "Pin 1 or Pin 17 (3.3V); never feed 5V into GPIO"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND) shared ground"
           }
         ],
         "arduinoWiring": [
@@ -371,6 +495,24 @@
             "val": "加速度 ±2g/±4g/±8g/±16g, 角速度 ±250/500/1000/2000 °/s"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 1（3.3V；模組若標 5V 亦可接 Pin 2，但訊號仍須 3.3V 相容）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          },
+          {
+            "pin": "SDA",
+            "conn": "Pin 3（GPIO 2 / SDA）"
+          },
+          {
+            "pin": "SCL",
+            "conn": "Pin 5（GPIO 3 / SCL）"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "VCC",
@@ -428,6 +570,24 @@
           {
             "label": "Range",
             "val": "Accel ±2g/±4g/±8g/±16g, Gyro ±250/500/1000/2000 °/s"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 1 (3.3V; if the board requires 5V use Pin 2, but keep signals 3.3V-safe)"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
+          },
+          {
+            "pin": "SDA",
+            "conn": "Pin 3 (GPIO 2 / SDA)"
+          },
+          {
+            "pin": "SCL",
+            "conn": "Pin 5 (GPIO 3 / SCL)"
           }
         ],
         "arduinoWiring": [
@@ -507,6 +667,36 @@
             "val": "3.3V - 5V"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2（5V）或依模組標示改接 Pin 1（3.3V）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          },
+          {
+            "pin": "Out1",
+            "conn": "Pin 11（GPIO 17）"
+          },
+          {
+            "pin": "Out2",
+            "conn": "Pin 13（GPIO 27）"
+          },
+          {
+            "pin": "Out3",
+            "conn": "Pin 15（GPIO 22）"
+          },
+          {
+            "pin": "Out4",
+            "conn": "Pin 16（GPIO 23）"
+          },
+          {
+            "pin": "注意",
+            "conn": "GPIO 僅 3.3V；若輸出為 5V 邏輯，請加分壓或電平轉換"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "VCC",
@@ -556,6 +746,36 @@
           {
             "label": "Voltage",
             "val": "3.3V - 5V"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2 (5V) or Pin 1 (3.3V) per module marking"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
+          },
+          {
+            "pin": "Out1",
+            "conn": "Pin 11 (GPIO 17)"
+          },
+          {
+            "pin": "Out2",
+            "conn": "Pin 13 (GPIO 27)"
+          },
+          {
+            "pin": "Out3",
+            "conn": "Pin 15 (GPIO 22)"
+          },
+          {
+            "pin": "Out4",
+            "conn": "Pin 16 (GPIO 23)"
+          },
+          {
+            "pin": "Note",
+            "conn": "GPIO is 3.3V only — use a divider/level shifter if outputs are 5V"
           }
         ],
         "arduinoWiring": [
@@ -627,6 +847,20 @@
             "val": "5V DC (全亮最大電流約 3.8A，建議外接電源)"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "外部 5V 電源（勿從 GPIO 取大電流）；與 Pi 共地"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）共地"
+          },
+          {
+            "pin": "DIN",
+            "conn": "Pin 12（GPIO 18）串 470Ω；建議 3.3V→5V 電平轉換"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "VCC",
@@ -668,6 +902,20 @@
           {
             "label": "Power",
             "val": "5V DC (~3.8A max full white, external supply recommended)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "External 5V supply (do not draw high current from GPIO); share GND with Pi"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND) shared ground"
+          },
+          {
+            "pin": "DIN",
+            "conn": "Pin 12 (GPIO 18) via 470Ω; 3.3V→5V level shift recommended"
           }
         ],
         "arduinoWiring": [
@@ -732,6 +980,24 @@
             "val": "DC 12V - 24V"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "Micro-USB / USB-C",
+            "conn": "接 Raspberry Pi USB，用 WebUI 或 G-code Sender"
+          },
+          {
+            "pin": "UART RX",
+            "conn": "Pin 8（GPIO 14 / TXD）"
+          },
+          {
+            "pin": "UART TX",
+            "conn": "Pin 10（GPIO 15 / RXD）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "Micro-USB",
@@ -765,6 +1031,24 @@
           {
             "label": "Voltage",
             "val": "DC 12V - 24V"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "Micro-USB / USB-C",
+            "conn": "Raspberry Pi USB for WebUI or G-code Sender"
+          },
+          {
+            "pin": "UART RX",
+            "conn": "Pin 8 (GPIO 14 / TXD)"
+          },
+          {
+            "pin": "UART TX",
+            "conn": "Pin 10 (GPIO 15 / RXD)"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
           }
         ],
         "arduinoWiring": [
@@ -817,6 +1101,24 @@
             "val": "Ethernet RJ45, MicroSD 卡槽, USB, 工業級光耦隔離"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "Ethernet / USB",
+            "conn": "優先用網口或 USB 傳 G-code（非 GPIO）"
+          },
+          {
+            "pin": "UART RX",
+            "conn": "Pin 8（GPIO 14 / TXD）備用串列"
+          },
+          {
+            "pin": "UART TX",
+            "conn": "Pin 10（GPIO 15 / RXD）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "GRBL-HAL",
@@ -846,6 +1148,24 @@
           {
             "label": "Interfaces",
             "val": "Ethernet RJ45, MicroSD Card, USB, Optocoupler isolation"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "Ethernet / USB",
+            "conn": "Prefer Ethernet or USB for G-code (not GPIO)"
+          },
+          {
+            "pin": "UART RX",
+            "conn": "Pin 8 (GPIO 14 / TXD) as serial fallback"
+          },
+          {
+            "pin": "UART TX",
+            "conn": "Pin 10 (GPIO 15 / RXD)"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
           }
         ],
         "arduinoWiring": [
@@ -898,6 +1218,24 @@
             "val": "板載白色 LED 補光燈 + 綠色瞄準光束"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2（5V）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          },
+          {
+            "pin": "TX（模組）",
+            "conn": "Pin 10（GPIO 15 / RXD）"
+          },
+          {
+            "pin": "RX（模組）",
+            "conn": "Pin 8（GPIO 14 / TXD）"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "VCC",
@@ -943,6 +1281,24 @@
           {
             "label": "Illumination",
             "val": "Onboard white LED fill-light + green targeting LED"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2 (5V)"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
+          },
+          {
+            "pin": "TX (module)",
+            "conn": "Pin 10 (GPIO 15 / RXD)"
+          },
+          {
+            "pin": "RX (module)",
+            "conn": "Pin 8 (GPIO 14 / TXD)"
           }
         ],
         "arduinoWiring": [
@@ -1011,6 +1367,24 @@
             "val": "毫米級解析度 (±1cm)"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2（5V）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          },
+          {
+            "pin": "TX（模組）",
+            "conn": "Pin 10（GPIO 15 / RXD）"
+          },
+          {
+            "pin": "RX（模組，若有）",
+            "conn": "Pin 8（GPIO 14 / TXD）"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "VCC",
@@ -1048,6 +1422,24 @@
           {
             "label": "Precision",
             "val": "Millimeter-level resolution (±1cm)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2 (5V)"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
+          },
+          {
+            "pin": "TX (module)",
+            "conn": "Pin 10 (GPIO 15 / RXD)"
+          },
+          {
+            "pin": "RX (module, if present)",
+            "conn": "Pin 8 (GPIO 14 / TXD)"
           }
         ],
         "arduinoWiring": [
@@ -1107,6 +1499,28 @@
             "val": "Analog Depth Sensor (平行導線阻抗測量)"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "HC-SR04 VCC",
+            "conn": "Pin 2（5V）"
+          },
+          {
+            "pin": "HC-SR04 GND",
+            "conn": "Pin 6（GND）"
+          },
+          {
+            "pin": "HC-SR04 Trig",
+            "conn": "Pin 11（GPIO 17）"
+          },
+          {
+            "pin": "HC-SR04 Echo",
+            "conn": "Pin 13（GPIO 27）；Echo 為 5V 脈衝，必須分壓或電平轉換後再進 GPIO"
+          },
+          {
+            "pin": "Water Sensor S",
+            "conn": "Pi 無板載 ADC，需經 SPI ADC（如 MCP3008：MOSI Pin 19 / MISO Pin 21 / SCLK Pin 23 / CE0 Pin 24）"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "HC-SR04 Trig",
@@ -1152,6 +1566,28 @@
           {
             "label": "3. Water Depth Sensor",
             "val": "Analog Depth Sensor (Resistive impedance measurement)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "HC-SR04 VCC",
+            "conn": "Pin 2 (5V)"
+          },
+          {
+            "pin": "HC-SR04 GND",
+            "conn": "Pin 6 (GND)"
+          },
+          {
+            "pin": "HC-SR04 Trig",
+            "conn": "Pin 11 (GPIO 17)"
+          },
+          {
+            "pin": "HC-SR04 Echo",
+            "conn": "Pin 13 (GPIO 27); Echo is a 5V pulse — use a divider/level shifter before GPIO"
+          },
+          {
+            "pin": "Water Sensor S",
+            "conn": "No onboard ADC on Pi — use SPI ADC (e.g. MCP3008: MOSI Pin 19 / MISO Pin 21 / SCLK Pin 23 / CE0 Pin 24)"
           }
         ],
         "arduinoWiring": [
@@ -1218,6 +1654,20 @@
             "val": "DC 5.5/2.1mm 公頭"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "電池輸出",
+            "conn": "先接 NeZha / 降壓模組，再給 Raspberry Pi 供電"
+          },
+          {
+            "pin": "Pi 供電",
+            "conn": "建議 USB-C 5V；若用 Pin 2/4（5V）灌電，勿同時再接 USB-C（雙電源危險）"
+          },
+          {
+            "pin": "GND",
+            "conn": "與驅動板、Pi 共地（Pin 6）"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "DC Jack",
@@ -1247,6 +1697,20 @@
           {
             "label": "Plug",
             "val": "DC 5.5/2.1mm Male Plug"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "Battery output",
+            "conn": "Feed NeZha / a buck converter first, then power the Raspberry Pi"
+          },
+          {
+            "pin": "Pi power",
+            "conn": "Prefer USB-C 5V; if back-powering via Pin 2/4 (5V), do not also connect USB-C (dual-power hazard)"
+          },
+          {
+            "pin": "GND",
+            "conn": "Share ground with driver board and Pi (Pin 6)"
           }
         ],
         "arduinoWiring": [
@@ -1293,6 +1757,20 @@
             "val": "M.2 Key-M 2242 尺寸 NVMe SSD"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "PCIe FPC",
+            "conn": "接 Raspberry Pi 5 板載 PCIe FPC 插座（非 40-Pin GPIO）"
+          },
+          {
+            "pin": "M.2 插槽",
+            "conn": "插入 NVMe SSD（M-Key）"
+          },
+          {
+            "pin": "供電",
+            "conn": "由 Pi 5 經 HAT 供電；確認官方電源供應充足"
+          }
+        ],
         "arduinoWiring": [],
         "stm32Wiring": [],
         "codeSnippet": "# Raspberry Pi 5 config.txt 啟用 PCIe Gen3 語法\ndtparam=pciex1\ndtparam=pciex1_no_max_payload_size\n# 啟用 PCIe 3.0 速度\ndtparam=pciex1_gen=3"
@@ -1308,6 +1786,20 @@
           {
             "label": "Supported Drive",
             "val": "M.2 Key-M 2242 NVMe SSD"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "PCIe FPC",
+            "conn": "Connect to the Raspberry Pi 5 onboard PCIe FPC connector (not the 40-pin GPIO)"
+          },
+          {
+            "pin": "M.2 slot",
+            "conn": "Insert NVMe SSD (M-Key)"
+          },
+          {
+            "pin": "Power",
+            "conn": "Powered by Pi 5 through the HAT; use an adequate official PSU"
           }
         ],
         "arduinoWiring": [],
@@ -1349,6 +1841,16 @@
             "val": "2560x720 60fps / 1280x480 60fps"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "USB",
+            "conn": "接 Raspberry Pi 5 USB-A（UVC 鏡頭常見接法）"
+          },
+          {
+            "pin": "CSI（若模組支援）",
+            "conn": "接 Pi 5 CSI 排線座（非 GPIO 杜邦線）"
+          }
+        ],
         "arduinoWiring": [],
         "stm32Wiring": [],
         "codeSnippet": "# Python OpenCV 雙目視覺影像擷取\nimport cv2\ncap = cv2.VideoCapture(0)\ncap.set(cv2.CAP_PROP_FRAME_WIDTH, 2560)\ncap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)\nwhile True:\n    ret, frame = cap.read()\n    left_img = frame[:, :1280]\n    right_img = frame[:, 1280:]\n    cv2.imshow(\"Left\", left_img)\n    if cv2.waitKey(1) == 27: break"
@@ -1368,6 +1870,16 @@
           {
             "label": "Max Resolution",
             "val": "2560x720 60fps / 1280x480 60fps"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "USB",
+            "conn": "Raspberry Pi 5 USB-A (typical for UVC cameras)"
+          },
+          {
+            "pin": "CSI (if supported)",
+            "conn": "Pi 5 CSI ribbon connector (not GPIO Dupont wiring)"
           }
         ],
         "arduinoWiring": [],
@@ -1409,6 +1921,16 @@
             "val": "< 700 mA"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "輸出 5V / 3.3V",
+            "conn": "供麵包板上感測器；可與 Pi 共地 Pin 6"
+          },
+          {
+            "pin": "注意",
+            "conn": "不要把麵包板電源與 Pi 的 Pin 2/4 並聯灌電；GPIO 訊號仍限 3.3V"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "Output Header",
@@ -1438,6 +1960,16 @@
           {
             "label": "Max Output Current",
             "val": "< 700 mA"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "5V / 3.3V out",
+            "conn": "Power breadboard sensors; share GND with Pi Pin 6"
+          },
+          {
+            "pin": "Note",
+            "conn": "Do not paralleling-feed Pi Pin 2/4 from the breadboard PSU; GPIO signals stay 3.3V max"
           }
         ],
         "arduinoWiring": [
@@ -1489,6 +2021,24 @@
             "val": "Q1, Q2, Q3, Q4 (BCD 數據), StD (解碼有效觸發標誌)"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2（5V）或依模組改 Pin 1（3.3V）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          },
+          {
+            "pin": "Q1–Q4",
+            "conn": "Pin 11 / 13 / 15 / 16（GPIO 17 / 27 / 22 / 23）"
+          },
+          {
+            "pin": "StD",
+            "conn": "Pin 18（GPIO 24）作邊沿偵測"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "Q1-Q4",
@@ -1526,6 +2076,24 @@
           {
             "label": "Outputs",
             "val": "Q1, Q2, Q3, Q4 (BCD Data), StD (Valid Tone Flag)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2 (5V) or Pin 1 (3.3V) per module"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
+          },
+          {
+            "pin": "Q1–Q4",
+            "conn": "Pins 11 / 13 / 15 / 16 (GPIO 17 / 27 / 22 / 23)"
+          },
+          {
+            "pin": "StD",
+            "conn": "Pin 18 (GPIO 24) for edge detect"
           }
         ],
         "arduinoWiring": [
@@ -1587,6 +2155,20 @@
             "val": "數位 OUT (有障礙物輸出 LOW，無障礙物輸出 HIGH)"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2（5V）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          },
+          {
+            "pin": "OUT",
+            "conn": "Pin 11（GPIO 17）；若輸出 5V 請先分壓"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "VCC",
@@ -1624,6 +2206,20 @@
           {
             "label": "Output Voltage",
             "val": "Digital OUT (LOW when object detected, HIGH otherwise)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2 (5V)"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
+          },
+          {
+            "pin": "OUT",
+            "conn": "Pin 11 (GPIO 17); divide first if the output is 5V"
           }
         ],
         "arduinoWiring": [
@@ -1684,6 +2280,20 @@
             "val": "每組輸出均板載金屬保險絲與螺絲端子"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "+5V / GND",
+            "conn": "可當周邊大電流電源；與 Pi 共地 Pin 6"
+          },
+          {
+            "pin": "+3.3V",
+            "conn": "可給 3.3V 感測器；勿直接並聯灌入 Pi Pin 1/17"
+          },
+          {
+            "pin": "注意",
+            "conn": "Pi 本體建議仍用官方 USB-C 供電，ATX 只供馬達／外設"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "+5V / GND",
@@ -1713,6 +2323,20 @@
           {
             "label": "Protection",
             "val": "Glass fuse & screw terminals on each output line"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "+5V / GND",
+            "conn": "High-current rail for peripherals; share GND with Pi Pin 6"
+          },
+          {
+            "pin": "+3.3V",
+            "conn": "For 3.3V sensors; do not back-feed Pi Pin 1/17"
+          },
+          {
+            "pin": "Note",
+            "conn": "Keep powering the Pi from official USB-C; use ATX for motors/peripherals"
           }
         ],
         "arduinoWiring": [
@@ -1764,6 +2388,24 @@
             "val": "可透過 Jumper 切換 3.3V / 5V"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "TXD（轉接板）",
+            "conn": "Pin 10（GPIO 15 / RXD）"
+          },
+          {
+            "pin": "RXD（轉接板）",
+            "conn": "Pin 8（GPIO 14 / TXD）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          },
+          {
+            "pin": "VCC",
+            "conn": "通常不接（Pi 已由 USB-C 供電）；僅在目標板需 3.3V/5V 時使用轉接板電源腳"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "TXD -> RX",
@@ -1793,6 +2435,24 @@
           {
             "label": "Voltage Level",
             "val": "3.3V / 5V selectable via jumper"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "TXD (adapter)",
+            "conn": "Pin 10 (GPIO 15 / RXD)"
+          },
+          {
+            "pin": "RXD (adapter)",
+            "conn": "Pin 8 (GPIO 14 / TXD)"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
+          },
+          {
+            "pin": "VCC",
+            "conn": "Usually leave unconnected (Pi powered via USB-C); use only if the target needs the adapter's 3.3V/5V rail"
           }
         ],
         "arduinoWiring": [
@@ -1844,6 +2504,32 @@
             "val": "全步, 1/2, 1/4, 1/8, 1/16 微步 (MS1, MS2, MS3 設定)"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VDD（邏輯）",
+            "conn": "Pin 1（3.3V）"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）；與馬達電源共地"
+          },
+          {
+            "pin": "STEP",
+            "conn": "Pin 11（GPIO 17）"
+          },
+          {
+            "pin": "DIR",
+            "conn": "Pin 13（GPIO 27）"
+          },
+          {
+            "pin": "ENABLE",
+            "conn": "Pin 15（GPIO 22）"
+          },
+          {
+            "pin": "VMOT",
+            "conn": "外部馬達電源（如電池／ATX 12V），勿接 Pi 5V"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "STEP",
@@ -1889,6 +2575,32 @@
           {
             "label": "Microsteps",
             "val": "Full, 1/2, 1/4, 1/8, 1/16 step (MS1, MS2, MS3 pins)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VDD (logic)",
+            "conn": "Pin 1 (3.3V)"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND); share ground with motor supply"
+          },
+          {
+            "pin": "STEP",
+            "conn": "Pin 11 (GPIO 17)"
+          },
+          {
+            "pin": "DIR",
+            "conn": "Pin 13 (GPIO 27)"
+          },
+          {
+            "pin": "ENABLE",
+            "conn": "Pin 15 (GPIO 22)"
+          },
+          {
+            "pin": "VMOT",
+            "conn": "External motor supply (battery/ATX 12V) — not Pi 5V"
           }
         ],
         "arduinoWiring": [
@@ -1957,6 +2669,20 @@
             "val": "數位 DO (過光脈衝) 與類比 AO"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2（5V）或 Pin 1（3.3V）依模組"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          },
+          {
+            "pin": "OUT",
+            "conn": "Pin 11（GPIO 17），適合邊沿計數／中斷"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "VCC",
@@ -1994,6 +2720,20 @@
           {
             "label": "Output",
             "val": "Digital DO (Pulse output) and Analog AO"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 2 (5V) or Pin 1 (3.3V) per module"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
+          },
+          {
+            "pin": "OUT",
+            "conn": "Pin 11 (GPIO 17) for edge count / interrupt"
           }
         ],
         "arduinoWiring": [
@@ -2053,6 +2793,36 @@
             "val": "1.9V - 3.6V (切勿接 5V，容易燒毀)"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 1（3.3V）；禁止接 5V"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6（GND）"
+          },
+          {
+            "pin": "CE",
+            "conn": "Pin 22（GPIO 25）"
+          },
+          {
+            "pin": "CSN",
+            "conn": "Pin 24（GPIO 8 / CE0）"
+          },
+          {
+            "pin": "SCK",
+            "conn": "Pin 23（GPIO 11 / SCLK）"
+          },
+          {
+            "pin": "MOSI",
+            "conn": "Pin 19（GPIO 10 / MOSI）"
+          },
+          {
+            "pin": "MISO",
+            "conn": "Pin 21（GPIO 9 / MISO）"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "VCC",
@@ -2094,6 +2864,36 @@
           {
             "label": "Operating Voltage",
             "val": "1.9V - 3.6V (Do NOT connect 5V directly!)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC",
+            "conn": "Pin 1 (3.3V); never connect 5V"
+          },
+          {
+            "pin": "GND",
+            "conn": "Pin 6 (GND)"
+          },
+          {
+            "pin": "CE",
+            "conn": "Pin 22 (GPIO 25)"
+          },
+          {
+            "pin": "CSN",
+            "conn": "Pin 24 (GPIO 8 / CE0)"
+          },
+          {
+            "pin": "SCK",
+            "conn": "Pin 23 (GPIO 11 / SCLK)"
+          },
+          {
+            "pin": "MOSI",
+            "conn": "Pin 19 (GPIO 10 / MOSI)"
+          },
+          {
+            "pin": "MISO",
+            "conn": "Pin 21 (GPIO 9 / MISO)"
           }
         ],
         "arduinoWiring": [
@@ -2158,6 +2958,28 @@
             "val": "I2C (最高支援 62 個模組串聯級聯)"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "HAT 40-Pin",
+            "conn": "疊在 Raspberry Pi 5 40-Pin 排針"
+          },
+          {
+            "pin": "SDA",
+            "conn": "Pin 3（GPIO 2 / SDA）"
+          },
+          {
+            "pin": "SCL",
+            "conn": "Pin 5（GPIO 3 / SCL）"
+          },
+          {
+            "pin": "VCC / GND",
+            "conn": "Pin 2（5V）/ Pin 6（GND）；舵機建議外接電源端子"
+          },
+          {
+            "pin": "注意",
+            "conn": "預設 I2C 0x40 與 NeZha 衝突，請改跳線位址"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "SDA/SCL",
@@ -2187,6 +3009,28 @@
           {
             "label": "Interface",
             "val": "I2C (Supports up to 62 boards cascaded)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "HAT 40-Pin",
+            "conn": "Stack on the Raspberry Pi 5 40-pin header"
+          },
+          {
+            "pin": "SDA",
+            "conn": "Pin 3 (GPIO 2 / SDA)"
+          },
+          {
+            "pin": "SCL",
+            "conn": "Pin 5 (GPIO 3 / SCL)"
+          },
+          {
+            "pin": "VCC / GND",
+            "conn": "Pin 2 (5V) / Pin 6 (GND); prefer external servo supply on the terminal"
+          },
+          {
+            "pin": "Note",
+            "conn": "Default I2C 0x40 conflicts with NeZha — change the address jumpers"
           }
         ],
         "arduinoWiring": [
@@ -2233,6 +3077,20 @@
             "val": "12V / 5V 環形指示燈"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "常開接點一端",
+            "conn": "Pin 1（3.3V）經 10k 上拉，或直接作電源路徑開關"
+          },
+          {
+            "pin": "常開接點另一端",
+            "conn": "Pin 11（GPIO 17）輸入，另一側到 Pin 6（GND）"
+          },
+          {
+            "pin": "LED（若有）",
+            "conn": "經電阻接 Pin 2（5V）與 GND，勿直接灌 GPIO"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "Switch",
@@ -2258,6 +3116,20 @@
           {
             "label": "Ring LED Voltage",
             "val": "12V / 5V Ring LED"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "NO contact A",
+            "conn": "Pin 1 (3.3V) with 10k pull-up, or use as a power-path switch"
+          },
+          {
+            "pin": "NO contact B",
+            "conn": "Pin 11 (GPIO 17) input to Pin 6 (GND)"
+          },
+          {
+            "pin": "LED (if present)",
+            "conn": "Via resistor to Pin 2 (5V) and GND — do not drive from GPIO directly"
           }
         ],
         "arduinoWiring": [
@@ -2311,6 +3183,20 @@
             "val": "工作電壓 4.8V, 重量 9g, 塑膠齒輪"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "Signal（黃/橘）",
+            "conn": "Pin 32（GPIO 12 / PWM0）或 Pin 33（GPIO 13 / PWM1）；本專案優先走 NeZha / PCA9685"
+          },
+          {
+            "pin": "VCC（紅）",
+            "conn": "外部 5V–6V 電源，勿從 GPIO 取電"
+          },
+          {
+            "pin": "GND（棕/黑）",
+            "conn": "與 Pi Pin 6（GND）共地"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "Signal (黃/橘)",
@@ -2348,6 +3234,20 @@
           {
             "label": "SG90",
             "val": "4.8V, 9g weight, Plastic Gear"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "Signal (yellow/orange)",
+            "conn": "Pin 32 (GPIO 12 / PWM0) or Pin 33 (GPIO 13 / PWM1); this project prefers NeZha / PCA9685"
+          },
+          {
+            "pin": "VCC (red)",
+            "conn": "External 5V–6V supply — do not power from GPIO"
+          },
+          {
+            "pin": "GND (brown/black)",
+            "conn": "Share ground with Pi Pin 6 (GND)"
           }
         ],
         "arduinoWiring": [
@@ -2404,6 +3304,24 @@
             "val": "通用 3.3V - 5V"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "數位訊號",
+            "conn": "常用 Pin 11/13/15/16（GPIO 17/27/22/23）"
+          },
+          {
+            "pin": "I2C 模組",
+            "conn": "SDA Pin 3（GPIO 2）、SCL Pin 5（GPIO 3）"
+          },
+          {
+            "pin": "類比模組",
+            "conn": "Pi 無 ADC，需外接 ADC 後再經 SPI（Pin 19/21/23/24）"
+          },
+          {
+            "pin": "電源",
+            "conn": "3.3V→Pin 1；5V→Pin 2；GND→Pin 6。GPIO 勿接 5V 訊號"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "Pinout",
@@ -2431,6 +3349,24 @@
             "val": "3.3V - 5V Universal"
           }
         ],
+        "raspberryPiWiring": [
+          {
+            "pin": "Digital signals",
+            "conn": "Commonly Pins 11/13/15/16 (GPIO 17/27/22/23)"
+          },
+          {
+            "pin": "I2C modules",
+            "conn": "SDA Pin 3 (GPIO 2), SCL Pin 5 (GPIO 3)"
+          },
+          {
+            "pin": "Analog modules",
+            "conn": "No Pi ADC — use an external ADC over SPI (Pins 19/21/23/24)"
+          },
+          {
+            "pin": "Power",
+            "conn": "3.3V→Pin 1; 5V→Pin 2; GND→Pin 6. Never feed 5V into GPIO"
+          }
+        ],
         "arduinoWiring": [
           {
             "pin": "Pinout",
@@ -2444,6 +3380,533 @@
           }
         ],
         "codeSnippet": "// 37-in-1 Sensor Library Collection"
+      }
+    }
+  },
+  {
+    "id": "mod-92",
+    "number": "92",
+    "name": "Raspberry Pi AI Camera",
+    "category": "sensors",
+    "tags": [
+      "RaspberryPi",
+      "AI",
+      "IMX500",
+      "Camera",
+      "NPU"
+    ],
+    "images": [
+      "assets/inventory/092_01_RaspberryPi_AI_Camera.jpg",
+      "assets/inventory/092_02_RaspberryPi_AI_Camera_Info_Card.jpg"
+    ],
+    "i18n": {
+      "zh": {
+        "title": "Raspberry Pi AI Camera 人工智慧相機",
+        "desc": "樹莓派官方 AI 相機，整合 Sony IMX500 智慧視覺感測器與板載 NPU 加速器，神經網路模型直接在相機硬體上運行，減輕主機 CPU 負擔，適合即時物件偵測等 AI 視覺應用。",
+        "specs": [
+          {
+            "label": "感光元件",
+            "val": "Sony IMX500 智慧視覺感測器（12MP，1/2.3 吋）"
+          },
+          {
+            "label": "視角",
+            "val": "76°"
+          },
+          {
+            "label": "對焦",
+            "val": "手動可調焦距"
+          },
+          {
+            "label": "AI 加速",
+            "val": "板載 NPU（整合於感測器）"
+          },
+          {
+            "label": "預載模型",
+            "val": "MobileNet SSD 物件偵測"
+          },
+          {
+            "label": "配件",
+            "val": "200mm FPC 排線 ×2"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "CSI 排線",
+            "conn": "以 200mm FPC 排線連接 Raspberry Pi 5 的 CSI（CAM/DISP）接口"
+          },
+          {
+            "pin": "軟體",
+            "conn": "使用 rpicam-apps 或 Picamera2 驅動（rpicam-hello / rpicam-detect）"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "# Raspberry Pi AI Camera 物件偵測範例（rpicam-apps）\nrpicam-hello -t 0\n# 或使用預載的 MobileNet SSD 模型\nrpicam-detect -t 0 --model mobilenet_ssd_v2"
+      },
+      "en": {
+        "title": "Raspberry Pi AI Camera",
+        "desc": "Official Raspberry Pi AI camera with an integrated Sony IMX500 intelligent vision sensor and on-sensor NPU. Neural network models run directly on the camera hardware, offloading computation from the host CPU for real-time object detection.",
+        "specs": [
+          {
+            "label": "Sensor",
+            "val": "Sony IMX500 Intelligent Vision Sensor (12MP, 1/2.3\")"
+          },
+          {
+            "label": "Field of View",
+            "val": "76°"
+          },
+          {
+            "label": "Focus",
+            "val": "Manually adjustable"
+          },
+          {
+            "label": "AI Accelerator",
+            "val": "Onboard NPU (in-sensor)"
+          },
+          {
+            "label": "Preloaded Model",
+            "val": "MobileNet SSD object detection"
+          },
+          {
+            "label": "Accessories",
+            "val": "200mm FPC cables ×2"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "CSI cable",
+            "conn": "Connect to the Raspberry Pi 5 CSI (CAM/DISP) connector via the 200mm FPC cable"
+          },
+          {
+            "pin": "Software",
+            "conn": "Drive with rpicam-apps or Picamera2 (rpicam-hello / rpicam-detect)"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "# Raspberry Pi AI Camera object detection (rpicam-apps)\nrpicam-hello -t 0\n# or use the preloaded MobileNet SSD model\nrpicam-detect -t 0 --model mobilenet_ssd_v2"
+      }
+    }
+  },
+  {
+    "id": "mod-93",
+    "number": "93",
+    "name": "Waveshare 4010 5V Cooling Fan",
+    "category": "power",
+    "tags": [
+      "RaspberryPi",
+      "Cooling",
+      "Fan",
+      "5V"
+    ],
+    "images": [
+      "assets/inventory/093_Waveshare_4010_5V_Cooling_Fan.jpg"
+    ],
+    "i18n": {
+      "zh": {
+        "title": "Waveshare 4010 5V 散熱風扇",
+        "desc": "適用於 Raspberry Pi 5 的 40×40×10mm 5V 散熱風扇（Waveshare），在高負載運算時協助 CPU 降溫，搭配散熱片使用效果更佳。",
+        "specs": [
+          {
+            "label": "尺寸",
+            "val": "40 × 40 × 10 mm"
+          },
+          {
+            "label": "工作電壓",
+            "val": "DC 5V"
+          },
+          {
+            "label": "適用",
+            "val": "Raspberry Pi 5（含散熱片安裝）"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "風扇座",
+            "conn": "接 Raspberry Pi 5 板載 4-Pin 風扇座（PWM 調速）"
+          },
+          {
+            "pin": "GPIO 接法",
+            "conn": "紅線接 Pin 4（5V）、黑線接 Pin 6（GND）"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "// 純散熱硬體，無需編寫程式"
+      },
+      "en": {
+        "title": "Waveshare 4010 5V Cooling Fan",
+        "desc": "40×40×10mm 5V cooling fan (Waveshare) for the Raspberry Pi 5. Keeps the CPU cool under sustained load; pair with a heatsink for best results.",
+        "specs": [
+          {
+            "label": "Size",
+            "val": "40 × 40 × 10 mm"
+          },
+          {
+            "label": "Voltage",
+            "val": "DC 5V"
+          },
+          {
+            "label": "Compatibility",
+            "val": "Raspberry Pi 5 (with heatsink mounting)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "Fan header",
+            "conn": "Plug into the Raspberry Pi 5 onboard 4-pin fan header (PWM speed control)"
+          },
+          {
+            "pin": "GPIO wiring",
+            "conn": "Red to Pin 4 (5V), black to Pin 6 (GND)"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "// Pure cooling hardware, no code needed"
+      }
+    }
+  },
+  {
+    "id": "mod-94",
+    "number": "94",
+    "name": "NVIDIA Jetson Nano 2GB Developer Kit",
+    "category": "controllers",
+    "tags": [
+      "NVIDIA",
+      "Jetson",
+      "AI",
+      "Embedded",
+      "GPU"
+    ],
+    "images": [
+      "assets/inventory/094_01_Jetson_Nano_2GB_Carrier_Board_P3541_Front_Back.jpg",
+      "assets/inventory/094_02_Jetson_Nano_2GB_Developer_Kit_Info_Card.jpg",
+      "assets/inventory/094_03_Jetson_Nano_2GB_Carrier_Board_P3541_Front.jpg"
+    ],
+    "i18n": {
+      "zh": {
+        "title": "NVIDIA Jetson Nano 2GB 開發者套件",
+        "desc": "NVIDIA 入門級 AI 邊緣運算開發套件，搭載 Jetson Nano 2GB 模組（載板型號 P3541）。具備 128 核心 Maxwell GPU 與 4 核心 Arm Cortex-A57 處理器，適合在裝置端直接運行機器學習推論與機器人應用。",
+        "specs": [
+          {
+            "label": "處理器",
+            "val": "Quad-core Arm Cortex-A57 + 128-core NVIDIA Maxwell GPU"
+          },
+          {
+            "label": "記憶體",
+            "val": "2GB LPDDR4"
+          },
+          {
+            "label": "儲存",
+            "val": "microSD 卡槽（開機必備）"
+          },
+          {
+            "label": "供電",
+            "val": "USB-C 5V / 3A"
+          },
+          {
+            "label": "擴充介面",
+            "val": "40-pin GPIO、MIPI CSI-2、Gigabit Ethernet、HDMI、USB 3.1 / 2.0"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "UART",
+            "conn": "與 Raspberry Pi 5 以 UART 雙機通訊（共地；Jetson 3.3V 邏輯）"
+          },
+          {
+            "pin": "GPIO",
+            "conn": "可經 40-pin GPIO 與 Pi 交換數位訊號（注意電壓位準 3.3V）"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "# Jetson 上常見的推論範例（TensorRT / jetson-inference）\n# 例如執行即時物件偵測：\n#   detectnet --network=ssd-mobilenet-v2 csi://0"
+      },
+      "en": {
+        "title": "NVIDIA Jetson Nano 2GB Developer Kit",
+        "desc": "NVIDIA's entry-level AI edge-computing developer kit, built around the Jetson Nano 2GB module (carrier board P3541). A 128-core Maxwell GPU and quad-core Arm Cortex-A57 CPU run machine-learning inference directly on the device.",
+        "specs": [
+          {
+            "label": "CPU/GPU",
+            "val": "Quad-core Arm Cortex-A57 + 128-core NVIDIA Maxwell GPU"
+          },
+          {
+            "label": "Memory",
+            "val": "2GB LPDDR4"
+          },
+          {
+            "label": "Storage",
+            "val": "microSD slot (required to boot)"
+          },
+          {
+            "label": "Power",
+            "val": "USB-C 5V / 3A"
+          },
+          {
+            "label": "I/O",
+            "val": "40-pin GPIO, MIPI CSI-2, Gigabit Ethernet, HDMI, USB 3.1 / 2.0"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "UART",
+            "conn": "Communicate with Raspberry Pi 5 over UART (share GND; Jetson uses 3.3V logic)"
+          },
+          {
+            "pin": "GPIO",
+            "conn": "Exchange digital signals with the Pi via the 40-pin header (3.3V levels)"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "# Common Jetson inference example (TensorRT / jetson-inference)\n# Real-time object detection:\n#   detectnet --network=ssd-mobilenet-v2 csi://0"
+      }
+    }
+  },
+  {
+    "id": "mod-97",
+    "number": "97",
+    "name": "NVIDIA Jetson Nano Developer Kit (4GB)",
+    "category": "controllers",
+    "tags": [
+      "NVIDIA",
+      "Jetson",
+      "AI",
+      "Embedded",
+      "GPU"
+    ],
+    "images": [
+      "assets/inventory/097_Jetson_Nano_Carrier_Board_P3450_Front.jpg",
+      "assets/inventory/094_03_Jetson_Nano_Developer_Kit_Info_Card.jpg"
+    ],
+    "i18n": {
+      "zh": {
+        "title": "NVIDIA Jetson Nano 開發者套件（4GB 原版）",
+        "desc": "NVIDIA Jetson Nano 原版開發者套件（載板型號 P3450），配備 4GB LPDDR4 記憶體，以 Micro-USB 5V/2A 供電，提供 4K 顯示輸出與 4 組 USB 3.0，是成熟的 AI 邊緣運算與機器人開發平台。",
+        "specs": [
+          {
+            "label": "CPU/GPU",
+            "val": "Quad-core Arm Cortex-A57 + 128-core NVIDIA Maxwell GPU"
+          },
+          {
+            "label": "記憶體",
+            "val": "4GB LPDDR4"
+          },
+          {
+            "label": "供電",
+            "val": "Micro-USB 5V / 2A 或 DC Jack 5V"
+          },
+          {
+            "label": "顯示",
+            "val": "4K-capable HDMI + DisplayPort"
+          },
+          {
+            "label": "I/O",
+            "val": "4x USB 3.0、Gigabit Ethernet、40-pin GPIO、MIPI-CSI"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "UART",
+            "conn": "與 Raspberry Pi 5 以 UART 雙機通訊（共地；Jetson 3.3V 邏輯）"
+          },
+          {
+            "pin": "GPIO",
+            "conn": "可經 40-pin GPIO 與 Pi 交換數位訊號（注意電壓位準 3.3V）"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "# Jetson 上常見的推論範例（TensorRT / jetson-inference）\n# 例如執行即時物件偵測：\n#   detectnet --network=ssd-mobilenet-v2 csi://0"
+      },
+      "en": {
+        "title": "NVIDIA Jetson Nano Developer Kit (4GB)",
+        "desc": "The original NVIDIA Jetson Nano Developer Kit (carrier board P3450) with 4GB LPDDR4 memory, powered via Micro-USB 5V/2A. Offers 4K display output and four USB 3.0 ports for AI edge-computing and robotics development.",
+        "specs": [
+          {
+            "label": "CPU/GPU",
+            "val": "Quad-core Arm Cortex-A57 + 128-core NVIDIA Maxwell GPU"
+          },
+          {
+            "label": "Memory",
+            "val": "4GB LPDDR4"
+          },
+          {
+            "label": "Power",
+            "val": "Micro-USB 5V / 2A or DC Jack 5V"
+          },
+          {
+            "label": "Display",
+            "val": "4K-capable HDMI + DisplayPort"
+          },
+          {
+            "label": "I/O",
+            "val": "4x USB 3.0, Gigabit Ethernet, 40-pin GPIO, MIPI-CSI"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "UART",
+            "conn": "Communicate with Raspberry Pi 5 over UART (share GND; Jetson uses 3.3V logic)"
+          },
+          {
+            "pin": "GPIO",
+            "conn": "Exchange digital signals with the Pi via the 40-pin header (3.3V levels)"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "# Common Jetson inference example (TensorRT / jetson-inference)\n# Real-time object detection:\n#   detectnet --network=ssd-mobilenet-v2 csi://0"
+      }
+    }
+  },
+  {
+    "id": "mod-99",
+    "number": "99",
+    "name": "Camera Module with FPC Cable",
+    "category": "sensors",
+    "tags": [
+      "Camera",
+      "FPC",
+      "Vision"
+    ],
+    "images": [
+      "assets/inventory/099_Camera_Module_With_FPC_Cable.jpg"
+    ],
+    "i18n": {
+      "zh": {
+        "title": "相機模組（帶 FPC 排線）",
+        "desc": "通用相機模組，隨附 FPC 排線。板載絲印標示 SDA/SCL/INT（I2C 控制與中斷）及疑似 FSYNC 幀同步訊號，未標示明確型號，使用前需量測確認感光元件與接腳定義。",
+        "specs": [
+          {
+            "label": "接口",
+            "val": "FPC 排線（隨附）"
+          },
+          {
+            "label": "控制介面",
+            "val": "I2C（SDA / SCL）+ INT 中斷"
+          },
+          {
+            "label": "幀同步",
+            "val": "疑似 FSYNC（待量測確認）"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "FPC 排線",
+            "conn": "接腳定義未標示，需先以萬用表/資料手冊確認再連接"
+          },
+          {
+            "pin": "I2C 控制",
+            "conn": "若支援，SDA/SCL 接 Pi Pin 3 / Pin 5，INT 接任意 GPIO（3.3V 邏輯）"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "// 型號待確認，暫無適用範例"
+      },
+      "en": {
+        "title": "Camera Module with FPC Cable",
+        "desc": "Generic camera module supplied with an FPC cable. Onboard silkscreen shows SDA/SCL/INT (I2C control and interrupt) and a suspected FSYNC frame-sync signal. Model is unmarked — verify the sensor and pinout before use.",
+        "specs": [
+          {
+            "label": "Interface",
+            "val": "FPC cable (included)"
+          },
+          {
+            "label": "Control",
+            "val": "I2C (SDA / SCL) + INT interrupt"
+          },
+          {
+            "label": "Frame Sync",
+            "val": "Suspected FSYNC (to be verified)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "FPC cable",
+            "conn": "Pinout unmarked — verify with a multimeter/datasheet before connecting"
+          },
+          {
+            "pin": "I2C control",
+            "conn": "If supported, SDA/SCL to Pi Pin 3 / Pin 5, INT to any GPIO (3.3V logic)"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "// Model TBD — no example yet"
+      }
+    }
+  },
+  {
+    "id": "mod-100",
+    "number": "100",
+    "name": "Yahboom Line Tracking Track (Folding Map)",
+    "category": "sensors",
+    "tags": [
+      "Yahboom",
+      "LineTracking",
+      "Track"
+    ],
+    "images": [
+      "assets/inventory/100_Yahboom_Line_Tracking_Track_Instructions.jpg"
+    ],
+    "i18n": {
+      "zh": {
+        "title": "Yahboom 巡線跑道（摺疊地圖）",
+        "desc": "Yahboom（有方）巡線小車隨附的摺疊跑道地圖，印有玩法說明：鋪平可完成整張跑道所有路徑的巡線；摺疊只露出圓形路徑練習；或在發車區後放置障礙物繞行。",
+        "specs": [
+          {
+            "label": "玩法一",
+            "val": "鋪平跑道，從發車區出發完成所有路徑巡線"
+          },
+          {
+            "label": "玩法二",
+            "val": "摺疊跑道，只露出左側圓形路徑巡線"
+          },
+          {
+            "label": "玩法三",
+            "val": "在橫向路徑放置障礙物，出發繞行後回歸正軌"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "不適用",
+            "conn": "純配件（摺疊地圖），搭配巡線感測器/小車使用"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "// 純配件，無需編寫程式"
+      },
+      "en": {
+        "title": "Yahboom Line Tracking Track (Folding Map)",
+        "desc": "Folding track map included with the Yahboom line-tracking car. Printed play instructions: lay it flat and trace every path; fold it to expose only the circular loop; or place obstacles near the start zone and drive around them.",
+        "specs": [
+          {
+            "label": "Play 1",
+            "val": "Lay flat, trace all paths from the start zone"
+          },
+          {
+            "label": "Play 2",
+            "val": "Fold to expose only the left circular path"
+          },
+          {
+            "label": "Play 3",
+            "val": "Place obstacles on the horizontal path, drive around and rejoin the route"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "N/A",
+            "conn": "Pure accessory (folding map) for use with line-tracking sensors/cars"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "// Pure accessory, no code needed"
       }
     }
   }

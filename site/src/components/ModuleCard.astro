@@ -1,8 +1,8 @@
 ---
 import { Image } from 'astro:assets';
 import { asset } from '../lib/images';
-import { imageCaption } from '../lib/caption';
-import { t, type Locale } from '../i18n/ui';
+import { href, t, type Locale } from '../i18n/ui';
+import { inventoryPath } from '../lib/modules';
 
 interface Props {
   module: Record<string, any>;
@@ -13,12 +13,13 @@ const { module: mod, locale } = Astro.props;
 const tr = t(locale);
 const content = mod.i18n[locale];
 const cover = mod.images[0];
+const detailHref = href(locale, inventoryPath(mod.category, mod.id));
 ---
 
-<article class="module-card" data-cat={mod.category} data-id={mod.id}>
+<a class="module-card" href={detailHref} data-cat={mod.category} data-id={mod.id}>
   <div class="card-image-wrap">
-    <span class="card-number"># {mod.number}</span>
-    <span class="card-photo-count">
+    <span class="card-badge"># {mod.number}</span>
+    <span class="photo-count-badge">
       {mod.images.length}
       {locale === 'zh' ? ' 張照片' : ` ${tr('inventory.photos')}`}
     </span>
@@ -35,92 +36,8 @@ const cover = mod.images[0];
     <div class="card-title-en">{mod.name}</div>
     <div class="card-title-zh">{content.title}</div>
     <div class="card-desc">{content.desc}</div>
-    <div class="card-tags">
+    <div class="tag-list">
       {mod.tags.map((tag: string) => <span class="tag">{tag}</span>)}
     </div>
   </div>
-
-  {/* 詳細內容先渲染成 template，開 modal 時由 JS clone —— 內容留在 HTML 裡 */}
-  <template class="module-detail">
-    <div class="section-block">
-      <h3>{tr('inventory.section.photos')}</h3>
-      <div class="gallery-grid">
-        {
-          mod.images.map((img: string) => {
-            const file = img.split('/').pop()!;
-            return (
-              <div
-                class="gallery-img-wrap"
-                data-full={asset(img).src}
-                data-caption={imageCaption(file, locale)}
-                data-filename={file}
-              >
-                <Image src={asset(img)} alt={file} widths={[400, 800]} loading="lazy" />
-              </div>
-            );
-          })
-        }
-      </div>
-    </div>
-
-    <div class="section-block">
-      <h3>{tr('inventory.section.desc')}</h3>
-      <p style="color: var(--text-secondary);">{content.desc}</p>
-    </div>
-
-    <div class="section-block">
-      <h3>{tr('inventory.section.specs')}</h3>
-      <table class="wiring-table">
-        <tbody>
-          {
-            content.specs.map((s: { label: string; val: string }) => (
-              <tr>
-                <td style="width: 30%; color: var(--text-secondary);">{s.label}</td>
-                <td>{s.val}</td>
-              </tr>
-            ))
-          }
-        </tbody>
-      </table>
-    </div>
-
-    {
-      (['arduinoWiring', 'stm32Wiring'] as const).map((key) =>
-        content[key]?.length ? (
-          <div class="section-block">
-            <h3>
-              {key === 'arduinoWiring'
-                ? tr('inventory.section.arduino')
-                : tr('inventory.section.stm32')}
-            </h3>
-            <table class="wiring-table">
-              <thead>
-                <tr>
-                  <th>{tr('inventory.wiring.pin')}</th>
-                  <th>{tr('inventory.wiring.conn')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {content[key].map((w: { pin: string; conn: string }) => (
-                  <tr>
-                    <td>{w.pin}</td>
-                    <td>{w.conn}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null,
-      )
-    }
-
-    {
-      content.codeSnippet && (
-        <div class="section-block">
-          <h3>{tr('inventory.section.code')}</h3>
-          <div class="code-block">{content.codeSnippet}</div>
-        </div>
-      )
-    }
-  </template>
-</article>
+</a>
