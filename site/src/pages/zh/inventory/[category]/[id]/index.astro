@@ -1,0 +1,22 @@
+---
+import Base from '../../../../../layouts/Base.astro';
+import ModuleDetail from '../../../../../components/ModuleDetail.astro';
+import { t } from '../../../../../i18n/ui';
+import { getModule, modules } from '../../../../../lib/modules';
+
+export function getStaticPaths() {
+  return modules.map((m) => ({
+    params: { category: m.category, id: m.id },
+  }));
+}
+
+const category = Astro.params.category!;
+const id = Astro.params.id!;
+const mod = getModule(id)!;
+const tr = t('zh');
+const title = `${mod.i18n.zh.title} | ${tr('inventory.title')}`;
+---
+
+<Base locale="zh" page="inventory" title={title} altPath={`inventory/${category}/${id}`}>
+  <ModuleDetail module={mod} locale="zh" />
+</Base>

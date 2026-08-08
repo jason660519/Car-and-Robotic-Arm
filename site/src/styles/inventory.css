@@ -139,6 +139,9 @@
             cursor: pointer;
             white-space: nowrap;
             transition: var(--transition-smooth);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
         }
 
         .tab-btn:hover {
@@ -175,6 +178,8 @@
             transition: var(--transition-smooth);
             cursor: pointer;
             box-shadow: var(--shadow-card);
+            text-decoration: none;
+            color: inherit;
         }
 
         .module-card:hover {

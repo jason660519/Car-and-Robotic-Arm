@@ -17,9 +17,11 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "site" / "src" / "data" / "modules.json"
 LANGS = ("zh", "en")
-# Required localized fields. `arduinoWiring` and `stm32Wiring` are intentionally excluded because
-# Raspberry Pi specific modules such as the M.2 HAT or USB camera do not have those variants.
-I18N_FIELDS = ("title", "desc", "specs", "codeSnippet")
+# Required localized fields. Wiring tables (`raspberryPiWiring`, `arduinoWiring`, `stm32Wiring`)
+# are optional in shape but expected for modules that document MCU hookup; some entries may be
+# empty arrays for Pi-only accessories such as the M.2 HAT.
+I18N_FIELDS = ("title", "desc", "specs", "codeSnippet", "raspberryPiWiring")
+WIRING_FIELDS = ("raspberryPiWiring", "arduinoWiring", "stm32Wiring")
 ASSET_NAME = re.compile(r"^\d{3}_[A-Za-z0-9_]+\.(jpg|png)$")
 
 
@@ -48,8 +50,21 @@ def main() -> int:
                 problems.append(f"{mid}: missing {lang} localization block")
                 continue
             for field in I18N_FIELDS:
-                if not block.get(field):
+                if field == "raspberryPiWiring":
+                    if field not in block or not isinstance(block[field], list) or not block[field]:
+                        problems.append(f"{mid}: {lang}.{field} is missing or empty")
+                elif not block.get(field):
                     problems.append(f"{mid}: {lang}.{field} is empty")
+            for field in WIRING_FIELDS:
+                rows = block.get(field)
+                if rows is None:
+                    continue
+                if not isinstance(rows, list):
+                    problems.append(f"{mid}: {lang}.{field} must be a list")
+                    continue
+                for i, row in enumerate(rows):
+                    if not isinstance(row, dict) or "pin" not in row or "conn" not in row:
+                        problems.append(f"{mid}: {lang}.{field}[{i}] needs pin/conn")
 
         for rel in m.get("images", []):
             path = REPO / rel
