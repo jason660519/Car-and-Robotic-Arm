@@ -41,3 +41,7 @@ scratch/
 Objects/*.htm
 JLinkSettings.ini
 JLinkLog.txt
+
+# Reasonix 本地工具狀態（含命令歷史，不進版控）
+.reasonix/
+reasonix.toml
