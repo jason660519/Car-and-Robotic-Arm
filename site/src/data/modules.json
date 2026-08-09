@@ -3385,7 +3385,7 @@
   },
   {
     "id": "mod-92",
-    "number": "92",
+    "number": "92/93",
     "name": "Raspberry Pi AI Camera",
     "category": "sensors",
     "tags": [
@@ -3396,8 +3396,8 @@
       "NPU"
     ],
     "images": [
-      "assets/inventory/092_01_RaspberryPi_AI_Camera.jpg",
-      "assets/inventory/092_02_RaspberryPi_AI_Camera_Info_Card.jpg"
+      "assets/inventory/092_RaspberryPi_AI_Camera.jpg",
+      "assets/inventory/093_RaspberryPi_AI_Camera_Info_Card.jpg"
     ],
     "i18n": {
       "zh": {
@@ -3490,7 +3490,7 @@
   },
   {
     "id": "mod-93",
-    "number": "93",
+    "number": "94",
     "name": "Waveshare 4010 5V Cooling Fan",
     "category": "power",
     "tags": [
@@ -3500,7 +3500,7 @@
       "5V"
     ],
     "images": [
-      "assets/inventory/093_Waveshare_4010_5V_Cooling_Fan.jpg"
+      "assets/inventory/094_Waveshare_4010_5V_Cooling_Fan.jpg"
     ],
     "i18n": {
       "zh": {
@@ -3569,7 +3569,7 @@
   },
   {
     "id": "mod-94",
-    "number": "94",
+    "number": "95/96/97",
     "name": "NVIDIA Jetson Nano 2GB Developer Kit",
     "category": "controllers",
     "tags": [
@@ -3580,9 +3580,9 @@
       "GPU"
     ],
     "images": [
-      "assets/inventory/094_01_Jetson_Nano_2GB_Carrier_Board_P3541_Front_Back.jpg",
-      "assets/inventory/094_02_Jetson_Nano_2GB_Developer_Kit_Info_Card.jpg",
-      "assets/inventory/094_03_Jetson_Nano_2GB_Carrier_Board_P3541_Front.jpg"
+      "assets/inventory/095_Jetson_Nano_2GB_Carrier_Board_P3541_Front_Back.jpg",
+      "assets/inventory/096_Jetson_Nano_2GB_Developer_Kit_Info_Card.jpg",
+      "assets/inventory/097_Jetson_Nano_2GB_Carrier_Board_P3541_Front.jpg"
     ],
     "i18n": {
       "zh": {
@@ -3667,7 +3667,7 @@
   },
   {
     "id": "mod-97",
-    "number": "97",
+    "number": "98/99",
     "name": "NVIDIA Jetson Nano Developer Kit (4GB)",
     "category": "controllers",
     "tags": [
@@ -3678,8 +3678,8 @@
       "GPU"
     ],
     "images": [
-      "assets/inventory/097_Jetson_Nano_Carrier_Board_P3450_Front.jpg",
-      "assets/inventory/094_03_Jetson_Nano_Developer_Kit_Info_Card.jpg"
+      "assets/inventory/099_Jetson_Nano_Carrier_Board_P3450_Front.jpg",
+      "assets/inventory/098_Jetson_Nano_Developer_Kit_Info_Card.jpg"
     ],
     "i18n": {
       "zh": {
@@ -3764,7 +3764,7 @@
   },
   {
     "id": "mod-99",
-    "number": "99",
+    "number": "100",
     "name": "Camera Module with FPC Cable",
     "category": "sensors",
     "tags": [
@@ -3773,7 +3773,7 @@
       "Vision"
     ],
     "images": [
-      "assets/inventory/099_Camera_Module_With_FPC_Cable.jpg"
+      "assets/inventory/100_Camera_Module_With_FPC_Cable.jpg"
     ],
     "i18n": {
       "zh": {
@@ -3842,7 +3842,7 @@
   },
   {
     "id": "mod-100",
-    "number": "100",
+    "number": "101",
     "name": "Yahboom Line Tracking Track (Folding Map)",
     "category": "sensors",
     "tags": [
@@ -3851,7 +3851,7 @@
       "Track"
     ],
     "images": [
-      "assets/inventory/100_Yahboom_Line_Tracking_Track_Instructions.jpg"
+      "assets/inventory/101_Yahboom_Line_Tracking_Track_Instructions.jpg"
     ],
     "i18n": {
       "zh": {
@@ -3907,6 +3907,257 @@
         "arduinoWiring": [],
         "stm32Wiring": [],
         "codeSnippet": "// Pure accessory, no code needed"
+      }
+    }
+  },
+  {
+    "id": "mod-80",
+    "number": "80",
+    "name": "Jetson Nano Interface Adapter",
+    "category": "power",
+    "tags": [
+      "NVIDIA",
+      "Jetson",
+      "Adapter",
+      "GPIO"
+    ],
+    "images": [
+      "assets/inventory/080_Jetson_Nano_Interface_Adapter.jpg"
+    ],
+    "i18n": {
+      "zh": {
+        "title": "Jetson Nano 接口適配板",
+        "desc": "NVIDIA Jetson Nano 用的接口適配板，用於引出或轉接 Jetson 載板的排針/接口，方便外接感測器與周邊。板面僅標示型號文字，詳細腳位定義需參考原廠資料。",
+        "specs": [
+          {
+            "label": "適用",
+            "val": "NVIDIA Jetson Nano 系列"
+          },
+          {
+            "label": "接口",
+            "val": "引出 Jetson 40-pin GPIO / 週邊接口（以實物為準）"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "不適用",
+            "conn": "此為 Jetson 配件，不直接連接 Raspberry Pi；如需與 Pi 通訊請用 UART/GPIO 並注意 3.3V 邏輯"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "// 純硬件適配板，無需編寫程式"
+      },
+      "en": {
+        "title": "Jetson Nano Interface Adapter",
+        "desc": "Interface adapter board for the NVIDIA Jetson Nano, used to break out or convert the Jetson carrier board's headers/ports for external sensors and peripherals. Only the model name is printed; consult vendor documentation for the exact pinout.",
+        "specs": [
+          {
+            "label": "Compatibility",
+            "val": "NVIDIA Jetson Nano family"
+          },
+          {
+            "label": "Interface",
+            "val": "Breaks out Jetson 40-pin GPIO / peripherals (verify against the board)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "N/A",
+            "conn": "A Jetson accessory, not wired to the Raspberry Pi; use UART/GPIO with 3.3V logic for Pi interop"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "// Pure hardware adapter, no code needed"
+      }
+    }
+  },
+  {
+    "id": "mod-81",
+    "number": "81",
+    "name": "Waveshare Jetson Nano MicroSD Adapter",
+    "category": "power",
+    "tags": [
+      "NVIDIA",
+      "Jetson",
+      "Waveshare",
+      "MicroSD",
+      "Adapter"
+    ],
+    "images": [
+      "assets/inventory/081_Waveshare_Jetson_Nano_MicroSD_Adapter.jpg"
+    ],
+    "i18n": {
+      "zh": {
+        "title": "Waveshare Jetson Nano MicroSD 卡適配器",
+        "desc": "Waveshare 出品的 Jetson Nano MicroSD 卡適配器，用於擴充/轉接 Jetson Nano 的 MicroSD 儲存介面。",
+        "specs": [
+          {
+            "label": "品牌",
+            "val": "Waveshare"
+          },
+          {
+            "label": "適用",
+            "val": "NVIDIA Jetson Nano（MicroSD 介面）"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "不適用",
+            "conn": "此為 Jetson 配件，不直接連接 Raspberry Pi"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "// 純硬件適配器，無需編寫程式"
+      },
+      "en": {
+        "title": "Waveshare Jetson Nano MicroSD Adapter",
+        "desc": "MicroSD card adapter for the NVIDIA Jetson Nano from Waveshare, used to extend or convert the Jetson Nano's MicroSD storage interface.",
+        "specs": [
+          {
+            "label": "Brand",
+            "val": "Waveshare"
+          },
+          {
+            "label": "Compatibility",
+            "val": "NVIDIA Jetson Nano (MicroSD interface)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "N/A",
+            "conn": "A Jetson accessory, not wired to the Raspberry Pi"
+          }
+        ],
+        "arduinoWiring": [],
+        "stm32Wiring": [],
+        "codeSnippet": "// Pure hardware adapter, no code needed"
+      }
+    }
+  },
+  {
+    "id": "mod-102",
+    "number": "102",
+    "name": "Raspberry Pi Pico W (Wireless WiFi)",
+    "category": "controllers",
+    "tags": [
+      "RaspberryPi",
+      "Pico",
+      "RP2040",
+      "WiFi",
+      "MCU"
+    ],
+    "images": [
+      "assets/inventory/102_RaspberryPi_Pico_SC0918_W_Wireless_Wifi_MCU.jpg"
+    ],
+    "i18n": {
+      "zh": {
+        "title": "Raspberry Pi Pico W 微控制器開發板",
+        "desc": "基於 RP2040 雙核心 Arm Cortex-M0+ 的微控制器開發板，內建 Infineon CYW43439 無線晶片（2.4GHz Wi-Fi 4 與藍牙 5.2），支援 MicroPython 與 C/C++ SDK，適合無線感測、機器人與 IoT 應用（型號 SC0918）。",
+        "specs": [
+          {
+            "label": "微控制器",
+            "val": "RP2040（Dual-core Arm Cortex-M0+，133MHz）"
+          },
+          {
+            "label": "記憶體",
+            "val": "264KB SRAM，2MB 板載 Flash"
+          },
+          {
+            "label": "無線",
+            "val": "Infineon CYW43439（Wi-Fi 4 802.11n / Bluetooth 5.2）"
+          },
+          {
+            "label": "GPIO",
+            "val": "26 組數位 GPIO（3.3V 邏輯，含 ADC/UART/SPI/I2C）"
+          },
+          {
+            "label": "供電與燒錄",
+            "val": "Micro-USB 5V（內建 BOOTSEL 拖放式燒錄）"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "USB",
+            "conn": "接 Raspberry Pi 5 USB-A，用於供電與 REPL/Serial 通訊"
+          },
+          {
+            "pin": "UART",
+            "conn": "GPIO 0 (TX) / GPIO 1 (RX) 接 Pi Pin 8 / Pin 10（3.3V，勿灌 5V）"
+          },
+          {
+            "pin": "I2C",
+            "conn": "GPIO 4 (SDA) / GPIO 5 (SCL) 接 Pi Pin 3 / Pin 5，可與感測器共用匯流排"
+          }
+        ],
+        "arduinoWiring": [
+          {
+            "pin": "UART",
+            "conn": "可經 USB-Serial 與 Arduino 雙機通訊"
+          }
+        ],
+        "stm32Wiring": [
+          {
+            "pin": "UART",
+            "conn": "GPIO 0/1 接 STM32 USART 交叉 TX/RX（共地）"
+          }
+        ],
+        "codeSnippet": "# Raspberry Pi Pico W - MicroPython WiFi 掃描範例\nimport network\nwlan = network.WLAN(network.STA_IF)\nwlan.active(True)\nprint(wlan.scan())  # 掃描附近的 WiFi"
+      },
+      "en": {
+        "title": "Raspberry Pi Pico W (Wireless WiFi)",
+        "desc": "Microcontroller board based on the RP2040 dual-core Arm Cortex-M0+, with an onboard Infineon CYW43439 wireless chip (2.4GHz Wi-Fi 4 and Bluetooth 5.2). Programmable with MicroPython or the C/C++ SDK — ideal for wireless sensing, robotics, and IoT (SKU SC0918).",
+        "specs": [
+          {
+            "label": "MCU",
+            "val": "RP2040 (Dual-core Arm Cortex-M0+, 133MHz)"
+          },
+          {
+            "label": "Memory",
+            "val": "264KB SRAM, 2MB onboard Flash"
+          },
+          {
+            "label": "Wireless",
+            "val": "Infineon CYW43439 (Wi-Fi 4 802.11n / Bluetooth 5.2)"
+          },
+          {
+            "label": "GPIO",
+            "val": "26 digital GPIO (3.3V logic, incl. ADC/UART/SPI/I2C)"
+          },
+          {
+            "label": "Power & Flashing",
+            "val": "Micro-USB 5V (BOOTSEL drag-and-drop flashing)"
+          }
+        ],
+        "raspberryPiWiring": [
+          {
+            "pin": "USB",
+            "conn": "Connect to Raspberry Pi 5 USB-A for power and REPL/serial communication"
+          },
+          {
+            "pin": "UART",
+            "conn": "GPIO 0 (TX) / GPIO 1 (RX) to Pi Pin 8 / Pin 10 (3.3V, do not feed 5V)"
+          },
+          {
+            "pin": "I2C",
+            "conn": "GPIO 4 (SDA) / GPIO 5 (SCL) to Pi Pin 3 / Pin 5 for shared sensor bus"
+          }
+        ],
+        "arduinoWiring": [
+          {
+            "pin": "UART",
+            "conn": "Talk to an Arduino over USB-Serial"
+          }
+        ],
+        "stm32Wiring": [
+          {
+            "pin": "UART",
+            "conn": "GPIO 0/1 to STM32 USART with TX/RX crossed (shared GND)"
+          }
+        ],
+        "codeSnippet": "# Raspberry Pi Pico W - MicroPython WiFi scan\nimport network\nwlan = network.WLAN(network.STA_IF)\nwlan.active(True)\nprint(wlan.scan())  # scan nearby WiFi"
       }
     }
   }

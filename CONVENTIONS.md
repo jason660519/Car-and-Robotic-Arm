@@ -123,7 +123,7 @@ assets/assembly/003_Car_Chassis_Bottom_Wiring.jpg
 - `NNN` is a three-digit inventory number.
 - Once assigned, a number is never reused, reordered, or recycled.
 - The numbering sequence is global across `assets/inventory/` and `assets/assembly/`.
-- The current highest number is `100`. Number `048` is intentionally unused. The next photo starts at `101`.
+- The current highest number is `102`. Number `048` is intentionally unused. The next photo starts at `103`.
 
 Title case is intentional here. The number is part of the identity, and these filenames are easier
 to browse visually than kebab case. This is the only repository-wide exception to the standard naming style.
