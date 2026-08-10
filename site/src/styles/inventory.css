@@ -188,6 +188,12 @@
             box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), var(--shadow-glow);
         }
 
+        /* JS 搜尋過濾時隱藏卡片；必須覆蓋 .module-card 的 display:flex，
+           否則瀏覽器默認 [hidden]{display:none} 會被 author style 蓋掉，搜尋會失效 */
+        .module-card[hidden] {
+            display: none !important;
+        }
+
         .card-image-wrap {
             position: relative;
             width: 100%;

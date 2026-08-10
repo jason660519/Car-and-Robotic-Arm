@@ -73,6 +73,40 @@ covers how to reach it:
 | **VNC** | The graphical desktop over the local network. |
 | **[Deskflow](docs/setup/deskflow-macos-raspberrypi.md)** | Sharing one keyboard and mouse across a Mac and a Pi on the same desk. |
 
+### SSH Quick Reference (this build)
+
+| Parameter | Value |
+|---|---|
+| Username | `dannypi` |
+| mDNS hostname | `danny-raspberrypi5-8gram-225gssd.local` |
+| Current IP | `192.168.1.27` — DHCP assigned, can change; prefer the hostname |
+
+Set up passwordless login once — run these **on the Mac** (enter the Pi password when prompted):
+
+```bash
+ssh-copy-id dannypi@danny-raspberrypi5-8gram-225gssd.local
+
+cat >> ~/.ssh/config <<'EOF'
+
+Host carpi
+    HostName danny-raspberrypi5-8gram-225gssd.local
+    User dannypi
+EOF
+```
+
+After that, `ssh carpi` connects directly:
+
+```bash
+ssh carpi 'whoami && hostname -I'
+```
+
+Power health checks — run on the Pi (e.g. via `ssh carpi`):
+
+```bash
+vcgencmd get_throttled                # 0x0 = healthy; non-zero bits mean past/active undervoltage or throttling
+sudo vcgencmd pmic_read_adc EXT5V_V   # expect >= 4.8V when fed by the battery pack
+```
+
 Read the safety section before running anything remotely: the motor and servo scripts assume an
 operator standing within reach of the main power switch.
 
