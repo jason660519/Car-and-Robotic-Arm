@@ -598,6 +598,25 @@
             font-family: 'Fira Code', monospace;
         }
 
+        .pinout-image-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .pinout-image-container img {
+            width: 100%;
+            height: auto;
+            max-height: 600px;
+            object-fit: contain;
+        }
+
         .code-block {
             background: #070a12;
             border: 1px solid var(--border-color);

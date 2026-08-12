@@ -1499,6 +1499,16 @@
             "val": "Analog Depth Sensor (平行導線阻抗測量)"
           }
         ],
+        "raspberryPiPinoutGuide": {
+          "title": "樹莓派 5 GPIO 排針圖",
+          "image": "assets/reference/raspberry-pi-5/gpio-pinout-diagram.png",
+          "wiringTable": [
+            { "pin": "Pin 2", "gpio": "5V Power", "use": "HC-SR04 VCC" },
+            { "pin": "Pin 6", "gpio": "Ground (GND)", "use": "HC-SR04 GND" },
+            { "pin": "Pin 11", "gpio": "GPIO 17", "use": "HC-SR04 Trig" },
+            { "pin": "Pin 13", "gpio": "GPIO 27", "use": "HC-SR04 Echo（需分壓）" }
+          ]
+        },
         "raspberryPiWiring": [
           {
             "pin": "HC-SR04 VCC",
@@ -1568,6 +1578,16 @@
             "val": "Analog Depth Sensor (Resistive impedance measurement)"
           }
         ],
+        "raspberryPiPinoutGuide": {
+          "title": "Raspberry Pi 5 GPIO Pinout",
+          "image": "assets/reference/raspberry-pi-5/gpio-pinout-diagram.png",
+          "wiringTable": [
+            { "pin": "Pin 2", "gpio": "5V Power", "use": "HC-SR04 VCC" },
+            { "pin": "Pin 6", "gpio": "Ground (GND)", "use": "HC-SR04 GND" },
+            { "pin": "Pin 11", "gpio": "GPIO 17", "use": "HC-SR04 Trig" },
+            { "pin": "Pin 13", "gpio": "GPIO 27", "use": "HC-SR04 Echo (needs divider)" }
+          ]
+        },
         "raspberryPiWiring": [
           {
             "pin": "HC-SR04 VCC",

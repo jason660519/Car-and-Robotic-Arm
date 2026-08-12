@@ -81,6 +81,48 @@ const allHref = href(locale, 'inventory');
   </section>
 
   {
+    content.raspberryPiPinoutGuide && (
+      <section class="section-block">
+        <h2>{content.raspberryPiPinoutGuide.title}</h2>
+        {
+          content.raspberryPiPinoutGuide.image && (
+            <div class="pinout-image-container">
+              <Image 
+                src={asset(content.raspberryPiPinoutGuide.image)} 
+                alt="Raspberry Pi GPIO Pinout"
+                widths={[600, 1000]}
+                loading="lazy"
+              />
+            </div>
+          )
+        }
+        {
+          content.raspberryPiPinoutGuide.wiringTable && (
+            <table class="wiring-table">
+              <thead>
+                <tr>
+                  <th>Physical Pin</th>
+                  <th>GPIO Function</th>
+                  <th>HC-SR04 Use</th>
+                </tr>
+              </thead>
+              <tbody>
+                {content.raspberryPiPinoutGuide.wiringTable.map((row: any) => (
+                  <tr>
+                    <td>{row.pin}</td>
+                    <td>{row.gpio}</td>
+                    <td style="color: var(--text-highlight);">{row.use}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        }
+      </section>
+    )
+  }
+
+  {
     (
       [
         ['raspberryPiWiring', 'inventory.section.raspberryPi'],
