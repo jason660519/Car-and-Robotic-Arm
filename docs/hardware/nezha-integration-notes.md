@@ -18,8 +18,9 @@ This note is intended to separate:
 | Driver board | NeZha bus driver board |
 | Wheel motors | Connected to the four motor ports on the driver board |
 | Driver board to Raspberry Pi communication | I2C |
+| **Raspberry Pi Pins Used** | **Pin 3, Pin 4, Pin 5, Pin 6** |
 | Raspberry Pi I2C pins | `Pin 3` = `SDA`, `Pin 5` = `SCL` |
-| Raspberry Pi power input from driver board | `5V` to `Pin 2` or `Pin 4`, and `GND` to any `GND` pin |
+| Raspberry Pi power input from driver board | `Pin 4` (5V), `Pin 6` (GND) |
 
 ## Verified Facts
 
@@ -27,12 +28,23 @@ The following items were directly observed or measured on the real device:
 
 ### 1. Raspberry Pi Pin Usage
 
+**Wiring Configuration (This Build):**
+
+| Raspberry Pi Pin | BCM GPIO | NeZha Connection | Purpose |
+|---|---|---|---|
+| Pin 3 | GPIO 2 | SDA | I2C data line (to driver board) |
+| Pin 4 | 5V | Power | 5V power (from driver board) |
+| Pin 5 | GPIO 3 | SCL | I2C clock line (to driver board) |
+| Pin 6 | GND | Ground | Ground reference (from driver board) |
+
+**Key Notes:**
 - `Pin 3` is `GPIO 2 (SDA)` and is used for I2C data.
 - `Pin 5` is `GPIO 3 (SCL)` and is used for I2C clock.
-- `Pin 2` and `Pin 4` are Raspberry Pi `5V` power pins.
-- `Pin 1` and `Pin 17` are Raspberry Pi `3.3V` power pins.
+- `Pin 4` is `5V Power` — power supplied by the driver board.
+- `Pin 6` is `GND` — ground reference from the driver board.
 - Therefore:
-  - use `Pin 2` or `Pin 4` if an external board is providing `5V` power to the Raspberry Pi
+  - use `Pin 4` (not Pin 2) for the `5V` power input in this configuration
+  - use `Pin 6` for ground reference
   - never connect `5V` power to `Pin 1`, `Pin 17`, or regular GPIO signal pins
 
 ### 2. I2C Detection Result
@@ -86,11 +98,15 @@ Conclusion:
 
 Based on the current setup and measurements:
 
-1. Keep the Raspberry Pi power input on `Pin 2` or `Pin 4` when receiving `5V` from the driver board.
-2. Keep `SDA` on `Pin 3` and `SCL` on `Pin 5` for I2C communication.
-3. Re-check `EXT5V_V` after the battery has been in use for a while.
-4. If voltage trends downward toward `4.63V`, save work and shut down cleanly.
-5. Before writing motor-control Python code, identify the driver board's I2C command format or official SDK.
+1. **Keep the current wiring configuration:**
+   - `Pin 3` (GPIO 2 / SDA) to NeZha SDA
+   - `Pin 4` (5V) to NeZha 5V Power
+   - `Pin 5` (GPIO 3 / SCL) to NeZha SCL
+   - `Pin 6` (GND) to NeZha GND
+2. Re-check `EXT5V_V` after the battery has been in use for a while.
+3. If voltage trends downward toward `4.63V`, save work and shut down cleanly.
+4. Before writing motor-control Python code, identify the driver board's I2C command format or official SDK.
+5. **Do not connect additional I2C devices to Pin 3 and Pin 5** without checking for address conflicts (NeZha uses `0x40`).
 
 ## Important Clarification
 

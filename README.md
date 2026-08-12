@@ -50,6 +50,17 @@ channels, the onboard LEDs, and optional encoder inputs.
 | Robotic arm | Desktop-class 3-DOF arm |
 | Battery | HXS 18650 11.1V 1200mAh |
 
+## Wiring: NeZha to Raspberry Pi 5 (Verified)
+
+| Raspberry Pi Pin | BCM GPIO | NeZha Signal | Purpose |
+|---|---|---|---|
+| Pin 3 | GPIO 2 | SDA | I2C data |
+| Pin 4 | Power | 5V | Power supply |
+| Pin 5 | GPIO 3 | SCL | I2C clock |
+| Pin 6 | Ground | GND | Ground reference |
+
+For complete wiring notes, see [docs/hardware/nezha-integration-notes.md](docs/hardware/nezha-integration-notes.md).
+
 ## Quick Start
 
 Run the examples in order:
