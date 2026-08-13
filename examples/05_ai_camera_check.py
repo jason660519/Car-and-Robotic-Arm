@@ -37,7 +37,9 @@ from pathlib import Path
 
 CAMERA_TOOLS = ("rpicam-hello", "libcamera-hello")
 IMX500_NET_DIR = Path("/usr/share/imx500-models")
-IMX500_PP_DIR = Path("/usr/share/rpicam-apps/imx500")
+# The postprocess package installs json configs here (Debian trixie / rpicam-apps 1.12):
+IMX500_ASSET_DIRS = (Path("/usr/share/rpi-camera-assets"), Path("/usr/share/rpicam-apps/imx500"))
+IMX500_PP_LIB = Path("/usr/lib/aarch64-linux-gnu/rpicam-apps-postproc/imx500-postproc.so")
 PHOTO_PATH = Path("/tmp/ai-camera-check.jpg")
 
 failures: list[str] = []
@@ -115,11 +117,13 @@ def check_inference() -> None:
     the package is missing we print the install command instead of failing the
     camera itself.
     """
-    json_files = sorted(IMX500_PP_DIR.glob("*.json")) if IMX500_PP_DIR.is_dir() else []
-    libs = list(Path("/usr/lib").rglob("*imx500_postprocess*")) if IMX500_PP_DIR.is_dir() else []
-    libs += list(Path("/usr/lib").rglob("libimx500_postprocess*"))
+    json_files: list[Path] = []
+    for d in IMX500_ASSET_DIRS:
+        if d.is_dir():
+            json_files += sorted(d.glob("*.json"))
+    lib_ok = IMX500_PP_LIB.exists()
 
-    if not json_files or not libs:
+    if not json_files or not lib_ok:
         print("[INFO] IMX500 on-sensor inference needs the postprocess package:")
         print("       sudo apt install rpicam-apps-imx500-postprocess")
         print("       Then reboot once and re-run with --inference.")
@@ -130,18 +134,30 @@ def check_inference() -> None:
         print("[INFO] rpicam-hello not found — cannot run the inference pass.")
         return
 
-    pp_file = json_files[0]
-    print(f"[INFO] running a 5 s inference pass: {tool} --post-process-file {pp_file}")
+    # Prefer an object-detection config; avoid face/pose demos that need extra
+    # models or OpenCV pipelines not relevant here.
+    def _prefer(f: Path) -> tuple[int, str]:
+        name = f.name.lower()
+        score = 0
+        for keyword in ("mobilenet", "ssd", "object_detection", "efficientdet"):
+            if keyword in name:
+                score += 1
+        return (score, name)
+
+    pp_file = max(json_files, key=_prefer)
+    print(f"[INFO] running an inference pass ({IMX500_PP_LIB.name}): {tool} "
+          f"--post-process-file {pp_file}")
+    print("       First run uploads the network firmware to the IMX500 and can take a few minutes.")
     try:
         result = subprocess.run(
-            [tool, "--post-process-file", str(pp_file), "--timeout", "5000"],
+            [tool, "--post-process-file", str(pp_file), "--timeout", "120000"],
             capture_output=True,
             text=True,
-            timeout=40,
+            timeout=300,
             check=False,
         )
     except subprocess.TimeoutExpired:
-        check("inference pass", False, "timed out after 40 s")
+        check("inference pass", False, "timed out after 300 s")
         return
 
     combined = (result.stdout + result.stderr).lower()
@@ -149,7 +165,7 @@ def check_inference() -> None:
     check(
         "inference pass",
         not crashed,
-        f"exit {result.returncode}" if result.returncode else "rpicam-hello ran for 5 s",
+        f"exit {result.returncode}" if result.returncode else "rpicam-hello ran for 120 s",
     )
 
 
