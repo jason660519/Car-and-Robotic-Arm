@@ -37,7 +37,7 @@ THROTTLE_BITS: dict[int, tuple[str, str]] = {
 
 
 def vcgencmd(*args: str) -> str:
-    out = subprocess.run(["vcgencmd", *args], capture_output=True, text=True, timeout=10)
+    out = subprocess.run(["vcgencmd", *args], capture_output=True, text=True, timeout=10, check=False)
     return out.stdout.strip()
 
 

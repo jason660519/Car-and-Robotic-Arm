@@ -36,7 +36,7 @@ SPEED_OF_SOUND = 34300.0  # cm/s at ~20°C
 
 def measure_once(timeout_s: float = 0.5) -> float | None:
     """Send one TRIG pulse and measure the ECHO pulse width; return cm or None on timeout."""
-    import RPi.GPIO as GPIO
+    from RPi import GPIO
 
     GPIO.output(TRIG_PIN, GPIO.LOW)
     time.sleep(0.06)  # ensure the line is settled low
@@ -65,7 +65,7 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=0.5, help="echo timeout in seconds")
     args = parser.parse_args()
 
-    import RPi.GPIO as GPIO
+    from RPi import GPIO
 
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(TRIG_PIN, GPIO.OUT, initial=GPIO.LOW)

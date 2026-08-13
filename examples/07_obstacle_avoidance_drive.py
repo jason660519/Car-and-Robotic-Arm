@@ -35,7 +35,7 @@ SPIN_S = 1.2  # seconds of spin when an obstacle is detected
 
 def measure_once(timeout_s: float = 0.5) -> float | None:
     """One TRIG/ECHO cycle; returns distance in cm or None on timeout."""
-    import RPi.GPIO as GPIO
+    from RPi import GPIO
 
     GPIO.output(TRIG_PIN, GPIO.LOW)
     time.sleep(0.06)
@@ -70,7 +70,7 @@ def main() -> int:
             print("Lift the car (or pass --ground) before running this test.")
             return 1
 
-    import RPi.GPIO as GPIO
+    from RPi import GPIO
 
     car = None
     if not args.dry_run:
