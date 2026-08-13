@@ -15,7 +15,9 @@ over I2C. Bad assumptions can move hardware unexpectedly, damage components, or 
 1. **`vendor/` is read-only.** If vendor code needs changes, copy it into `src/` or `scripts/`.
 2. **Do not guess motor behavior.** Use
    [docs/hardware/nezha-i2c-protocol.md](docs/hardware/nezha-i2c-protocol.md) as the protocol source.
-3. **Do not run motor-moving programs on behalf of the user.** Provide code and instructions instead.
+3. **Motor-moving programs may only run when a person is physically beside the robot and can cut
+   power instantly.** Over SSH, that means the operator must be at the robot; lift the wheels or
+   secure the chassis before any motor/servo test. Otherwise, provide code and instructions instead.
 4. **Do not commit or push unless the user explicitly asks.**
 5. Follow [docs/setup/raspberry-pi-first-run.md](docs/setup/raspberry-pi-first-run.md) for the verified
    hardware bring-up sequence.

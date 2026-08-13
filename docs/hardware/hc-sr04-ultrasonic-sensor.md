@@ -22,6 +22,24 @@ The HC-SR04 is connected to the Raspberry Pi 5 using **GPIO pins** (not I2C). Th
 | **TRIG** | Pin 11 | GPIO 17 | 3.3V (output) | Pulse trigger (from Pi to sensor) |
 | **ECHO** | Pin 13 | GPIO 27 | 5V (input) | Echo pulse (from sensor to Pi) |
 
+### ⚠️ Alternative Wiring for This Build (NeZha I2C in Use)
+
+In this project, the NeZha driver board already occupies **Pin 3 (GPIO 2 / SDA), Pin 4 (5V), Pin 5 (GPIO 3 / SCL), and Pin 6 (GND)** for I2C communication and power (see [nezha-integration-notes.md](nezha-integration-notes.md)). **Do not reuse Pin 4 or Pin 6** for the HC-SR04.
+
+When the NeZha board is wired, use this alternative connection instead — only the **GND** moves (Pin 6 → Pin 9); TRIG/ECHO keep the same BCM GPIOs, so **no code changes are needed**:
+
+| HC-SR04 Pin | Raspberry Pi Pin | BCM GPIO | Voltage | Purpose |
+|---|---|---|---|---|
+| **VCC** | Pin 2 | Power | 5V | Power supply (single wire from top-right) |
+| **GND** | Pin 9 | Ground | 0V | Ground reference |
+| **TRIG** | Pin 11 | GPIO 17 | 3.3V (output) | Pulse trigger (from Pi to sensor) |
+| **ECHO** | Pin 13 | GPIO 27 | 5V (input) | Echo pulse (from sensor to Pi) |
+
+- **GND, TRIG, ECHO sit together on the left column as consecutive pins 9, 11, 13**; only the 5V line is pulled separately from Pin 2.
+- The Echo voltage divider (below) is unchanged, except its `1kΩ → GND` leg connects to the same HC-SR04 GND — use Pin 9 in the alternative wiring.
+- `TRIG_PIN = 17` and `ECHO_PIN = 27` in the Python code stay the same.
+- The pinout diagram in the next section still shows the default GND on Pin 6; when NeZha occupies Pin 6, use Pin 9 for HC-SR04 GND.
+
 ## Critical: Voltage Level Shifting for Echo Pin
 
 ⚠️ **The HC-SR04 ECHO pin outputs a 5V pulse, but Raspberry Pi GPIO pins are 3.3V only.**

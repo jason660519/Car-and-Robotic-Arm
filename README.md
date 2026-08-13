@@ -20,6 +20,8 @@ A Raspberry Pi 5 smart car project with real hardware notes, verified wiring, an
 | I2C communication | Verified at address `0x40` |
 | Motor mapping | Verified and written back into `src/carbot/config.py` |
 | Driving test | First low-speed ground run passed |
+| AI Camera (IMX500) | Detected and still capture verified (2026-08) |
+| Obstacle sensor (HC-SR04) | Wiring verified, distance readings OK (2026-08) |
 | Robotic arm | Still evolving because of damaged parts and compatibility tradeoffs |
 
 ## Start Here
@@ -30,10 +32,15 @@ A Raspberry Pi 5 smart car project with real hardware notes, verified wiring, an
 
 ```bash
 uv sync
-uv run python examples/01_i2c_probe.py
-uv run python examples/02_motor_check.py
-uv run python examples/03_drive.py
-uv run python examples/04_servo_check.py
+uv run python examples/01_i2c_probe.py              # I2C link to the NeZha board — no moving parts
+uv run python examples/02_motor_check.py            # ⚠️ lift the car; operator beside it
+uv run python examples/03_drive.py                  # ⚠️ low-speed ground run; operator beside it
+uv run python examples/04_servo_check.py            # ⚠️ arm servos; operator beside it
+python3 examples/05_ai_camera_check.py --photo      # AI Camera (IMX500) — system interpreter
+python3 examples/06_ultrasonic_avoidance.py         # HC-SR04 obstacle detector — no moving parts
+PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py --dry-run  # sensor only first
+PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py            # ⚠️ avoidance run, operator beside it
+python3 examples/08_battery_check.py                # battery / power health — no moving parts
 ```
 
 The chassis and arm are controlled by the **Yourfun NeZha bus driver board**. A Raspberry Pi 5
@@ -63,13 +70,35 @@ For complete wiring notes, see [docs/hardware/nezha-integration-notes.md](docs/h
 
 ## Quick Start
 
-Run the examples in order:
+Run the examples in order. Scripts `01` and `05`-`06` are safe to run over SSH
+(no motors or servos move); `02`-`04` require an operator standing beside the robot who can cut
+main power instantly.
 
-1. `01_i2c_probe.py` checks communication without moving the hardware.
-2. `02_motor_check.py` maps each wheel to `M1`-`M4` and confirms direction.
-3. `03_drive.py` runs a minimal differential-drive movement test.
-4. `04_servo_check.py` interactively checks arm servos `S2`-`S4`, one channel at a time, while
-   the operator remains beside the robot.
+| # | Script | What it checks | Run with | Safety |
+|---|---|---|---|---|
+| 01 | `examples/01_i2c_probe.py` | I2C link to the NeZha driver board at `0x40`, reset command, head LED path | `uv run python examples/01_i2c_probe.py` | ✅ No moving parts |
+| 02 | `examples/02_motor_check.py` | Wheel → motor port mapping (`M1`-`M4`) and forward/reverse direction | `uv run python examples/02_motor_check.py` | ⚠️ Lift the car, operator beside it |
+| 03 | `examples/03_drive.py` | Minimal differential-drive movement on the ground | `uv run python examples/03_drive.py` | ⚠️ Low speed, operator beside it |
+| 04 | `examples/04_servo_check.py` | Arm servos `S2`-`S4`, one channel at a time | `uv run python examples/04_servo_check.py` | ⚠️ Operator beside it |
+| 05 | `examples/05_ai_camera_check.py` | AI Camera (IMX500) detected, picamera2 capture, models listed; `--photo` saves a still, `--inference` runs a 5 s on-sensor pass | `python3 examples/05_ai_camera_check.py --photo` | ✅ No moving parts (use system interpreter, not `uv`) |
+| 06 | `examples/06_ultrasonic_avoidance.py` | HC-SR04 obstacle detector: distance readings + obstacle warning; `--trials`/`--threshold` to tune | `python3 examples/06_ultrasonic_avoidance.py` | ✅ No moving parts |
+| 07 | `examples/07_obstacle_avoidance_drive.py` | Closed-loop avoidance: HC-SR04 drives the car (forward / stop + spin); `--dry-run` tests the sensor loop only | `PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py` | ⚠️ Operator beside it; lifted by default, `--ground` for a floor run |
+| 08 | `examples/08_battery_check.py` | Battery / power health: `EXT5V_V`, `get_throttled` bits, temperature | `python3 examples/08_battery_check.py` | ✅ No moving parts |
+
+Expected results (verified on this build, 2026-08):
+
+- `01` prints `✓ Probe finished successfully`.
+- `02` runs each motor forward then reverse for 1 s; all four wheels move, matching
+  `src/carbot/config.py` (`M1`=rear-left, `M2`=rear-right, `M3`=front-right, `M4`=front-left,
+  `INVERTED_MOTORS={2, 3}`).
+- `03` performs a short low-speed differential-drive run.
+- `04` sweeps each arm servo through a small range with the operator watching.
+- `05` prints `All checks passed` and (with `--photo`) writes `/tmp/ai-camera-check.jpg`.
+- `06` prints an average distance in cm and warns when it drops below the obstacle threshold.
+- `07` prints one `clear`/`OBSTACLE` decision per loop; `--dry-run` never drives motors.
+- `08` prints `✓ Power health OK.` when `EXT5V_V >= 4.8 V` with no current throttle bits
+  (a non-zero `get_throttled` with current bits set means low battery / power problems —
+  fix the power supply before motor tests).
 
 ## Working From a Mac
 

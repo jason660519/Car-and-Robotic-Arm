@@ -5,12 +5,16 @@ Run this ON the Raspberry Pi, not on the Mac:
 
     python3 examples/05_ai_camera_check.py           # detection only
     python3 examples/05_ai_camera_check.py --photo   # also capture a test still
+    python3 examples/05_ai_camera_check.py --inference  # also run a 5 s on-sensor inference pass
 
 Checks performed:
 1. A libcamera camera tool (`rpicam-hello` / `libcamera-hello`) is installed
 2. The tool lists at least one camera and an IMX500 sensor is among them
 3. IMX500 pre-trained model files are present (informational)
 4. Picamera2 can open the camera and capture a still image (only with --photo)
+5. On-sensor inference runs (only with --inference; needs the
+   `rpicam-apps-imx500-postprocess` apt package — the script prints the install
+   command if it is missing, models alone are not enough)
 
 Exit code 0 = every hard check passed.
 
@@ -32,7 +36,8 @@ import time
 from pathlib import Path
 
 CAMERA_TOOLS = ("rpicam-hello", "libcamera-hello")
-IMX500_NET_DIR = Path("/usr/share/rpicam-apps/imx500")
+IMX500_NET_DIR = Path("/usr/share/imx500-models")
+IMX500_PP_DIR = Path("/usr/share/rpicam-apps/imx500")
 PHOTO_PATH = Path("/tmp/ai-camera-check.jpg")
 
 failures: list[str] = []
@@ -96,10 +101,56 @@ def check_model_files() -> None:
         print(f"[INFO] IMX500 model directory not found: {IMX500_NET_DIR}")
         print("       The camera still works; models are only needed for on-sensor inference.")
         return
-    files = sorted(IMX500_NET_DIR.iterdir())
+    files = sorted(IMX500_NET_DIR.glob("*.rpk"))
     print(f"[INFO] IMX500 models available: {len(files)} file(s) in {IMX500_NET_DIR}")
     for entry in files[:8]:
         print(f"       - {entry.name}")
+
+
+def check_inference() -> None:
+    """Try an on-sensor inference pass with rpicam-hello.
+
+    Requires the `rpicam-apps-imx500-postprocess` apt package (json config +
+    postprocess library). Models alone are not enough. Installs need sudo, so if
+    the package is missing we print the install command instead of failing the
+    camera itself.
+    """
+    json_files = sorted(IMX500_PP_DIR.glob("*.json")) if IMX500_PP_DIR.is_dir() else []
+    libs = list(Path("/usr/lib").rglob("*imx500_postprocess*")) if IMX500_PP_DIR.is_dir() else []
+    libs += list(Path("/usr/lib").rglob("libimx500_postprocess*"))
+
+    if not json_files or not libs:
+        print("[INFO] IMX500 on-sensor inference needs the postprocess package:")
+        print("       sudo apt install rpicam-apps-imx500-postprocess")
+        print("       Then reboot once and re-run with --inference.")
+        return
+
+    tool = shutil.which("rpicam-hello")
+    if tool is None:
+        print("[INFO] rpicam-hello not found — cannot run the inference pass.")
+        return
+
+    pp_file = json_files[0]
+    print(f"[INFO] running a 5 s inference pass: {tool} --post-process-file {pp_file}")
+    try:
+        result = subprocess.run(
+            [tool, "--post-process-file", str(pp_file), "--timeout", "5000"],
+            capture_output=True,
+            text=True,
+            timeout=40,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        check("inference pass", False, "timed out after 40 s")
+        return
+
+    combined = (result.stdout + result.stderr).lower()
+    crashed = result.returncode != 0 and "error" in combined
+    check(
+        "inference pass",
+        not crashed,
+        f"exit {result.returncode}" if result.returncode else "rpicam-hello ran for 5 s",
+    )
 
 
 def capture_still(picamera2_cls: type) -> None:
@@ -160,6 +211,11 @@ def main() -> int:
         action="store_true",
         help="capture a test still image to /tmp/ai-camera-check.jpg",
     )
+    parser.add_argument(
+        "--inference",
+        action="store_true",
+        help="run a 5 s on-sensor inference pass (needs rpicam-apps-imx500-postprocess)",
+    )
     args = parser.parse_args()
 
     print("Raspberry Pi AI Camera check")
@@ -167,6 +223,8 @@ def main() -> int:
     check_tool_and_camera()
     check_model_files()
     check_picamera2(args.photo)
+    if args.inference:
+        check_inference()
 
     print()
     if failures:
