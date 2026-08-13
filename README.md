@@ -43,9 +43,12 @@ PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py --dry-run  # sens
 PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py            # ⚠️ avoidance run, operator beside it
 python3 examples/08_battery_check.py                # battery / power health — no moving parts
 PYTHONPATH=src python3 examples/09_room_scan.py     # ⚠️ spin-scan the room (HC-SR04), operator beside it
-# Do not run examples/10 or 11 yet: known spin timing/angle defects are documented below.
+PYTHONPATH=src python3 examples/10_calibrate_motion.py  # ⚠️ drive/spin calibration, operator beside it
+PYTHONPATH=src python3 examples/11_explore_mapping.py   # ⚠️ M3 exploration loop, operator beside it
 PYTHONPATH=src python3 examples/12_apriltag_pose.py  # static AprilTag pose; no motors
 PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.65  # fixed-wall room pose
+PYTHONPATH=src python3 examples/14_preflight_check.py  # no-motion preflight — run before any motion test
+PYTHONPATH=src python3 examples/15_gate_b_pose_log.py --anchor-height-cm 14.65  # Gate B pose log (static)
 ```
 
 The chassis and arm are controlled by the **Yourfun NeZha bus driver board**. A Raspberry Pi 5
@@ -75,9 +78,9 @@ For complete wiring notes, see [docs/hardware/nezha-integration-notes.md](docs/h
 
 ## Quick Start
 
-Run the examples in order. Scripts `01`, `05`-`06`, `08`, and `12`-`13` are safe to run over SSH
-(no motors or servos move); motor-moving scripts require an operator standing beside the robot who
-can cut main power instantly. Scripts `10` and `11` currently have known defects and must not run.
+Run the examples in order. Scripts `01`, `05`-`06`, `08`, and `12`-`15` are safe to run over SSH
+(no motors or servos move); motor-moving scripts (`02`-`04`, `07`, `09`-`11`) require an operator
+standing beside the robot who can cut main power instantly. Run `14` before any motion test.
 
 | # | Script | What it checks | Run with | Safety |
 |---|---|---|---|---|
@@ -90,10 +93,12 @@ can cut main power instantly. Scripts `10` and `11` currently have known defects
 | 07 | `examples/07_obstacle_avoidance_drive.py` | Closed-loop avoidance: HC-SR04 drives the car (forward / stop + spin); `--dry-run` tests the sensor loop only | `PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py` | ⚠️ Operator beside it; lifted by default, `--ground` for a floor run |
 | 08 | `examples/08_battery_check.py` | Battery / power health: `EXT5V_V`, `get_throttled` bits, temperature | `python3 examples/08_battery_check.py` | ✅ No moving parts |
 | 09 | `examples/09_room_scan.py` | Room spin-scan (M1): logs the HC-SR04 polar distance profile while the car spins; one frame of the mapping loop | `PYTHONPATH=src python3 examples/09_room_scan.py` | ⚠️ Operator beside it (lifted or floor) |
-| 10 | `examples/10_calibrate_motion.py` | Motion calibration prototype | Do not run until its ignored `--spin-seconds` defect is fixed | ⛔ Known defect |
-| 11 | `examples/11_explore_mapping.py` | M3 exploration prototype | Do not run until its speed/timing and angle-conversion defects are fixed | ⛔ Known defects |
+| 10 | `examples/10_calibrate_motion.py` | Drive-speed and spin calibration with the HC-SR04; honours `--spin-seconds`/`--spin-speed`; confirms before constructing `Car()` | `PYTHONPATH=src python3 examples/10_calibrate_motion.py` | ⚠️ Operator beside it (lifted or floor) |
+| 11 | `examples/11_explore_mapping.py` | M3 exploration loop: spin-scan -> ICP -> grid -> small step; `--spin-speed`/`--drive-speed` separated | `PYTHONPATH=src python3 examples/11_explore_mapping.py` | ⚠️ Operator beside it (lifted or floor) |
 | 12 | `examples/12_apriltag_pose.py` | Static AprilTag 36h11 metric pose and undistorted image | `PYTHONPATH=src python3 examples/12_apriltag_pose.py` | ✅ No moving parts |
 | 13 | `examples/13_room_pose.py` | Five-frame ChArUco + AprilTag fixed-wall room pose with outlier rejection and JSON output | `PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.65` | ✅ No moving parts |
+| 14 | `examples/14_preflight_check.py` | No-motion preflight: camera, I2C, HC-SR04, power, encoders — run before any motion test | `PYTHONPATH=src python3 examples/14_preflight_check.py` | ✅ No moving parts |
+| 15 | `examples/15_gate_b_pose_log.py` | Gate B manual-reposition pose log: per-location repeatability + displacement vs tape | `PYTHONPATH=src python3 examples/15_gate_b_pose_log.py --anchor-height-cm 14.65` | ✅ No moving parts (operator moves the car by hand) |
 
 Expected results (verified on this build, 2026-08):
 

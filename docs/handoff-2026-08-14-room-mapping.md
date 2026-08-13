@@ -3,9 +3,14 @@
 > **Later same-day update:** camera calibration and a fixed-wall AprilTag + ChArUco room anchor
 > are now verified. Read
 > [`docs/progress/2026-08-14-vision-room-anchor.md`](progress/2026-08-14-vision-room-anchor.md)
-> before continuing. Do **not** run `examples/10_calibrate_motion.py` or
-> `examples/11_explore_mapping.py` until the spin timing and angle-conversion defects documented
-> there are fixed.
+> before continuing.
+>
+> **Gate A status (2026-08-14):** the spin timing and angle-conversion defects below are **fixed**
+> (commits `3359cd6`..`efb5347`); see
+> [`docs/progress/2026-08-14-gate-a-software-static-camera.md`](progress/2026-08-14-gate-a-software-static-camera.md)
+> before running `examples/10_calibrate_motion.py` / `examples/11_explore_mapping.py`. Both
+> scripts now confirm with the operator before constructing `Car()`; run
+> `examples/14_preflight_check.py` before any motion test.
 
 This document is a handoff for the next engineer continuing this project. It summarises what is
 built, what is verified, what failed, and where the open decisions are. Read
