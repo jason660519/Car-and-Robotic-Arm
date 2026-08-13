@@ -88,3 +88,47 @@ chassis secured**. This matches the existing safety section in `docs/setup/mac-t
 - `examples/04_servo_check.py` arm servos (operator beside the car)
 - Recharge/replace the battery and re-run `examples/08_battery_check.py` until `✓ Power health OK`
 - Optionally wire IMX500 detections into the avoidance loop (vision + ultrasonic fusion)
+
+## Addendum: Room-Mapping Prototype (M1/M2) — Key Findings
+
+Direction change: after the arm servos were removed (one motor failed), the project pivoted to
+**vision + ultrasonic fusion for interior mapping** (target customer: interior designers; the
+robot is placed in a room and maps it, turning around obstacles on its own).
+
+### M1 — Spin Scan (verified)
+
+- Script: robot spins in place while the HC-SR04 logs distance vs. time (polar profile).
+- Verified: one full spin ≈ **8.2 s** at speed 150 (repeated far peaks 8.0–8.2 s apart).
+- A 20 s scan yields ~93 readings; range up to 809 cm was observed down a corridor
+  (beyond the HC-SR04 400 cm spec — treat as "far/open").
+- Bathroom middle scan: 2.1 m long side + a 17 cm near obstacle (fixture).
+- Conclusion: a single-point ultrasonic sensor spinning in place CAN capture a room's shape.
+
+### M2 — Incremental Mapping (scan matching + occupancy grid)
+
+- Implemented self-contained 2D point-to-point ICP (numpy) + 10 cm occupancy grid
+  (Mac-side prototype, scripts in `scratch/` after testing).
+- Stitched the three scans (bath / doorway-corridor / original position) with 93–97%
+  reported inliers, but **data-level verification exposed the result was WRONG**:
+  the three robot positions collapsed to within 4 cm of each other (real separation
+  should be metres).
+
+### Root Cause (verified quantitatively)
+
+- Pure multi-angle ICP on the bathroom scans is **severely multi-modal**: 585 initial
+  guesses produced 351 distinct solutions; the largest convergence basin captured only
+  1% of guesses. Rectangular-room symmetry + little overlap between non-adjacent scans
+  make ICP ambiguous without an initial pose.
+- Door/wall-gap feature detection DOES work: the doorway-corridor scan showed a clear
+  gap (365–400 cm) at 102–115°; bathroom gaps at 32–53°; the original position had a
+  19°-wide gap at 197°.
+
+### Chosen Direction (software route)
+
+- M3 design: **incremental movement** (<50 cm / <30° steps) so ICP works in its
+  reliable local-convergence regime, door/gap features as global anchors, and a
+  loop-closure check (return to start should re-match the first frame).
+- Odometry is still open-loop (no encoders); drift will accumulate — the prototype's
+  goal is to measure where that becomes unacceptable.
+- Remaining calibration (needs the car, operator beside it): forward speed in cm/s at
+  a given speed setting; spin rate already known (360°/8.2 s @ 150).
