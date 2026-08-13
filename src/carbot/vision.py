@@ -539,6 +539,17 @@ def detect_apriltag_poses(
     return sorted(poses, key=lambda pose: pose.tag_id)
 
 
+def anchor_tags(tags: Sequence[AprilTagPose], anchor_id: int) -> list[AprilTagPose]:
+    """All detections of ``anchor_id``, in detection order.
+
+    Callers must treat ``len(result) == 0`` as "anchor not visible" and
+    ``len(result) > 1`` as a duplicate-anchor failure — never silently pick
+    the first detection, because a duplicated wall tag would otherwise
+    produce a plausible-but-wrong pose.
+    """
+    return [tag for tag in tags if tag.tag_id == anchor_id]
+
+
 def annotate_apriltag_poses(
     image: np.ndarray,
     poses: list[AprilTagPose],

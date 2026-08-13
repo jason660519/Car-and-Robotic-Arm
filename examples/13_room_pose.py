@@ -24,6 +24,7 @@ from carbot.vision import (
     DEFAULT_TAG_SIZE_M,
     CameraWorldPose,
     aggregate_camera_world_poses,
+    anchor_tags,
     annotate_apriltag_poses,
     annotate_charuco_board_pose,
     camera_world_pose_from_wall_board_and_tag,
@@ -160,14 +161,25 @@ def main() -> int:
             records.append({"sample": sample_index, "path": str(image_path), "status": "unreadable"})
             continue
         tags = detect_apriltag_poses(image, calibration, tag_size_m)
-        tag = next((pose for pose in tags if pose.tag_id == args.anchor_id), None)
+        anchor_list = anchor_tags(tags, args.anchor_id)
         board = detect_charuco_board_pose(image, calibration, geometry)
-        if tag is None or board is None:
-            missing = "anchor" if tag is None else "charuco-board"
+        if len(anchor_list) > 1:
+            records.append(
+                {
+                    "sample": sample_index,
+                    "path": str(image_path),
+                    "status": "duplicate-anchor",
+                    "anchor_detections": len(anchor_list),
+                }
+            )
+            continue
+        if not anchor_list or board is None:
+            missing = "anchor" if not anchor_list else "charuco-board"
             records.append(
                 {"sample": sample_index, "path": str(image_path), "status": f"missing-{missing}"}
             )
             continue
+        tag = anchor_list[0]
         if max(tag.reprojection_error_px, board.reprojection_error_px) > args.max_reprojection_px:
             records.append(
                 {

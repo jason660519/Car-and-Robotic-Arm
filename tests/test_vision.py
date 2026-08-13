@@ -15,6 +15,7 @@ from carbot.vision import (
     CameraWorldPose,
     CharucoBoardPose,
     aggregate_camera_world_poses,
+    anchor_tags,
     camera_world_pose_from_tag,
     camera_world_pose_from_wall_board_and_tag,
     detect_apriltag_poses,
@@ -215,3 +216,48 @@ def test_aggregate_camera_world_poses_rejects_outlier():
 
     assert inliers == [0, 1]
     assert np.allclose(aggregate.position_m, [0.601, 0.0005, 0.1005])
+
+
+def _tag_pose(tag_id: int, dist_m: float = 1.0) -> AprilTagPose:
+    return AprilTagPose(
+        tag_id=tag_id,
+        corners_px=np.zeros((4, 2)),
+        rotation_vector=np.zeros(3),
+        translation_m=np.asarray([0.0, 0.0, dist_m]),
+        reprojection_error_px=0.0,
+        yaw_deg=0.0,
+        pitch_deg=0.0,
+        roll_deg=0.0,
+    )
+
+
+def test_anchor_tags_filters_by_id_and_keeps_order():
+    tags = [_tag_pose(0, 0.5), _tag_pose(1, 0.7), _tag_pose(0, 0.9)]
+    hits = anchor_tags(tags, 0)
+    assert [tag.tag_id for tag in hits] == [0, 0]
+    assert [tag.range_m for tag in hits] == pytest.approx([0.5, 0.9])
+
+
+def test_anchor_tags_not_visible():
+    assert anchor_tags([_tag_pose(1), _tag_pose(2)], 0) == []
+    assert anchor_tags([], 0) == []
+
+
+def test_anchor_tags_duplicate_detection_is_visible_to_caller():
+    """Two detections of the anchor ID must be distinguishable from one."""
+    hits = anchor_tags([_tag_pose(0), _tag_pose(0)], 0)
+    assert len(hits) == 2  # examples/13_room_pose.py rejects this as duplicate-anchor
+
+
+def test_anchor_not_visible_in_synthetic_blank_image():
+    """A frame without the anchor yields zero detections (missing-anchor path)."""
+    calibration = CameraCalibration(
+        1000,
+        1000,
+        np.asarray([[900.0, 0.0, 500.0], [0.0, 900.0, 500.0], [0.0, 0.0, 1.0]]),
+        np.zeros(5),
+    )
+    image = np.full((1000, 1000), 255, dtype=np.uint8)
+    tags = detect_apriltag_poses(image, calibration, 0.070)
+    assert tags == []
+    assert anchor_tags(tags, 0) == []
