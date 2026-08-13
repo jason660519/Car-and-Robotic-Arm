@@ -29,6 +29,8 @@ from pathlib import Path
 
 import numpy as np
 
+from carbot.frames import scan_angle_rad
+
 DEFAULT_MAX_RANGE_CM = 400.0  # HC-SR04 spec limit; longer readings = "open/far"
 DEFAULT_CELL_CM = 10.0
 
@@ -49,13 +51,18 @@ def load_polar_scan(path: str | Path, max_range_cm: float = DEFAULT_MAX_RANGE_CM
             elapsed = float(r["elapsed_s"])
             dist = float(r["distance_cm"])
             spin360 = float(r["spin360_s"])
-            angle = (elapsed % spin360) / spin360 * 2.0 * math.pi
+            angle = scan_angle_rad(elapsed, spin360)
             rows.append((angle, min(dist, max_range_cm)))
     return np.asarray(rows, dtype=np.float64)
 
 
 def polar_to_points(scan: np.ndarray) -> np.ndarray:
-    """Nx2 [angle, dist] -> Nx2 [x, y] in the sensor frame (theta=0 -> +x)."""
+    """Nx2 [angle, dist] -> Nx2 [x, y] in the sensor frame.
+
+    The sensor frame convention is **angle=0 -> +y (sensor forward)**:
+    ``x = d*sin(angle)``, ``y = d*cos(angle)``. This matches the HC-SR04
+    spin-scan, where the sensor's forward axis is the odometry heading axis.
+    """
     ang = scan[:, 0]
     dist = scan[:, 1]
     return np.column_stack([dist * np.sin(ang), dist * np.cos(ang)])
