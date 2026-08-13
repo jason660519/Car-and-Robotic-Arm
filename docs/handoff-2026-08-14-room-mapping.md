@@ -1,5 +1,12 @@
 # Handoff — Room-Mapping Prototype (2026-08-14)
 
+> **Later same-day update:** camera calibration and a fixed-wall AprilTag + ChArUco room anchor
+> are now verified. Read
+> [`docs/progress/2026-08-14-vision-room-anchor.md`](progress/2026-08-14-vision-room-anchor.md)
+> before continuing. Do **not** run `examples/10_calibrate_motion.py` or
+> `examples/11_explore_mapping.py` until the spin timing and angle-conversion defects documented
+> there are fixed.
+
 This document is a handoff for the next engineer continuing this project. It summarises what is
 built, what is verified, what failed, and where the open decisions are. Read
 [`docs/progress/2026-08-14-sensors-and-ai-camera.md`](progress/2026-08-14-sensors-and-ai-camera.md)

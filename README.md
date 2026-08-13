@@ -20,8 +20,9 @@ A Raspberry Pi 5 smart car project with real hardware notes, verified wiring, an
 | I2C communication | Verified at address `0x40` |
 | Motor mapping | Verified and written back into `src/carbot/config.py` |
 | Driving test | First low-speed ground run passed |
-| AI Camera (IMX500) | Detected and still capture verified (2026-08) |
+| AI Camera (IMX500) | Intrinsics, undistortion, still capture, and fixed-wall room pose verified (2026-08) |
 | Obstacle sensor (HC-SR04) | Wiring verified, distance readings OK (2026-08) |
+| Room mapping | Vision anchor ready; autonomous exploration scripts require timing fixes before use |
 | Robotic arm | Still evolving because of damaged parts and compatibility tradeoffs |
 
 ## Start Here
@@ -42,8 +43,9 @@ PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py --dry-run  # sens
 PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py            # ⚠️ avoidance run, operator beside it
 python3 examples/08_battery_check.py                # battery / power health — no moving parts
 PYTHONPATH=src python3 examples/09_room_scan.py     # ⚠️ spin-scan the room (HC-SR04), operator beside it
-PYTHONPATH=src python3 examples/10_calibrate_motion.py  # ⚠️ calibrate fwd speed via ultrasonic
-PYTHONPATH=src python3 examples/11_explore_mapping.py --steps 8  # ⚠️ M3 exploration loop
+# Do not run examples/10 or 11 yet: known spin timing/angle defects are documented below.
+PYTHONPATH=src python3 examples/12_apriltag_pose.py  # static AprilTag pose; no motors
+PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.65  # fixed-wall room pose
 ```
 
 The chassis and arm are controlled by the **Yourfun NeZha bus driver board**. A Raspberry Pi 5
@@ -73,9 +75,9 @@ For complete wiring notes, see [docs/hardware/nezha-integration-notes.md](docs/h
 
 ## Quick Start
 
-Run the examples in order. Scripts `01` and `05`-`06` are safe to run over SSH
-(no motors or servos move); `02`-`04` require an operator standing beside the robot who can cut
-main power instantly.
+Run the examples in order. Scripts `01`, `05`-`06`, `08`, and `12`-`13` are safe to run over SSH
+(no motors or servos move); motor-moving scripts require an operator standing beside the robot who
+can cut main power instantly. Scripts `10` and `11` currently have known defects and must not run.
 
 | # | Script | What it checks | Run with | Safety |
 |---|---|---|---|---|
@@ -88,8 +90,10 @@ main power instantly.
 | 07 | `examples/07_obstacle_avoidance_drive.py` | Closed-loop avoidance: HC-SR04 drives the car (forward / stop + spin); `--dry-run` tests the sensor loop only | `PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py` | ⚠️ Operator beside it; lifted by default, `--ground` for a floor run |
 | 08 | `examples/08_battery_check.py` | Battery / power health: `EXT5V_V`, `get_throttled` bits, temperature | `python3 examples/08_battery_check.py` | ✅ No moving parts |
 | 09 | `examples/09_room_scan.py` | Room spin-scan (M1): logs the HC-SR04 polar distance profile while the car spins; one frame of the mapping loop | `PYTHONPATH=src python3 examples/09_room_scan.py` | ⚠️ Operator beside it (lifted or floor) |
-| 10 | `examples/10_calibrate_motion.py` | Calibrate forward speed (cm/s) with the HC-SR04; needs a flat board 20-60 cm ahead | `PYTHONPATH=src python3 examples/10_calibrate_motion.py` | ⚠️ Operator beside it, car on floor |
-| 11 | `examples/11_explore_mapping.py` | M3 exploration loop: spin-scan → ICP (gap-anchored) → occupancy grid → small step; crash detection stops on bad lock-in | `PYTHONPATH=src python3 examples/11_explore_mapping.py --steps 8` | ⚠️ Operator beside it |
+| 10 | `examples/10_calibrate_motion.py` | Motion calibration prototype | Do not run until its ignored `--spin-seconds` defect is fixed | ⛔ Known defect |
+| 11 | `examples/11_explore_mapping.py` | M3 exploration prototype | Do not run until its speed/timing and angle-conversion defects are fixed | ⛔ Known defects |
+| 12 | `examples/12_apriltag_pose.py` | Static AprilTag 36h11 metric pose and undistorted image | `PYTHONPATH=src python3 examples/12_apriltag_pose.py` | ✅ No moving parts |
+| 13 | `examples/13_room_pose.py` | Five-frame ChArUco + AprilTag fixed-wall room pose with outlier rejection and JSON output | `PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.65` | ✅ No moving parts |
 
 Expected results (verified on this build, 2026-08):
 
@@ -105,6 +109,11 @@ Expected results (verified on this build, 2026-08):
 - `08` prints `✓ Power health OK.` when `EXT5V_V >= 4.8 V` with no current throttle bits
   (a non-zero `get_throttled` with current bits set means low battery / power problems —
   fix the power supply before motor tests).
+- `12` detects AprilTag ID 0 using its measured 70 mm black square and writes annotated and
+  undistorted images under `/tmp`.
+- `13` requires the measured, fixed wall targets documented in
+  [`docs/progress/2026-08-14-vision-room-anchor.md`](docs/progress/2026-08-14-vision-room-anchor.md),
+  then writes `/tmp/room-pose.json` and `/tmp/room-pose.jpg`.
 
 ## Working From a Mac
 
