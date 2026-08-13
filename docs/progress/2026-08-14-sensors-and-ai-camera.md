@@ -132,3 +132,25 @@ robot is placed in a room and maps it, turning around obstacles on its own).
   goal is to measure where that becomes unacceptable.
 - Remaining calibration (needs the car, operator beside it): forward speed in cm/s at
   a given speed setting; spin rate already known (360°/8.2 s @ 150).
+
+## Addendum 2: M3 Autonomous-Exploration Prototype — Verified Limits
+
+Motion calibration (`examples/10_calibrate_motion.py`): ultrasonic-based forward-speed
+calibration is unstable (5.4 / 16.7 / -1.1 cm/s across reps) due to the HC-SR04 near-range
+blind zone and Mecanum side-slip. Conclusion: open-loop odometry is only good to an order of
+magnitude; use ~8 cm/s @ speed 200 as a rough value.
+
+M3 loop (`examples/11_explore_mapping.py`): spin scan -> ICP -> occupancy grid -> small step.
+
+| Version | Change | Reliable accumulation |
+|---|---|---|
+| v1 | 0.8 s steps, no-move ICP guess | ~4-8 cm/step, position never accumulated (car barely moved) |
+| v2 | 2.5 s steps, odometry initial guess | ~23 cm, then ICP collapsed to origin on step 5 |
+| v3 | gap-anchor heading + crash detection | ~50 cm, then x-drift; gap anchor never engaged (bathroom gaps >100 cm, not detected until step 8) |
+
+**Prototype verdict (quantified):** without wheel encoders / IMU, incremental ICP mapping in a
+small rectangular room is reliable to roughly **50 cm of travel**, then drift accumulates and
+scan matching can lock onto a wrong (high-inlier) solution. The bathroom yields few gap features
+(only the 2.1 m side), so door-anchoring cannot rescue heading drift there. Decision point for
+the next phase: encoder/IMU localization is required for reliable room-scale mapping; the
+software pipeline (ICP, occupancy grid, gap features, crash detection) is ready to consume it.
