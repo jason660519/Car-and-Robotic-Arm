@@ -12,6 +12,9 @@ dependencies = [
 vision = [
     "opencv-contrib-python-headless>=4.10",
 ]
+mapping = [
+    "pycolmap>=3.11",
+]
 
 [dependency-groups]
 dev = [

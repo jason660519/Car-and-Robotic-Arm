@@ -17,6 +17,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+mapping = [
+    { name = "pycolmap" },
+]
 vision = [
     { name = "opencv-contrib-python-headless" },
 ]
@@ -31,9 +34,10 @@ dev = [
 requires-dist = [
     { name = "numpy", specifier = ">=2.0" },
     { name = "opencv-contrib-python-headless", marker = "extra == 'vision'", specifier = ">=4.10" },
+    { name = "pycolmap", marker = "extra == 'mapping'", specifier = ">=3.11" },
     { name = "smbus2", specifier = ">=0.5.0" },
 ]
-provides-extras = ["vision"]
+provides-extras = ["vision", "mapping"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -253,6 +257,29 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
+]
+
+[[package]]
+name = "pycolmap"
+version = "4.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/b1/a7096a535d5946e2763c94b9941142ebc22d0f02f15e92008530874d4a4f/pycolmap-4.1.1-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:18e903f66d325df896f83c938f35af2a9eeafdf5680f374ad6d0eca830253aef", size = 20299444, upload-time = "2026-07-17T20:03:58.876Z" },
+    { url = "https://files.pythonhosted.org/packages/57/78/102e189b8892ec592fe902a6a1c90d4a49a4238caf743a211a37a638904b/pycolmap-4.1.1-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:91892863a4258f0f2b19b1bcf1a05711a6f4e6f265329056c5af1807d4ba5c78", size = 27815054, upload-time = "2026-07-17T20:04:01.399Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/e0/3c8cda988b17f87b45809022dcf21eafdc5d9a58a200713e9449c65680e7/pycolmap-4.1.1-cp311-cp311-win_amd64.whl", hash = "sha256:9ec76f535418a8dc37572009afb648a0409fadd8f7ea11433a1d96430c7a0ad5", size = 23445151, upload-time = "2026-07-17T20:04:03.822Z" },
+    { url = "https://files.pythonhosted.org/packages/d0/8d/5ed2df40234848df40dd68df0c74058f11af71362022cc2b7bb56848c1b8/pycolmap-4.1.1-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:3e2b00d210c0172db86feb9678ab21cae102417b5fa47360c4e7345ad8be61cb", size = 20366011, upload-time = "2026-07-17T20:04:06.18Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/ad/68693b725e33b27af363d8f1a017a3ab5114c3aae907903027c4431e115b/pycolmap-4.1.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:a445f9033b3db793f417fbeee6093b56e8b5da31bdba13f2259d1954bead5a4d", size = 27847267, upload-time = "2026-07-17T20:04:08.872Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/10/215a92d3b72349b11d08ec0b36b7c37934d06f59659018666e254599fabe/pycolmap-4.1.1-cp312-cp312-win_amd64.whl", hash = "sha256:60ef432ad42464a0f5416b4e051b63b0ba6a7696318ff54b33808174a9540944", size = 23461234, upload-time = "2026-07-17T20:04:11.315Z" },
+    { url = "https://files.pythonhosted.org/packages/31/5f/a5013caf0a4422138c02745ef35c39e430ba0dbe399c9afd0c71186fbf2f/pycolmap-4.1.1-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:4a0d5711a60ce7d08ddffb8c472b70de9688928176409db0801581b52bf81639", size = 20366251, upload-time = "2026-07-17T20:04:13.526Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/b2/feef41cdf2e0dd8151c8f903afbc776b54f2cf08b974533e3a1231f832cb/pycolmap-4.1.1-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:5fdc8638461a5f69d3ecae3dca339a7347967af9493b36e8113da4470ee90d78", size = 27847270, upload-time = "2026-07-17T20:04:16.089Z" },
+    { url = "https://files.pythonhosted.org/packages/64/4d/0cc116fc01ae77cb1e58e2c45e6fe0488b657c8c6c4cdbdf3f4d4f93d55d/pycolmap-4.1.1-cp313-cp313-win_amd64.whl", hash = "sha256:66a5a26f9cbbea3da64f2823b12c296b8980b89b29d8619a16ce81963ad5ed75", size = 23461160, upload-time = "2026-07-17T20:04:18.837Z" },
+    { url = "https://files.pythonhosted.org/packages/32/ce/77641b85a44bdf2bba729da252ed2607f654955594b2e0490be0a2127b55/pycolmap-4.1.1-cp314-cp314-macosx_14_0_arm64.whl", hash = "sha256:e19ff5259485de12e17254b4505497b958f5ef0b92afbd8123c4f71b610e5e51", size = 20379650, upload-time = "2026-07-17T20:04:21.288Z" },
+    { url = "https://files.pythonhosted.org/packages/75/eb/e50b8e701496fef4da59dadfe617aaa0395e5d51a1f6281926da00ca5a46/pycolmap-4.1.1-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:8a902b3cb64191d4dd9122b89da9f4a17779e07f18f9815727f4f59eaf90641d", size = 27848381, upload-time = "2026-07-17T20:04:23.631Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/20/172a8ffe2b510f4a63b07a6c481e1407844336e6ba4b0f6302df4cf15894/pycolmap-4.1.1-cp314-cp314-win_amd64.whl", hash = "sha256:d40fd1a386b6aab73e338fb1379e88c9e8243e635d15b8fc3b9e7e9c61cc6997", size = 24164246, upload-time = "2026-07-17T20:04:26.196Z" },
 ]
 
 [[package]]
