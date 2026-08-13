@@ -4,7 +4,7 @@
 > If you are unsure where a file belongs or how it should be named, follow this document.
 > If the repository disagrees with this document, update the repository layout instead of weakening the rule.
 
-Last updated: 2026-07-30
+Last updated: 2026-08-14
 
 ---
 
@@ -21,7 +21,11 @@ Car-and-Robotic-Arm/
 │   ├── hardware/          Hardware specs, protocol notes, wiring
 │   ├── setup/             Bring-up and environment setup guides
 │   ├── progress/          Verified progress logs from real hardware work
-│   └── adr/               Architecture decision records
+│   ├── adr/               Architecture decision records
+│   ├── handoff-*.md       Current continuation notes for another developer/agent
+│   ├── Mechatronics Folio and Journal/   School assessment materials (name kept as-is)
+│   ├── robot-base-platform-research.md   Research background report (modular robot base platform)
+│   └── project-terminology.md            English project glossary
 │
 ├── src/carbot/            Importable Python package
 ├── tests/                 Automated tests
@@ -58,13 +62,26 @@ Car-and-Robotic-Arm/
 |---|---|---|
 | First-party documentation | `docs/` | Yes |
 | First-party code | `src/`, `tests/`, `examples/`, `scripts/` | Yes |
-| Photos we captured | `assets/` | Append only |
+| Curated photos we captured and intend to publish | `assets/` | Append only |
 | Website frontend | `site/` | Yes |
 | Vendor-provided material | `vendor/` | No |
-| Generated scratch output | `scratch/` | Not committed |
+| Private raw captures and generated scratch output | `scratch/` | Not committed |
 
 `vendor/` is a hard boundary. If vendor code needs adaptation, copy it into `src/` or `scripts/`
 and keep the original files untouched for reference.
+
+### 2.1 Keep Files Discoverable
+
+- Do not invent a new top-level directory or permanent document category without updating the
+  repository tree in §1 in the same commit.
+- Before adding a file, search by topic and update the canonical file when one already exists.
+  Prefer links over copied facts.
+- Move tracked files with `git mv`, then use `rg` to update every inbound path. A move is incomplete
+  while documentation, scripts, or site data still point to the old location.
+- Put the topic in every dated progress/handoff filename. Names such as `notes.md`, `latest.md`,
+  `report-final.md`, and `handoff.md` are prohibited because they cannot be found reliably later.
+- Each handoff's **Read First** section must link to the applicable progress log and stable
+  hardware/setup/ADR sources. Each progress log must link to the files it changed or produced.
 
 ## 3. Naming Rules
 
@@ -158,7 +175,63 @@ good: assets/inventory/091_HXS_18650_Battery_Pack_Label.jpg
 - File extensions must be lowercase
 - Dates must use ISO `YYYY-MM-DD`
 
-The only exception is `vendor/`, where original filenames are preserved for traceability.
+Exceptions:
+
+- `vendor/`, where original filenames are preserved for traceability.
+- `docs/Mechatronics Folio and Journal/`, whose directory name and school-provided source filenames
+  are preserved so they match the assessment. First-party derivatives inside it still use
+  `lower-kebab-case`, for example `11se-assessment-2-folio.html`.
+
+### 3.6 Dated Work Records
+
+Use one role per document; do not duplicate the same mutable status in several files.
+
+| Kind | Canonical location and name | Contents |
+|---|---|---|
+| Development work log | `docs/progress/YYYY-MM-DD-topic.md` | Completed work, verification, hardware evidence, and problems encountered |
+| Developer continuation | `docs/handoff-YYYY-MM-DD-topic.md` | Current Git/runtime state, remaining risks, acceptance gates, and exact next steps |
+| Stable procedure | `docs/setup/lower-kebab-case.md` | Repeatable setup or operating instructions |
+| Stable hardware fact | `docs/hardware/lower-kebab-case.md` | Wiring, protocols, limits, and verified device behavior |
+| Architecture decision | `docs/adr/NNNN-lower-kebab-case.md` | A durable decision and its rationale |
+
+Every completed, verifiable development session must be recorded in `docs/progress/` before the
+session's commit. A work log must include:
+
+1. Scope and result: what changed, what was intentionally left unchanged, and why.
+2. Verification: exact automated commands and results; for hardware, the operator-observed result.
+3. Measurements and configuration: physical dimensions, calibration inputs, device/firmware state,
+   and safety conditions that affect repeatability.
+4. Problems encountered: failed approaches, root cause when known, and the corrected procedure.
+5. Follow-up: remaining limitations and the next safe, testable step.
+
+Continue the same `YYYY-MM-DD-topic.md` when work on the same topic resumes that day. Create a new
+file when the date or topic changes; do not make one generic forever-growing journal. Write facts
+from completed work in past tense. Planned or unfinished work belongs in a handoff or issue, not in
+the completed-results section.
+
+A handoff is required only when work is being transferred or intentionally paused. It is a
+snapshot, not a second source of truth and not a replacement for the work log. Link to stable setup,
+hardware, ADR, or progress documents instead of copying their full content. When a newer handoff
+supersedes an older one, state that relationship at the top of the newer file.
+
+### 3.7 Calibration and Mapping Evidence
+
+Use the session key `YYYY-MM-DD-device-resolution` consistently:
+
+```text
+assets/reference/camera-calibration/<session>/calibration.json
+scratch/camera-calibration/<session>/source-frames/view-NN.jpg
+scratch/mapping/<session>/
+```
+
+- Commit only reviewed, shareable calibration outputs needed at runtime, such as
+  `calibration.json` and printable reference PDFs.
+- Raw camera frames, room photographs, rejected views, annotated previews, maps under active
+  investigation, and other privacy-sensitive evidence stay under `scratch/`.
+- A progress or handoff document must record the local `scratch/` path, capture resolution, printed
+  target dimensions, and which frames were accepted. Do not make code depend on ignored raw files.
+- Once a generated diagram or PDF becomes a maintained project artifact, keep its reproducible
+  generator under `scripts/` or document the authoritative external source beside the artifact.
 
 ## 4. `vendor/` Import Rules
 
@@ -173,7 +246,7 @@ Always remove generated build artifacts such as `.o`, `.crf`, `.d`, `.lst`, `.de
 `.axf`, and `.uvoptx`. The full ignore list lives in `.gitignore`. These files can be rebuilt and
 consume most of the unnecessary space in imported SDKs.
 
-## 4.5 Website Data
+## 5. Website Data
 
 Keep page content in data files instead of hardcoding it inside HTML or component markup.
 
@@ -218,7 +291,7 @@ npm run dev
 The site is served at <http://localhost:4321/Car-and-Robotic-Arm/> so the local path matches the
 GitHub Pages base path.
 
-## 5. Git
+## 6. Git
 
 ### Commit Messages
 
@@ -257,15 +330,28 @@ Rules:
 2026-07-30 with `git filter-repo` to reduce size. That kind of operation is destructive and must
 always be discussed before repeating it.
 
-## 6. Scratch Files
+## 7. Scratch Files
 
-Experimental output and temporary files belong in `scratch/`, which is already ignored. Do not
-scatter files such as `test.py`, `tmp.json`, or generic placeholders in the repository root.
+Experimental output and temporary files belong in `scratch/`, which is already ignored. Use the
+operating system's `/tmp` for disposable runtime output. Never create a repository-root `tmp/`.
+Do not scatter files such as `test.py`, `tmp.json`, or generic placeholders in the repository root.
 
-## 7. Checklist Before Adding a File
+Generated directories such as `_site/`, `.astro/`, `.pytest_cache/`, `.ruff_cache/`,
+`__pycache__/`, `node_modules/`, and `.venv/` are not project records. They remain ignored and may
+be regenerated; never cite them as the only copy of evidence. Keep lockfiles and source inputs.
+
+Before deleting an unfamiliar file, search for references and inspect Git status. Move private raw
+evidence to its canonical `scratch/` location rather than deleting it merely to obtain a clean
+worktree. Use the system Trash for recoverable cleanup when practical.
+
+## 8. Checklist Before Adding a File
 
 1. Who created it? Choose the top-level directory from §2.
-2. Does the filename contain spaces, non-English text, or uppercase extensions?
-3. Is it a photo? Assign the next number and never reuse an old one.
-4. Is it larger than 1MB? Compress it first.
-5. Is it vendor material? Remove build artifacts and add a `README.md`.
+2. Is there already a canonical file for the same fact? Update or link to it instead of duplicating it.
+3. Does the filename contain spaces, non-English text, or uppercase extensions?
+4. Is it a publishable inventory/assembly photo? Assign the next number and never reuse an old one.
+5. Does it expose a room or other private environment? Keep the raw file under `scratch/`.
+6. Is it larger than 1MB? Compress it first.
+7. Is it vendor material? Remove build artifacts and add a `README.md`.
+8. Is it generated? Keep the generator/source, and do not commit rebuildable output unless it is a
+   reviewed deliverable required by users or runtime code.

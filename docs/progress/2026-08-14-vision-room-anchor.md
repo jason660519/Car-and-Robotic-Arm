@@ -220,7 +220,8 @@ low speed with an operator beside the robot.
   board; physical pattern must still be measured.
 - `assets/reference/camera-calibration/2026-08-14-imx500-4056x3040/calibration.json` — selected
   calibration and per-view residual metadata. The 17 full-resolution source captures remain local
-  and are not published because they contain the room interior and add about 36 MB.
+  under `scratch/camera-calibration/2026-08-14-imx500-4056x3040/source-frames/` and are not
+  published because they contain the room interior and add about 36 MB.
 
 ## Verification
 
