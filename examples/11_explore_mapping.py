@@ -12,7 +12,20 @@ This is the incremental-mapping loop validated by the M1/M2 prototype:
    unexplored gap, else rotate a bit), then take a small step.
 5. Stop when the step budget runs out or Ctrl-C.
 
-Run on the Raspberry Pi with the operator beside the car:
+Timing and speed rules (Gate A):
+
+- Spin and drive speeds are separate options. ``--spin-speed`` defaults to
+  150, the only speed at which the 8.2 s/revolution value was verified; the
+  spin duration ``--spin360`` belongs to that speed. If you change the spin
+  speed you must re-measure the revolution time and pass it as ``--spin360``.
+- Scan angles are computed from the *configured* ``--spin360`` of this run,
+  never from a global constant, so ``--spin360`` takes effect everywhere
+  (see ``carbot.frames.scan_angle_rad``).
+- ``FWD_CM_PER_S`` is only a rough estimate measured at ``DRIVE_SPEED``;
+  re-run examples/10_calibrate_motion.py after any mechanical change.
+
+Run on the Raspberry Pi with the operator beside the car (able to cut power)
+and the wheels lifted or the floor clear:
 
     PYTHONPATH=src python3 examples/11_explore_mapping.py --steps 20
 
@@ -33,47 +46,43 @@ import time
 import numpy as np
 from RPi import GPIO
 
+from carbot.frames import scan_angle_rad
 from carbot.mapping import OccupancyGrid, detect_gaps, icp, polar_to_points
+from carbot.sonar import Sonar
 
 TRIG_PIN = 17  # GPIO 17 (Pin 11)
 ECHO_PIN = 27  # GPIO 27 (Pin 13)
-SPEED_OF_SOUND = 34300.0  # cm/s
-SPIN_360_S = 8.2  # verified on this build at speed 150
+SPIN_SPEED = 150  # the only speed with a verified revolution time (see below)
+SPIN_360_S = 8.2  # verified on this build at SPIN_SPEED
 MAX_RANGE = 400.0
 
 STEP_S = 2.5  # seconds of forward per step (~15-25 cm at the measured ~5-10 cm/s)
 DRIVE_SPEED = 200
-FWD_CM_PER_S = 8.0  # rough calibration from examples/10_calibrate_motion.py (5-10 cm/s)
+FWD_CM_PER_S = 8.0  # rough calibration at DRIVE_SPEED from examples/10_calibrate_motion.py
 
 
-def measure(timeout_s: float = 0.5) -> float | None:
-    GPIO.output(TRIG_PIN, GPIO.LOW)
-    time.sleep(0.06)
-    GPIO.output(TRIG_PIN, GPIO.HIGH)
-    time.sleep(0.00001)
-    GPIO.output(TRIG_PIN, GPIO.LOW)
-    t0 = time.time()
-    while GPIO.input(ECHO_PIN) == GPIO.LOW:
-        if time.time() - t0 > timeout_s:
-            return None
-    pulse_start = time.time()
-    while GPIO.input(ECHO_PIN) == GPIO.HIGH:
-        if time.time() - pulse_start > timeout_s:
-            return None
-    return (time.time() - pulse_start) * SPEED_OF_SOUND / 2.0
+def spin_scan(
+    car,
+    sonar: Sonar,
+    spin_s: float = SPIN_360_S,
+    spin_speed: int = SPIN_SPEED,
+    interval: float = 0.15,
+) -> list[tuple[float, float]]:
+    """Spin one full turn at ``spin_speed``, logging (angle, distance) rows.
 
-
-def spin_scan(car, spin_s: float = SPIN_360_S, interval: float = 0.15) -> list[tuple[float, float]]:
-    """Spin one full turn, logging (angle, distance) rows."""
+    Angles are derived from the *configured* ``spin_s`` via
+    :func:`scan_angle_rad`, so the option and the angle conversion can never
+    drift apart.
+    """
     rows: list[tuple[float, float]] = []
-    car.spin_right(DRIVE_SPEED)
-    t0 = time.time()
+    car.spin_right(spin_speed)
+    t0 = time.monotonic()
     try:
-        while time.time() - t0 < spin_s:
-            d = measure()
+        while time.monotonic() - t0 < spin_s:
+            d = sonar.measure()
             if d is not None:
-                elapsed = time.time() - t0
-                angle = (elapsed % SPIN_360_S) / SPIN_360_S * 2 * math.pi
+                elapsed = time.monotonic() - t0
+                angle = scan_angle_rad(elapsed, spin_s)
                 rows.append((angle, min(d, MAX_RANGE)))
             time.sleep(interval)
     finally:
@@ -101,9 +110,30 @@ def gap_anchor_heading(scan_gaps, ref_gaps):
 def main() -> int:
     parser = argparse.ArgumentParser(description="M3 autonomous room-mapping loop")
     parser.add_argument("--steps", type=int, default=20, help="max exploration steps")
-    parser.add_argument("--spin360", type=float, default=SPIN_360_S, help="seconds per full spin")
+    parser.add_argument("--spin360", type=float, default=SPIN_360_S,
+                        help=f"seconds per full spin at --spin-speed (verified "
+                             f"{SPIN_360_S} at speed {SPIN_SPEED})")
+    parser.add_argument("--spin-speed", type=int, default=SPIN_SPEED,
+                        help="spin speed 0-255 (revolution time must be "
+                             "re-measured if changed from the default)")
     parser.add_argument("--step-s", type=float, default=STEP_S, help="forward seconds per step")
+    parser.add_argument("--drive-speed", type=int, default=DRIVE_SPEED,
+                        help="forward drive speed 0-255 (FWD_CM_PER_S estimate "
+                             "was measured at this default)")
     args = parser.parse_args()
+
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(TRIG_PIN, GPIO.OUT, initial=GPIO.LOW)
+    GPIO.setup(ECHO_PIN, GPIO.IN)
+    sonar = Sonar(TRIG_PIN, ECHO_PIN, GPIO)
+
+    answer = input(
+        "Operator beside the car, wheels lifted or floor clear, power ready to cut? (yes/no) "
+    ).strip()
+    if answer.lower() != "yes":
+        print("Re-run when an operator is ready beside the car.")
+        GPIO.cleanup()
+        return 1
 
     from carbot import Car, NeZhaError
 
@@ -111,11 +141,9 @@ def main() -> int:
         car = Car()
     except NeZhaError as exc:
         print(f"Connection failed: {exc}")
+        print("Run `examples/01_i2c_probe.py` first to debug the link.")
+        GPIO.cleanup()
         return 1
-
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(TRIG_PIN, GPIO.OUT, initial=GPIO.LOW)
-    GPIO.setup(ECHO_PIN, GPIO.IN)
 
     grid = OccupancyGrid(cell_cm=10.0, side_cm=1000.0)
     map_pts: np.ndarray | None = None
@@ -126,7 +154,7 @@ def main() -> int:
 
     try:
         for step in range(1, args.steps + 1):
-            rows = spin_scan(car, args.spin360)
+            rows = spin_scan(car, sonar, args.spin360, args.spin_speed)
             scan = polar_to_points(np.asarray(rows, dtype=np.float64))
             if len(scan) < 10:
                 print(f"[{step}] scan too sparse ({len(scan)} pts) — stopping")
@@ -187,7 +215,7 @@ def main() -> int:
             if crash or step >= args.steps:
                 break
 
-            car.forward(DRIVE_SPEED)
+            car.forward(args.drive_speed)
             time.sleep(args.step_s)
             car.stop()
             time.sleep(0.3)
