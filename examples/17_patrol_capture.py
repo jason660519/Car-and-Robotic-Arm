@@ -54,11 +54,11 @@ def read_distance(sonar: Sonar, trials: int = 3) -> float | None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Autonomous patrol + capture for SfM")
     parser.add_argument("--frames", type=int, default=40, help="number of stills to capture")
-    parser.add_argument("--step-s", type=float, default=0.8, help="seconds of forward per step")
+    parser.add_argument("--step-s", type=float, default=0.5, help="seconds of forward per step")
     parser.add_argument("--speed", type=int, default=150, help="drive speed 0-255 (low)")
-    parser.add_argument("--obstacle-cm", type=float, default=45.0,
+    parser.add_argument("--obstacle-cm", type=float, default=28.0,
                         help="turn away when the sonar reads closer than this")
-    parser.add_argument("--turn-s", type=float, default=2.0, help="seconds to spin when avoiding")
+    parser.add_argument("--turn-s", type=float, default=2.5, help="seconds to spin when avoiding")
     parser.add_argument("--size", default="2028x1520", help="capture size WxH")
     parser.add_argument("--out-dir", type=Path, default=Path("/tmp/room-sfm"))
     args = parser.parse_args()
@@ -112,22 +112,29 @@ def main() -> int:
     print(f"Patrolling: {args.frames} frames, step {args.step_s}s at speed {args.speed}, "
           f"obstacle/unreadable turns below {args.obstacle_cm:.0f} cm. Ctrl-C to stop.")
     turn_left = False
+    consecutive_turns = 0
     n = 0
     try:
         while n < args.frames:
             d = read_distance(sonar)
             if d is None or d < args.obstacle_cm:
                 # Near-range blind zone (None) or a real obstacle: turn away.
+                consecutive_turns += 1
+                stuck = consecutive_turns >= 3
+                spin_s = 4.5 if stuck else args.turn_s  # ~180 deg escape if stuck
                 why = f"{d:.0f} cm" if d is not None else "no reading (blind zone)"
                 print(f"[{n + 1}] obstacle: {why} -> turn "
-                      f"{'left' if turn_left else 'right'}")
+                      f"{'left' if turn_left else 'right'}"
+                      + (" (stuck: 180 deg)" if stuck else ""))
                 if turn_left:
                     car.spin_left(args.speed)
                 else:
                     car.spin_right(args.speed)
-                time.sleep(args.turn_s)
+                time.sleep(spin_s)
                 car.stop()
                 turn_left = not turn_left
+                if stuck:
+                    consecutive_turns = 0
                 time.sleep(0.4)
                 # capture this position too, then re-check before moving
                 path = args.out_dir / f"frame-{n:03d}.jpg"
@@ -137,6 +144,7 @@ def main() -> int:
                 continue
 
             # Clear: advance one short step, stop, then shoot.
+            consecutive_turns = 0
             car.forward(args.speed)
             time.sleep(args.step_s)
             car.stop()
