@@ -376,7 +376,16 @@ def _standoff_reason(sonar: Sonar, minimum_cm: float) -> str | None:
 
 
 def _quality_reason(path: Path, min_textured_tiles: int):
-    """Assess a capture; return ``(quality, reason)`` with reason None when usable."""
+    """Assess a capture; return ``(quality, reason)`` with reason None when usable.
+
+    Only the textured-tile count gates a capture, deliberately. `QualityPolicy`
+    measures five other things and they are printed with ``--frame-report``, but
+    gating on them is not supported by evidence: in the run that registered
+    30 of 30 frames, the softest capture scored 19 sharpness — under the old
+    ``min_sharpness`` — and reconstructed normally. Exposure and sharpness
+    describe how a frame looks; only the keypoint spread relates to whether
+    Structure-from-Motion has anything to match.
+    """
     try:
         quality = assess_file(str(path))
     except (RuntimeError, ValueError) as exc:

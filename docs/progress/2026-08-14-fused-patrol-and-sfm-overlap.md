@@ -129,7 +129,46 @@ station empty. Exposure is back to `auto`.
 9. **A scratch file named `struct.py` shadows the standard library** and breaks
    `pycolmap` with a confusing circular-import trace.
 
-## 5. Follow-up
+## 5. Threshold Calibration Against Run 3
+
+Run 3 is the first data set with reconstruction ground truth, so the provisional
+`QualityPolicy` thresholds were checked against it. Two of the three results are
+negative.
+
+**All 30 kept frames registered.** Model membership covers every frame, so there
+is no negative example in the kept set. `min_textured_tiles=6` is therefore not
+too lenient: the weakest frame that passed sat exactly on the threshold (6 of 12
+tiles, 738 keypoints) and still registered.
+
+**`min_sharpness=20` was falsified by the only frame that tested it.** Frame 13
+scored 19 sharpness with 925 keypoints — the softest and sparsest capture in the
+set — and reconstructed normally. It was never rejected because the patrol gates
+on `textured_tiles` alone; the other five thresholds are measured and printed but
+not enforced. That inconsistency is now a deliberate, documented choice, and
+`min_sharpness` dropped to 10 so it flags gross failure only.
+
+**A consecutive-match threshold cannot gate connectivity.** The obvious next
+gate — reject a capture that shares too few matches with the previous one — does
+not work, and the data says so before it was built:
+
+```text
+same model, consecutive:      19, 30, 63, 71, 145, 199, ... 823
+different model, consecutive: 11, 23, 25
+lowest same-model link:  19
+highest different gap:   25   -> the ranges overlap; not separable
+```
+
+A pair with 19 matches stayed in one model while pairs with 23 and 25 split.
+COLMAP matches exhaustively, so a frame can join a model through a
+*non-adjacent* pair: connectivity is a property of the whole match graph, not of
+the link to the previous frame.
+
+Still unanswered: whether the gates are too **strict**. Run 3 did not use
+`--keep-rejected`, so its 18 rejected captures were not kept and cannot be
+tested for whether they would have added usable pairs — 37% of attempted
+captures were discarded on unverified thresholds.
+
+## 6. Follow-up
 
 **The next change is to photograph through the avoidance turn.** Bursts are now
 internally connected and stations are not, and the breaks coincide with the
@@ -142,9 +181,9 @@ Also open:
 
 - Whether one connected model results, or whether the room needs a deliberate
   route rather than random bounce.
-- `QualityPolicy` thresholds are still provisional. Run 3 is the first data set
-  that can calibrate them: compare the per-frame numbers against which frames
-  COLMAP registered.
+- A run with `--keep-rejected` to finish the calibration in section 5: are the
+  gates throwing away usable captures? Worth combining with the
+  photograph-through-the-turn test, since both need an operator.
 - Scale is still unrecovered — the reconstruction is up to scale until the 70 mm
   wall AprilTag is used to anchor it.
 - `examples/17` and `examples/18` still carry the old 43.9 deg/s constant.

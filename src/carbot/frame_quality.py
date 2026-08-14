@@ -52,11 +52,28 @@ def _cv2() -> Any:
 class QualityPolicy:
     """Thresholds for calling a frame SfM-usable.
 
-    **These defaults are provisional.** They come from a single measured
-    capture, not from a correlation against COLMAP output. Calibrate them by
-    running a sweep, recording which frames `scripts/run_colmap_sfm.py`
-    registered, and comparing against the numbers this module reports for the
-    same frames — that is the only evidence that can set them properly.
+    Calibrated against one reconstruction: a 30-frame burst patrol whose frames
+    all passed ``min_textured_tiles`` and of which COLMAP registered **30 of 30**
+    into some model. What that evidence does and does not establish:
+
+    - ``min_textured_tiles=6`` is not too lenient. The weakest frame that passed
+      sat exactly on the threshold — 6 of 12 tiles, 738 keypoints — and still
+      registered.
+    - ``min_sharpness`` was **falsified** by the only frame that tested it: a
+      capture scoring 19 registered normally. It was lowered from 20 so it flags
+      gross failure only. Global sharpness has consistently failed to predict
+      anything useful here — it cannot tell blur from a blank wall — so do not
+      raise it without evidence.
+    - Whether any threshold is too *strict* is still unknown, because the
+      rejected captures were not kept. Re-run the patrol with
+      ``--keep-rejected`` and check whether the rejects would have added usable
+      pairs.
+
+    The deeper limit is structural: registration is a property of *pairs*, not
+    of single frames. Every frame above registered because its burst gave it
+    overlapping neighbours, including the softest and sparsest one in the set.
+    No per-frame threshold can predict what only :func:`repeatable_keypoints`
+    between two frames can measure.
     """
 
     min_tile_keypoints: int = 40
@@ -64,7 +81,7 @@ class QualityPolicy:
     min_mean_brightness: float = 60.0
     max_dark_fraction: float = 0.10
     max_clipped_fraction: float = 0.05
-    min_sharpness: float = 20.0
+    min_sharpness: float = 10.0
 
     def __post_init__(self) -> None:
         if self.min_tile_keypoints < 0 or self.min_textured_tiles < 0:
