@@ -1,5 +1,6 @@
 ---
 import ModuleCard from './ModuleCard.astro';
+import Pi5PinoutCard from './Pi5PinoutCard.astro';
 import { CATEGORIES } from '../data/categories';
 import { href, t, type Locale } from '../i18n/ui';
 import {
@@ -47,8 +48,10 @@ const heading =
   </div>
 </header>
 
+{activeKey === 'all' && <Pi5PinoutCard locale={locale} />}
+
 <div class="toolbar">
-  <div class="search-wrap">
+  <div class="search-wrapper">
     <span class="search-icon" aria-hidden="true">🔍</span>
     <input
       type="search"

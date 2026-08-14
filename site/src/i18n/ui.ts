@@ -34,6 +34,19 @@ export const ui = {
     'inventory.section.code': '程式範例',
     'inventory.wiring.pin': '腳位',
     'inventory.wiring.conn': '連接到',
+    'pinout.title': 'Raspberry Pi 5 GPIO 針腳圖',
+    'pinout.lede':
+      '40-pin 排針對照表，顏色代表功能分組。編號與板子實體位置一致：奇數在左排、偶數在右排，Pin 1 在最靠近 USB-C 電源孔的那一端。',
+    'pinout.legend': '功能分組',
+    'pinout.col.func': '功能',
+    'pinout.col.pin': 'Pin',
+    'pinout.nezha':
+      'NeZha 驅動板的 IIC 接口（G / SDA / SCL / 5V）對應到圖上標記的三根：SDA → Pin 3、SCL → Pin 5、G → Pin 6。驅動板若已自行供電，5V 那條就不要接到 Pi，避免兩組電源對灌。',
+    'pinout.warn':
+      'GPIO 邏輯電平是 3.3V。不要把 5V 訊號直接接到訊號腳位，也不要把 5V 灌進 Pin 1 或 Pin 17。',
+    'pinout.source': '資料來源',
+    'pinout.source.doc': '專案硬體筆記',
+    'pinout.source.official': 'Raspberry Pi 官方 GPIO 文件',
     'assembly.title': '大聖多形態小車 + 機械臂組裝指南',
     'lightbox.filename': '檔名',
   },
@@ -69,6 +82,19 @@ export const ui = {
     'inventory.section.code': 'Code Example',
     'inventory.wiring.pin': 'Pin',
     'inventory.wiring.conn': 'Connects to',
+    'pinout.title': 'Raspberry Pi 5 GPIO Pinout',
+    'pinout.lede':
+      'The 40-pin header, colour-coded by function. Numbering follows the physical board: odd pins in the left column, even pins in the right, with Pin 1 at the end nearest the USB-C power connector.',
+    'pinout.legend': 'Function groups',
+    'pinout.col.func': 'Function',
+    'pinout.col.pin': 'Pin',
+    'pinout.nezha':
+      'The NeZha bus board IIC header (G / SDA / SCL / 5V) maps to the three marked pins: SDA to Pin 3, SCL to Pin 5, G to Pin 6. Leave the 5V wire off when the board already has its own supply, so two rails do not fight.',
+    'pinout.warn':
+      'GPIO logic is 3.3V. Never feed a 5V signal into a GPIO pin, and never feed 5V into Pin 1 or Pin 17.',
+    'pinout.source': 'Sources',
+    'pinout.source.doc': 'Project hardware notes',
+    'pinout.source.official': 'Official Raspberry Pi GPIO documentation',
     'assembly.title': 'Dasheng Multi-Form Smart Car & Robotic Arm Assembly Guide',
     'lightbox.filename': 'Filename',
   },
