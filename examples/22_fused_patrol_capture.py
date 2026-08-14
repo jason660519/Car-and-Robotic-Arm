@@ -29,6 +29,15 @@ workstation: when a capture shares too few matches with the previous one, the ca
 rotates halfway back and inserts a bridging frame. That check is the same
 `repeatable_keypoints` measurement that diagnosed the problem offline.
 
+**The car has to cover ground, and it barely did.** Scale-anchoring a 30-frame
+run put the entire trajectory inside 13 cm. Measured travel explains it: 0.117
+m/s at speed 200, with reverse within 5% of forward, so a 0.6 s avoidance backup
+handed back most of a 1.0 s step. Raising the PWM is a weak lever — doubling it
+to 400 bought only 1.42x the speed — so the step lengthened instead, and to keep
+a long step safe the forward travel is driven in segments with the fuse
+re-evaluated between them. Turns still run at the calibrated `--spin-speed`,
+because the 53.5 deg/s figure belongs to speed 200 and nothing else.
+
 Each shot is also gated on being worth keeping. That gate exists because the
 first supervised run kept frames shot 30 cm
 from a whiteboard: sharp, correctly exposed, and 70% blank panel. Nothing was
@@ -108,9 +117,16 @@ def main() -> int:
     parser.add_argument("--frames", type=int, default=150, help="number of stills to capture")
     parser.add_argument("--dry-run", action="store_true",
                         help="read sensors and fuse, but never drive the motors")
-    parser.add_argument("--step-s", type=float, default=1.0, help="seconds of forward per step")
-    parser.add_argument("--speed", type=int, default=200, help="drive speed 0-1000")
-    parser.add_argument("--backup-s", type=float, default=0.6,
+    parser.add_argument("--step-s", type=float, default=3.0,
+                        help="seconds of forward travel per station, driven in segments")
+    parser.add_argument("--sense-interval-s", type=float, default=0.5,
+                        help="re-check sonar and detections after this much forward travel")
+    parser.add_argument("--speed", type=int, default=400, help="drive speed 0-1000")
+    parser.add_argument("--spin-speed", type=int, default=VERIFIED_AT_SPEED,
+                        help=f"speed used for turns; {VERIFIED_SPIN_DEG_PER_S} deg/s was "
+                             f"calibrated at {VERIFIED_AT_SPEED}, so raising it invalidates "
+                             f"--spin-deg-per-s")
+    parser.add_argument("--backup-s", type=float, default=0.3,
                         help="seconds to reverse before turning (frees the car from a corner)")
     parser.add_argument("--obstacle-cm", type=float, default=30.0,
                         help="sonar distance below which the car turns away")
@@ -133,8 +149,9 @@ def main() -> int:
                         help="detection confidence threshold")
     parser.add_argument("--exposure", choices=EXPOSURE_PRESETS, default="auto",
                         help="auto-exposure preset (see examples/21)")
-    parser.add_argument("--min-standoff-cm", type=float, default=50.0,
-                        help="do not photograph when the nearest surface is closer than this")
+    parser.add_argument("--min-standoff-cm", type=float, default=30.0,
+                        help="do not photograph when the nearest surface is closer than this; "
+                             "keep at or below --obstacle-cm to avoid a no-capture dead band")
     parser.add_argument("--min-textured-tiles", type=int, default=6,
                         help="reject a capture with fewer textured tiles (of 12)")
     parser.add_argument("--max-steps", type=int, default=0,
@@ -230,6 +247,9 @@ def main() -> int:
     print(f"stop below {args.obstacle_cm:.0f} cm or on a central-low detection "
           f">={args.threshold:.2f}; turn {args.turn_min_deg:.0f}-{args.turn_max_deg:.0f} deg "
           f"after backing up {args.backup_s:.1f}s. Ctrl-C to stop.")
+    print(f"forward {args.step_s:.1f}s per station, re-sensing every "
+          f"{args.sense_interval_s:.1f}s; turns at speed {args.spin_speed} "
+          f"({args.spin_deg_per_s:.1f} deg/s)")
     print("=" * 72)
 
     max_steps = args.max_steps if args.max_steps > 0 else args.frames * 4
@@ -241,6 +261,8 @@ def main() -> int:
     ctx = PatrolContext(
         args=args, car=car, camera=camera, sonar=sonar,
         pending=pending, rejected_dir=rejected_dir,
+        imx500=imx500, intrinsics=intrinsics, policy=policy,
+        frame_size=(frame_width, frame_height),
     )
 
     blocked_count = 0
@@ -274,11 +296,13 @@ def main() -> int:
                 # and shooting on the way round bridges the two headings instead.
                 kept_here = _sweep_and_capture(ctx, angle, direction, "turn")
             else:
-                print(f"[{step}] clear   {verdict.reason} -> forward {args.step_s:.1f}s")
+                driven, stopped_early = _advance(ctx)
+                if stopped_early:
+                    print(f"[{step}] clear   {verdict.reason} -> forward {driven:.1f}s of "
+                          f"{args.step_s:.1f}s, stopped: {stopped_early}")
+                else:
+                    print(f"[{step}] clear   {verdict.reason} -> forward {driven:.1f}s")
                 if car:
-                    car.forward(args.speed)
-                    time.sleep(args.step_s)
-                    car.stop()
                     time.sleep(args.settle_s)
                 span = args.burst_step_deg * (max(1, args.burst_frames) - 1)
                 kept_here = _sweep_and_capture(ctx, span, "right", "burst")
@@ -334,6 +358,10 @@ class PatrolContext:
     sonar: Sonar
     pending: Path
     rejected_dir: Path
+    imx500: Any = None
+    intrinsics: Any = None
+    policy: ObstaclePolicy | None = None
+    frame_size: tuple[int, int] = (0, 0)
     kept: int = 0
     last_kept: Path | None = None
     rejected: int = 0
@@ -343,14 +371,59 @@ class PatrolContext:
 
 
 def _spin(ctx: PatrolContext, degrees: float, direction: str) -> None:
-    """Rotate and settle. A no-op during a dry run."""
+    """Rotate and settle. A no-op during a dry run.
+
+    Turns run at ``--spin-speed``, not the drive speed: 53.5 deg/s was measured
+    at speed 200, and driving faster than that would silently invalidate every
+    commanded angle. Turning accuracy matters here, turning speed does not.
+    """
     if not ctx.car or degrees <= 0:
         return
     spin = ctx.car.spin_left if direction == "left" else ctx.car.spin_right
-    spin(ctx.args.speed)
+    spin(ctx.args.spin_speed)
     time.sleep(degrees / ctx.args.spin_deg_per_s)
     ctx.car.stop()
     time.sleep(ctx.args.settle_s)
+
+
+def _sense(ctx: PatrolContext):
+    """One fused sonar + vision verdict at the current pose."""
+    distance = ctx.sonar.measure_nearest()
+    metadata = ctx.camera.capture_metadata()
+    detections = detections_from_metadata(
+        metadata, ctx.imx500, ctx.intrinsics, ctx.camera, ctx.policy
+    )
+    return fuse(distance, detections, ctx.frame_size, ctx.policy)
+
+
+def _advance(ctx: PatrolContext) -> tuple[float, str | None]:
+    """Drive forward in segments, re-sensing between them.
+
+    Long steps are what make the patrol cover ground. Measured at speed 400 the
+    car travels 0.166 m/s, so the old 1.0 s step advanced 17 cm and a 0.6 s
+    avoidance backup handed almost all of it back — an entire 30-frame run
+    finished inside 13 cm. But driving 3 s blind covers half a metre while the
+    obstacle threshold is 30 cm, so the step is split and the fuse re-evaluated
+    between segments. Anything that appears stops the remaining travel at once.
+
+    Returns the seconds actually driven and the reason travel stopped early.
+    """
+    args = ctx.args
+    segment = max(0.05, min(args.sense_interval_s, args.step_s))
+    driven = 0.0
+    while driven < args.step_s - 1e-6:
+        this = min(segment, args.step_s - driven)
+        if ctx.car:
+            ctx.car.forward(args.speed)
+            time.sleep(this)
+            ctx.car.stop()
+        driven += this
+        if driven >= args.step_s - 1e-6:
+            break
+        verdict = _sense(ctx)
+        if verdict.blocked:
+            return driven, verdict.reason
+    return driven, None
 
 
 def _sweep_and_capture(ctx: PatrolContext, total_deg: float, direction: str, tag: str) -> int:
@@ -464,6 +537,16 @@ def _standoff_reason(sonar: Sonar, minimum_cm: float) -> str | None:
     A frame shot 30 cm from a whiteboard is 70% blank panel: sharp, correctly
     exposed, and useless to COLMAP. Two such frames were what made the first
     supervised run look like a motion-blur problem when nothing was blurred.
+
+    The threshold started at 50 cm and was lowered to match the avoidance
+    distance. Two findings converged on it. Every one of the three captures this
+    gate rejected in the run that registered 30/30 would have passed the quality
+    gate comfortably — that gate measures the actual failure, a lack of texture
+    to match, while standoff only proxies it. And a standoff above the avoidance
+    threshold opens a dead band: with something 30-50 cm ahead the sonar rule
+    does not require the car to move away, yet nothing may be photographed, so
+    the patrol can sit unable to shoot and unobliged to leave. A dry run in that
+    state produced 107 consecutive rejections.
     """
     distance = sonar.measure_nearest()
     if distance is None:
