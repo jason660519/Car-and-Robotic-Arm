@@ -34,8 +34,9 @@ def main() -> int:
                         help="total capture duration in seconds")
     parser.add_argument("--count", type=int, default=0,
                         help="stop after this many frames (0 = use --duration)")
-    parser.add_argument("--size", default="4056x3040",
-                        help="capture size WxH (default full resolution)")
+    parser.add_argument("--size", default="2028x1520",
+                        help="capture size WxH (default 2028x1520 = half-scale 4:3, "
+                             "~1080p class; use 4056x3040 for full resolution)")
     parser.add_argument("--out-dir", type=Path, default=Path("/tmp/room-sfm"))
     args = parser.parse_args()
 

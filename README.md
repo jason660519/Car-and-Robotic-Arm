@@ -49,6 +49,7 @@ PYTHONPATH=src python3 examples/12_apriltag_pose.py  # static AprilTag pose; no 
 PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.65  # fixed-wall room pose
 PYTHONPATH=src python3 examples/14_preflight_check.py  # no-motion preflight — run before any motion test
 PYTHONPATH=src python3 examples/15_gate_b_pose_log.py --anchor-height-cm 14.65  # Gate B pose log (static)
+PYTHONPATH=src python3 examples/16_capture_room.py --duration 90  # room sweep for SfM (push the car)
 ```
 
 The chassis and arm are controlled by the **Yourfun NeZha bus driver board**. A Raspberry Pi 5
@@ -99,6 +100,7 @@ standing beside the robot who can cut main power instantly. Run `14` before any 
 | 13 | `examples/13_room_pose.py` | Five-frame ChArUco + AprilTag fixed-wall room pose with outlier rejection and JSON output | `PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.65` | ✅ No moving parts |
 | 14 | `examples/14_preflight_check.py` | No-motion preflight: camera, I2C, HC-SR04, power, encoders — run before any motion test | `PYTHONPATH=src python3 examples/14_preflight_check.py` | ✅ No moving parts |
 | 15 | `examples/15_gate_b_pose_log.py` | Gate B manual-reposition pose log: per-location repeatability + displacement vs tape | `PYTHONPATH=src python3 examples/15_gate_b_pose_log.py --anchor-height-cm 14.65` | ✅ No moving parts (operator moves the car by hand) |
+| 16 | `examples/16_capture_room.py` | Room sweep of stills for Structure-from-Motion (push the stopped car; capture every `--interval` s) | `PYTHONPATH=src python3 examples/16_capture_room.py --duration 90` | ✅ No moving parts (operator pushes the car) |
 
 Expected results (verified on this build, 2026-08):
 
