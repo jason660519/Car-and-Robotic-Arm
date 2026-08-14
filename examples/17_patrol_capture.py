@@ -11,12 +11,17 @@ charged:
 
     PYTHONPATH=src python3 examples/17_patrol_capture.py --frames 40
 
-Loop per frame: read sonar -> if an obstacle is closer than --obstacle-cm,
-turn away (alternating left/right) -> drive forward a short --step-s -> stop
--> capture a still. This "bounce around the room" walk plus stopping for each
-photo gives the overlapping multi-view set that scripts/run_colmap_sfm.py
-consumes. The car has no encoders, so position is open-loop; SfM does not
-need odometry, only overlapping viewpoints.
+Loop per frame:
+
+1. Sample the sonar several times and keep the **nearest** reading.
+2. If the reading is ``None`` (HC-SR04 near-range blind zone, <~20 cm, or a
+   fault) **or** closer than --obstacle-cm, treat it as an obstacle: spin away
+   (alternating left/right) and capture a still of this position, then retry.
+   A missing reading is treated as unsafe, never as "clear".
+3. Otherwise drive forward a short --step-s, stop, and capture a still.
+
+The car has no encoders, so position is open-loop; SfM does not need odometry,
+only overlapping viewpoints.
 
 Output: one frame-NNN.jpg per capture under --out-dir (default /tmp/room-sfm).
 """
@@ -36,14 +41,24 @@ TRIG_PIN = 17  # GPIO 17 (Pin 11)
 ECHO_PIN = 27  # GPIO 27 (Pin 13)
 
 
+def read_distance(sonar: Sonar, trials: int = 3) -> float | None:
+    """Nearest of ``trials`` readings, or None when none return a value.
+
+    A None result means "cannot confirm clear" (blind zone or fault); callers
+    must treat it as an obstacle, never as free space.
+    """
+    vals = [d for d in (sonar.measure() for _ in range(trials)) if d is not None]
+    return min(vals) if vals else None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Autonomous patrol + capture for SfM")
     parser.add_argument("--frames", type=int, default=40, help="number of stills to capture")
-    parser.add_argument("--step-s", type=float, default=1.5, help="seconds of forward per step")
+    parser.add_argument("--step-s", type=float, default=0.8, help="seconds of forward per step")
     parser.add_argument("--speed", type=int, default=150, help="drive speed 0-255 (low)")
     parser.add_argument("--obstacle-cm", type=float, default=45.0,
                         help="turn away when the sonar reads closer than this")
-    parser.add_argument("--turn-s", type=float, default=1.2, help="seconds to spin when avoiding")
+    parser.add_argument("--turn-s", type=float, default=2.0, help="seconds to spin when avoiding")
     parser.add_argument("--size", default="2028x1520", help="capture size WxH")
     parser.add_argument("--out-dir", type=Path, default=Path("/tmp/room-sfm"))
     args = parser.parse_args()
@@ -95,14 +110,16 @@ def main() -> int:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Patrolling: {args.frames} frames, step {args.step_s}s at speed {args.speed}, "
-          f"obstacle turn below {args.obstacle_cm:.0f} cm. Ctrl-C to stop.")
+          f"obstacle/unreadable turns below {args.obstacle_cm:.0f} cm. Ctrl-C to stop.")
     turn_left = False
     n = 0
     try:
-        for n in range(args.frames):
-            d = sonar.measure()
-            if d is not None and d < args.obstacle_cm:
-                print(f"[{n + 1}] obstacle at {d:.0f} cm -> turn "
+        while n < args.frames:
+            d = read_distance(sonar)
+            if d is None or d < args.obstacle_cm:
+                # Near-range blind zone (None) or a real obstacle: turn away.
+                why = f"{d:.0f} cm" if d is not None else "no reading (blind zone)"
+                print(f"[{n + 1}] obstacle: {why} -> turn "
                       f"{'left' if turn_left else 'right'}")
                 if turn_left:
                     car.spin_left(args.speed)
@@ -111,8 +128,15 @@ def main() -> int:
                 time.sleep(args.turn_s)
                 car.stop()
                 turn_left = not turn_left
-                time.sleep(0.3)
+                time.sleep(0.4)
+                # capture this position too, then re-check before moving
+                path = args.out_dir / f"frame-{n:03d}.jpg"
+                camera.capture_file(str(path))
+                print(f"[{n + 1}] {path.name}")
+                n += 1
+                continue
 
+            # Clear: advance one short step, stop, then shoot.
             car.forward(args.speed)
             time.sleep(args.step_s)
             car.stop()
@@ -121,6 +145,7 @@ def main() -> int:
             path = args.out_dir / f"frame-{n:03d}.jpg"
             camera.capture_file(str(path))
             print(f"[{n + 1}] {path.name}")
+            n += 1
     except KeyboardInterrupt:
         print("\nInterrupted.")
     finally:
@@ -130,7 +155,7 @@ def main() -> int:
         car.close()
         GPIO.cleanup()
 
-    print(f"Captured {n + 1} frames -> {args.out_dir}")
+    print(f"Captured {n} frames -> {args.out_dir}")
     return 0
 
 
