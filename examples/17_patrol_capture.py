@@ -1,27 +1,26 @@
 #!/usr/bin/env python3
-"""Autonomous patrol + capture for Structure-from-Motion.
+"""Autonomous patrol + capture for Structure-from-Motion (Roomba-style).
 
-The car drives **itself** slowly around the room, avoids obstacles with the
-HC-SR04, and captures a still at every stop. No operator pushing — but an
-operator must stand beside the car able to cut main power instantly, because
-this script moves motors.
+The car drives **itself** around the room using a random-bounce strategy
+(the same one robot vacuums have proven for decades): drive forward until an
+obstacle is near, then turn by a **random angle** (30-150 deg) in a random
+direction and continue. Over a long run this probabilistically covers the
+whole room, which is exactly what a photo sweep for SfM needs — no encoders,
+no map, just overlapping viewpoints.
 
-Run on the Pi with the operator beside the car, path clear and the battery
-charged:
+An operator must stand beside the car able to cut main power instantly
+(motor-moving). Run on the Pi:
 
-    PYTHONPATH=src python3 examples/17_patrol_capture.py --frames 40
+    PYTHONPATH=src python3 examples/17_patrol_capture.py --frames 150
 
-Loop per frame:
+Loop per frame: sample the sonar (keep nearest of 3); if ``None`` (HC-SR04
+<~20 cm blind zone or fault) or closer than --obstacle-cm, spin a random angle
+in a random direction; otherwise drive forward a short step. A still is
+captured after every move/stop. A missing reading is treated as unsafe, never
+as "clear".
 
-1. Sample the sonar several times and keep the **nearest** reading.
-2. If the reading is ``None`` (HC-SR04 near-range blind zone, <~20 cm, or a
-   fault) **or** closer than --obstacle-cm, treat it as an obstacle: spin away
-   (alternating left/right) and capture a still of this position, then retry.
-   A missing reading is treated as unsafe, never as "clear".
-3. Otherwise drive forward a short --step-s, stop, and capture a still.
-
-The car has no encoders, so position is open-loop; SfM does not need odometry,
-only overlapping viewpoints.
+Spin timing assumes the verified ~8.2 s/360 deg at speed 150
+(--spin-deg-per-s), so a 30-150 deg turn is roughly 0.7-3.4 s.
 
 Output: one frame-NNN.jpg per capture under --out-dir (default /tmp/room-sfm).
 """
@@ -29,6 +28,7 @@ Output: one frame-NNN.jpg per capture under --out-dir (default /tmp/room-sfm).
 from __future__ import annotations
 
 import argparse
+import random
 import sys
 import time
 from pathlib import Path
@@ -39,6 +39,7 @@ from carbot.sonar import Sonar
 
 TRIG_PIN = 17  # GPIO 17 (Pin 11)
 ECHO_PIN = 27  # GPIO 27 (Pin 13)
+VERIFIED_SPIN_DEG_PER_S = 360.0 / 8.2  # ~43.9 deg/s at speed 150
 
 
 def read_distance(sonar: Sonar, trials: int = 3) -> float | None:
@@ -52,13 +53,18 @@ def read_distance(sonar: Sonar, trials: int = 3) -> float | None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Autonomous patrol + capture for SfM")
-    parser.add_argument("--frames", type=int, default=40, help="number of stills to capture")
+    parser = argparse.ArgumentParser(description="Roomba-style patrol + capture for SfM")
+    parser.add_argument("--frames", type=int, default=150, help="number of stills to capture")
     parser.add_argument("--step-s", type=float, default=0.5, help="seconds of forward per step")
     parser.add_argument("--speed", type=int, default=150, help="drive speed 0-255 (low)")
     parser.add_argument("--obstacle-cm", type=float, default=28.0,
                         help="turn away when the sonar reads closer than this")
-    parser.add_argument("--turn-s", type=float, default=2.5, help="seconds to spin when avoiding")
+    parser.add_argument("--turn-min-deg", type=float, default=30.0,
+                        help="minimum random turn angle (deg)")
+    parser.add_argument("--turn-max-deg", type=float, default=150.0,
+                        help="maximum random turn angle (deg)")
+    parser.add_argument("--spin-deg-per-s", type=float, default=VERIFIED_SPIN_DEG_PER_S,
+                        help="spin rate (deg/s) at --speed")
     parser.add_argument("--size", default="2028x1520", help="capture size WxH")
     parser.add_argument("--out-dir", type=Path, default=Path("/tmp/room-sfm"))
     args = parser.parse_args()
@@ -109,46 +115,33 @@ def main() -> int:
         raise
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Patrolling: {args.frames} frames, step {args.step_s}s at speed {args.speed}, "
-          f"obstacle/unreadable turns below {args.obstacle_cm:.0f} cm. Ctrl-C to stop.")
-    turn_left = False
-    consecutive_turns = 0
+    print(f"Roomba patrol: {args.frames} frames, step {args.step_s}s at speed {args.speed}, "
+          f"turn below {args.obstacle_cm:.0f} cm by {args.turn_min_deg:.0f}-"
+          f"{args.turn_max_deg:.0f} deg random angle. Ctrl-C to stop.")
     n = 0
     try:
         while n < args.frames:
             d = read_distance(sonar)
             if d is None or d < args.obstacle_cm:
-                # Near-range blind zone (None) or a real obstacle: turn away.
-                consecutive_turns += 1
-                stuck = consecutive_turns >= 3
-                spin_s = 4.5 if stuck else args.turn_s  # ~180 deg escape if stuck
+                # Obstacle / blind zone: turn a random angle in a random direction.
+                angle = random.uniform(args.turn_min_deg, args.turn_max_deg)
+                spin_s = angle / args.spin_deg_per_s
                 why = f"{d:.0f} cm" if d is not None else "no reading (blind zone)"
-                print(f"[{n + 1}] obstacle: {why} -> turn "
-                      f"{'left' if turn_left else 'right'}"
-                      + (" (stuck: 180 deg)" if stuck else ""))
-                if turn_left:
+                direction = "left" if random.random() < 0.5 else "right"
+                print(f"[{n + 1}] obstacle: {why} -> {direction} {angle:.0f} deg")
+                if direction == "left":
                     car.spin_left(args.speed)
                 else:
                     car.spin_right(args.speed)
                 time.sleep(spin_s)
                 car.stop()
-                turn_left = not turn_left
-                if stuck:
-                    consecutive_turns = 0
-                time.sleep(0.4)
-                # capture this position too, then re-check before moving
-                path = args.out_dir / f"frame-{n:03d}.jpg"
-                camera.capture_file(str(path))
-                print(f"[{n + 1}] {path.name}")
-                n += 1
-                continue
-
-            # Clear: advance one short step, stop, then shoot.
-            consecutive_turns = 0
-            car.forward(args.speed)
-            time.sleep(args.step_s)
-            car.stop()
-            time.sleep(0.4)  # settle so the still is sharp
+                time.sleep(0.8)  # settle so the still is sharp
+            else:
+                # Clear: advance one short step, stop, then shoot.
+                car.forward(args.speed)
+                time.sleep(args.step_s)
+                car.stop()
+                time.sleep(1.0)  # settle so the still is sharp
 
             path = args.out_dir / f"frame-{n:03d}.jpg"
             camera.capture_file(str(path))
