@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """IMX500 object-detection check for visual obstacle avoidance (no motors).
 
-Loads an on-sensor object detector (SSD mobilenetv2, COCO 80 classes) and
-prints every detection plus an "OBSTACLE AHEAD" flag when a large object sits
-in the central lower part of the frame — the car's path. This is the visual
-layer that will later be fused with the sonar (e.g. a chair/table the sonar
-cannot see).
+Loads an on-sensor object detector (SSD mobilenetv2, COCO 80 classes) and prints
+every detection plus an "OBSTACLE AHEAD" flag when a large object sits in the
+central lower part of the frame — the car's path. This is the visual layer the
+sonar cannot provide: a single forward HC-SR04 sees neither thin chair legs nor
+an overhead tabletop.
+
+The detection and fusion logic lives in :mod:`carbot.vision_avoid` so the patrol
+shares exactly this verdict; this script is the hardware check around it.
 
 Run on the Pi while the operator places/removes obstacles in front of the car:
 
@@ -22,59 +25,13 @@ import argparse
 import sys
 import time
 
-import numpy as np
-from picamera2 import Picamera2
-from picamera2.devices import IMX500
-from picamera2.devices.imx500 import NetworkIntrinsics, postprocess_nanodet_detection
+from carbot.vision_avoid import (
+    ObstaclePolicy,
+    blocking_detections,
+    detections_from_metadata,
+)
 
 DEFAULT_MODEL = "/usr/share/imx500-models/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.rpk"
-
-# COCO classes most relevant to indoor obstacles; used only if the model
-# carries no labels of its own.
-COCO_LABELS = [
-    "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
-    "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
-    "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack",
-    "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball",
-    "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket",
-    "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
-    "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair",
-    "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse",
-    "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink",
-    "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier",
-    "toothbrush",
-]
-
-
-def parse_detections(metadata, imx500, intrinsics, threshold, iou, max_detections, picam2):
-    """Return a list of (category, conf, box_x, box_y, box_w, box_h) in pixels."""
-    np_outputs = imx500.get_outputs(metadata, add_batch=True)
-    if np_outputs is None:
-        return []
-    input_w, input_h = imx500.get_input_size()
-
-    if intrinsics.postprocess == "nanodet":
-        boxes, scores, classes = postprocess_nanodet_detection(
-            outputs=np_outputs[0], conf=threshold, iou_thres=iou, max_out_dets=max_detections
-        )[0]
-        from picamera2.devices.imx500.postprocess import scale_boxes
-        boxes = scale_boxes(boxes, 1, 1, input_h, input_w, False, False)
-    else:
-        boxes, scores, classes = np_outputs[0][0], np_outputs[1][0], np_outputs[2][0]
-        if intrinsics.bbox_normalization:
-            boxes = boxes / input_h
-        if intrinsics.bbox_order == "xy":
-            boxes = boxes[:, [1, 0, 3, 2]]
-
-    results = []
-    for box, score, category in zip(boxes, scores, classes):
-        if score <= threshold:
-            continue
-        # box is [y0, x0, y1, x1] (normalized); convert returns pixel (x, y, w, h)
-        coords = np.asarray(box, dtype=np.float64)
-        x, y, w, h = imx500.convert_inference_coords(coords, metadata, picam2)
-        results.append((int(category), float(score), int(x), int(y), int(w), int(h)))
-    return results
 
 
 def main() -> int:
@@ -82,7 +39,8 @@ def main() -> int:
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--frames", type=int, default=30, help="frames to analyse")
     parser.add_argument("--interval", type=float, default=1.0, help="seconds between reads")
-    parser.add_argument("--threshold", type=float, default=0.30, help="detection confidence threshold")
+    parser.add_argument("--threshold", type=float, default=0.30,
+                        help="detection confidence threshold")
     parser.add_argument("--iou", type=float, default=0.65)
     parser.add_argument("--max-detections", type=int, default=10)
     parser.add_argument("--center-x", type=float, default=0.35,
@@ -93,6 +51,17 @@ def main() -> int:
                         help="obstacle only if the box covers at least this fraction of the frame")
     args = parser.parse_args()
 
+    from picamera2 import Picamera2
+    from picamera2.devices import IMX500
+    from picamera2.devices.imx500 import NetworkIntrinsics
+
+    policy = ObstaclePolicy(
+        confidence_threshold=args.threshold,
+        center_x_fraction=args.center_x,
+        min_bottom_fraction=args.min_height_frac,
+        min_area_fraction=args.min_area_frac,
+    )
+
     imx500 = IMX500(args.model)
     intrinsics = imx500.network_intrinsics
     if not intrinsics:
@@ -101,7 +70,6 @@ def main() -> int:
     if intrinsics.task != "object detection":
         print(f"Model is not an object-detection network (task={intrinsics.task})", file=sys.stderr)
         return 1
-    labels = intrinsics.labels or COCO_LABELS
     intrinsics.update_with_defaults()
 
     picam2 = Picamera2(imx500.camera_num)
@@ -110,8 +78,7 @@ def main() -> int:
     )
     imx500.show_network_fw_progress_bar()
     picam2.start(config)
-    main_size = picam2.camera_configuration()["main"]["size"]
-    fw, fh = main_size
+    frame_width, frame_height = picam2.camera_configuration()["main"]["size"]
     time.sleep(1.0)
 
     print(f"Visual detection check: {args.frames} reads, model={args.model.split('/')[-1]}")
@@ -119,21 +86,19 @@ def main() -> int:
     try:
         for i in range(args.frames):
             metadata = picam2.capture_metadata()
-            dets = parse_detections(metadata, imx500, intrinsics,
-                                    args.threshold, args.iou, args.max_detections, picam2)
-            obstacle = False
-            for cat, conf, x, y, w, h in dets:
-                name = labels[cat] if cat < len(labels) else str(cat)
-                cx = x + w / 2
-                bottom = y + h
-                area = (w * h) / (fw * fh)
-                central = abs(cx - fw / 2) < args.center_x * fw
-                low = bottom > args.min_height_frac * fh
-                if central and low and area > args.min_area_frac:
-                    obstacle = True
-                print(f"  {name:14s} conf={conf:.2f} box=({x},{y},{w},{h}) "
-                      f"centre_x={cx:.0f} bottom={bottom:.0f} area={area:.3f}")
-            print(f"[{i + 1}] -> {'OBSTACLE AHEAD' if obstacle else 'clear'}")
+            detections = detections_from_metadata(
+                metadata, imx500, intrinsics, picam2, policy,
+                iou=args.iou, max_detections=args.max_detections,
+            )
+            blocking = blocking_detections(detections, frame_width, frame_height, policy)
+            for detection in detections:
+                area = detection.area_fraction(frame_width, frame_height)
+                mark = "*" if detection in blocking else " "
+                print(f" {mark}{detection.label():14s} conf={detection.confidence:.2f} "
+                      f"box=({detection.x},{detection.y},{detection.width},{detection.height}) "
+                      f"centre_x={detection.center_x:.0f} bottom={detection.bottom} "
+                      f"area={area:.3f}")
+            print(f"[{i + 1}] -> {'OBSTACLE AHEAD' if blocking else 'clear'}")
             time.sleep(args.interval)
     except KeyboardInterrupt:
         print("\nInterrupted.")
