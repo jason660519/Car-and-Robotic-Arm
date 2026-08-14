@@ -26,11 +26,21 @@ reconstructing. The answer was not image quality.
 
 Registration across the three hardware runs:
 
-| Run | Capture policy | Largest model | Points |
-|---|---|---|---|
-| 1 | one frame per station, no gates | not run (2 of 10 frames unusable) | — |
-| 2 | one frame per station, gated | 3/10 (30%) | 202 |
-| 3 | **burst of 5 at ~20 deg, gated** | **17/30 (57%)** | 1606 (and 3272 in a second model) |
+| Run | Capture policy | Largest model | Points | Models |
+|---|---|---|---|---|
+| 1 | one frame per station, no gates | not run (2 of 10 frames unusable) | — | — |
+| 2 | one frame per station, gated | 3/10 (30%) | 202 | 4 islands |
+| 3 | burst of 5 at ~20 deg, gated | 17/30 (57%) | 1606 | 3 |
+| 4 | **capture through the turn, 15 deg, live overlap repair** | **30/30 (100%)** | **7972** | **1 connected** |
+
+Run 4 is the first complete reconstruction the photo route has produced: a single
+connected model containing every frame. Three changes got it there — the
+avoidance turn became a capture sweep (run 3's model boundaries all sat on those
+turns), the step tightened from 20 to 15 deg for ~77% overlap, and a weak link is
+now repaired during the run by inserting a bridging frame.
+
+It also got cheaper: 30 frames in 5 stations with 3 rejections, against run 3's
+10 stations and 18 rejections.
 
 ## 2. Verification
 
@@ -56,6 +66,18 @@ uv run python scripts/run_colmap_sfm.py sfm2/images sfm2/work
   model 0:  4/30 registered, 1716 points
   model 1: 17/30 registered, 1606 points
   model 2: 13/30 registered, 3272 points
+
+# Pi: run 4 — capture through the turn, 15 deg step, live overlap repair
+PYTHONPATH=src python3 examples/22_fused_patrol_capture.py \
+    --frames 30 --frame-report --keep-rejected
+  Kept 30 frames in 5 stations (3 blocked, 2 forward, 3 rejected, 0 empty sweeps)
+    rejected 3x: standoff
+  Overlap with the previous kept frame: min 35, median 966, max 1453
+    — 2 below 200, 1 bridge frames inserted
+
+# Mac: reconstruction of run 4
+  model 0:  4/30 registered, 4312 points
+  model 1: 30/30 registered, 7972 points   <- every frame, one model
 ```
 
 ## 3. Measurements and Configuration
@@ -163,27 +185,34 @@ COLMAP matches exhaustively, so a frame can join a model through a
 *non-adjacent* pair: connectivity is a property of the whole match graph, not of
 the link to the previous frame.
 
-Still unanswered: whether the gates are too **strict**. Run 3 did not use
-`--keep-rejected`, so its 18 rejected captures were not kept and cannot be
-tested for whether they would have added usable pairs — 37% of attempted
-captures were discarded on unverified thresholds.
+**The standoff gate now looks redundant.** Run 4 used `--keep-rejected` and
+rejected only 3 captures, all on standoff. Assessed afterwards, **all three would
+have passed the quality gate comfortably** — 9/12, 8/12 and 7/12 textured tiles
+with 3629-5475 keypoints. Standoff was introduced to stop the car photographing a
+whiteboard from 30 cm, but that failure shows up directly as low textured tiles,
+so the quality gate already covers it while standoff additionally discards good
+frames.
+
+Three samples is thin evidence and run 4 registered 30 of 30, so nothing was
+changed: losing 3 captures out of 33 attempts costs about 9% of the run and
+retuning risks a regression against a result that currently works. Revisit with
+more rejects, and prefer lowering the threshold over removing the gate — the
+sonar read is far cheaper than the ORB pass behind the quality gate.
 
 ## 6. Follow-up
 
-**The next change is to photograph through the avoidance turn.** Bursts are now
-internally connected and stations are not, and the breaks coincide with the
-30-150 deg avoidance turns. That turn is currently dead time; stepping it in
-~20 deg increments and capturing at each step would bridge the two headings with
-exactly the kind of overlapping chain that works inside a burst. A 116 deg turn
-becomes six linking frames.
+**Scale anchoring is the next real step.** The reconstruction is up to scale, so
+it has shape but no size. `carbot.vision` already detects the 70 mm wall AprilTag
+and estimates its metric pose; using that to solve metres-per-unit turns the
+sparse model into a floor map. This runs entirely on the Mac and needs no
+operator.
 
-Also open:
+Caveats on run 4 worth keeping in view:
 
-- Whether one connected model results, or whether the room needs a deliberate
-  route rather than random bounce.
-- A run with `--keep-rejected` to finish the calibration in section 5: are the
-  gates throwing away usable captures? Worth combining with the
-  photograph-through-the-turn test, since both need an operator.
-- Scale is still unrecovered — the reconstruction is up to scale until the 70 mm
-  wall AprilTag is used to anchor it.
+- **One room, one run.** Registration of 30/30 is a strong result but not yet
+  evidence that the pipeline is stable. The route through a low-texture room is
+  the case ADR 0002 flagged as the weak point of the photo route, and it has not
+  been tried.
+- Random-bounce routing was left alone deliberately. Whether a deliberate route
+  (perimeter then interior) is needed is now testable against a working baseline.
 - `examples/17` and `examples/18` still carry the old 43.9 deg/s constant.
