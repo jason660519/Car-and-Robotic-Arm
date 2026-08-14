@@ -19,8 +19,9 @@ in a random direction; otherwise drive forward a short step. A still is
 captured after every move/stop. A missing reading is treated as unsafe, never
 as "clear".
 
-Spin timing assumes the verified ~8.2 s/360 deg at speed 150
-(--spin-deg-per-s), so a 30-150 deg turn is roughly 0.7-3.4 s.
+Spin timing uses --spin-deg-per-s (default = the verified 8.2 s/360 deg at
+speed 150); at a higher --speed the car turns faster, so the actual turn
+angle is approximate — fine for random coverage.
 
 Output: one frame-NNN.jpg per capture under --out-dir (default /tmp/room-sfm).
 """
@@ -55,9 +56,11 @@ def read_distance(sonar: Sonar, trials: int = 3) -> float | None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Roomba-style patrol + capture for SfM")
     parser.add_argument("--frames", type=int, default=150, help="number of stills to capture")
-    parser.add_argument("--step-s", type=float, default=0.5, help="seconds of forward per step")
-    parser.add_argument("--speed", type=int, default=150, help="drive speed 0-255 (low)")
-    parser.add_argument("--obstacle-cm", type=float, default=28.0,
+    parser.add_argument("--step-s", type=float, default=1.0, help="seconds of forward per step")
+    parser.add_argument("--speed", type=int, default=200, help="drive speed 0-255 (low)")
+    parser.add_argument("--backup-s", type=float, default=0.6,
+                        help="seconds to reverse before turning (frees the car from a corner)")
+    parser.add_argument("--obstacle-cm", type=float, default=30.0,
                         help="turn away when the sonar reads closer than this")
     parser.add_argument("--turn-min-deg", type=float, default=30.0,
                         help="minimum random turn angle (deg)")
@@ -123,12 +126,17 @@ def main() -> int:
         while n < args.frames:
             d = read_distance(sonar)
             if d is None or d < args.obstacle_cm:
-                # Obstacle / blind zone: turn a random angle in a random direction.
+                # Obstacle / blind zone: back up to leave the wall/corner, then
+                # turn a random angle in a random direction.
                 angle = random.uniform(args.turn_min_deg, args.turn_max_deg)
                 spin_s = angle / args.spin_deg_per_s
                 why = f"{d:.0f} cm" if d is not None else "no reading (blind zone)"
                 direction = "left" if random.random() < 0.5 else "right"
-                print(f"[{n + 1}] obstacle: {why} -> {direction} {angle:.0f} deg")
+                print(f"[{n + 1}] obstacle: {why} -> back up, then {direction} {angle:.0f} deg")
+                car.backward(args.speed)
+                time.sleep(args.backup_s)
+                car.stop()
+                time.sleep(0.3)
                 if direction == "left":
                     car.spin_left(args.speed)
                 else:
