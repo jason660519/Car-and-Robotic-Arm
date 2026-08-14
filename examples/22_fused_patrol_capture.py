@@ -10,19 +10,24 @@ from the **same camera configuration** — mode 'single', measured in
 mode switching at all.
 
 Per station: read the sonar and the latest detections, fuse them, then either
-back up and turn away, or advance one short step. Then capture a **burst** of
-overlapping frames — several shots about 20 deg apart — and rotate back to the
-original heading before moving on.
+back up and turn away, or advance one short step. Every rotation is then stepped
+in ~15 deg increments with a capture attempt at each stop — the avoidance turn
+and the standing burst are the same sweep, differing only in how far they go and
+whether the car rotates back afterwards.
 
-The burst exists because single frames did not reconstruct. Ten individually good
-frames from one run (all sharp, all well exposed) formed four disconnected
-islands when matched pairwise: 600-1500 matches within an island and 10-40
-between them, and COLMAP registered only 3 of 10, reporting "no good initial
-image pair found". The frames that did connect were the ones taken while the car
-drove straight. Random 36-144 deg turns between shots destroy the overlap that
-Structure-from-Motion is built on; a ~20 deg step keeps roughly 70% of the 66 deg
-field of view in common. Rotating back afterwards keeps the trajectory straight,
-which is what linked frames across stations in the first place.
+This shape came from three hardware runs. Single frames per station did not
+reconstruct: ten individually good frames (all sharp, all well exposed) formed
+four disconnected islands when matched pairwise — 600-1500 matches within an
+island, 10-40 between — and COLMAP registered 3 of 10, reporting "no good initial
+image pair found". Adding a burst raised that to 17 of 30, and the remaining
+breaks all sat on avoidance turns, which were dead time. Photographing through
+the turn bridges those headings, since a 15 deg step keeps ~77% of the 66 deg
+field of view in common, the upper end COLMAP wants indoors.
+
+A weak link is also repaired during the run rather than discovered later on the
+workstation: when a capture shares too few matches with the previous one, the car
+rotates halfway back and inserts a bridging frame. That check is the same
+`repeatable_keypoints` measurement that diagnosed the problem offline.
 
 Each shot is also gated on being worth keeping. That gate exists because the
 first supervised run kept frames shot 30 cm
@@ -60,9 +65,11 @@ import argparse
 import random
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
-from carbot.frame_quality import assess_file
+from carbot.frame_quality import assess_file, repeatable_keypoints_between_files
 from carbot.sonar import Sonar
 from carbot.vision_avoid import ObstaclePolicy, detections_from_metadata, fuse
 
@@ -114,8 +121,12 @@ def main() -> int:
                              f"{VERIFIED_AT_SPEED}, re-measure with examples/23 for other speeds")
     parser.add_argument("--burst-frames", type=int, default=5,
                         help="overlapping frames to capture per station (1 = no burst)")
-    parser.add_argument("--burst-step-deg", type=float, default=20.0,
-                        help="rotation between burst frames; ~20 deg keeps ~70%% overlap")
+    parser.add_argument("--burst-step-deg", type=float, default=15.0,
+                        help="rotation between frames; 15 deg keeps ~77%% of the 66 deg "
+                             "field of view in common, the upper end COLMAP wants indoors")
+    parser.add_argument("--min-overlap-matches", type=int, default=200,
+                        help="insert a bridging frame when a capture shares fewer matches "
+                             "with the previous one; 0 disables the check")
     parser.add_argument("--settle-s", type=float, default=1.0,
                         help="seconds to let the chassis stop rocking before a capture")
     parser.add_argument("--threshold", type=float, default=0.30,
@@ -227,16 +238,17 @@ def main() -> int:
         rejected_dir.mkdir(parents=True, exist_ok=True)
     pending = args.out_dir / "pending.jpg"
 
+    ctx = PatrolContext(
+        args=args, car=car, camera=camera, sonar=sonar,
+        pending=pending, rejected_dir=rejected_dir,
+    )
+
     blocked_count = 0
-    rejected_count = 0
-    empty_bursts = 0
-    reject_reasons: dict[str, int] = {}
-    n = 0
+    empty_sweeps = 0
     step = 0
     try:
-        while n < args.frames and step < max_steps:
+        while ctx.kept < args.frames and step < max_steps:
             step += 1
-            kept_this_burst = 0
             distance = sonar.measure_nearest()
             metadata = camera.capture_metadata()
             detections = detections_from_metadata(
@@ -256,82 +268,29 @@ def main() -> int:
                     time.sleep(args.backup_s)
                     car.stop()
                     time.sleep(0.3)
-                    if direction == "left":
-                        car.spin_left(args.speed)
-                    else:
-                        car.spin_right(args.speed)
-                    time.sleep(angle / args.spin_deg_per_s)
-                    car.stop()
+                # The avoidance turn IS the station's sweep. Leaving it as dead
+                # time is what broke the reconstruction into pieces: every model
+                # boundary in the last run sat on one of these turns. Stepping it
+                # and shooting on the way round bridges the two headings instead.
+                kept_here = _sweep_and_capture(ctx, angle, direction, "turn")
             else:
                 print(f"[{step}] clear   {verdict.reason} -> forward {args.step_s:.1f}s")
                 if car:
                     car.forward(args.speed)
                     time.sleep(args.step_s)
                     car.stop()
-
-            time.sleep(args.settle_s)  # let the chassis stop rocking
-
-            # A burst of overlapping frames, not one frame per station. Single
-            # frames taken 36-144 deg apart shared almost nothing: a pairwise
-            # match of one run's ten frames formed four disconnected islands and
-            # COLMAP registered only the largest, reporting "no good initial
-            # image pair found". Rotating ~20 deg between shots keeps ~70% of the
-            # 66 deg field of view in common, so a burst is internally connected.
-            for shot in range(max(1, args.burst_frames)):
-                if n >= args.frames:
-                    break
-                if shot > 0 and car:
-                    car.spin_right(args.speed)
-                    time.sleep(args.burst_step_deg / args.spin_deg_per_s)
-                    car.stop()
                     time.sleep(args.settle_s)
+                span = args.burst_step_deg * (max(1, args.burst_frames) - 1)
+                kept_here = _sweep_and_capture(ctx, span, "right", "burst")
+                # Undo the sweep so the next forward move continues along the
+                # previous heading. A straight run is what linked frames across
+                # stations, so a burst must not quietly re-aim the car. An
+                # avoidance turn is exempt: changing heading is its whole point.
+                _spin(ctx, span, "left")
 
-                # Re-checked every shot: rotating changes what the camera and
-                # the sonar are pointed at, so the gate verdict changes too.
-                reason = _standoff_reason(sonar, args.min_standoff_cm)
-                quality = None
-                if reason is None:
-                    camera.capture_file(str(pending))
-                    quality, reason = _quality_reason(pending, args.min_textured_tiles)
-                elif args.keep_rejected:
-                    # Shoot anyway, purely to record what the standoff gate
-                    # skipped. Without this the flag saves nothing when standoff
-                    # is doing all the rejecting, which is exactly when the
-                    # threshold needs calibrating.
-                    camera.capture_file(str(pending))
-
-                if reason is None:
-                    path = args.out_dir / f"frame-{n:03d}.jpg"
-                    pending.replace(path)
-                    n += 1
-                    kept_this_burst += 1
-                    label = f"      {path.name} [{shot + 1}/{args.burst_frames}]"
-                    if args.frame_report and quality:
-                        print(f"{label}: {quality.summary()}")
-                    else:
-                        print(f"{label} kept ({n}/{args.frames})")
-                else:
-                    rejected_count += 1
-                    key = reason.split(":")[0]
-                    reject_reasons[key] = reject_reasons.get(key, 0) + 1
-                    print(f"      no capture [{shot + 1}/{args.burst_frames}]: {reason}")
-                    if args.keep_rejected and pending.exists():
-                        pending.replace(rejected_dir / f"step-{step:03d}-{shot}.jpg")
-
-            if kept_this_burst == 0:
-                empty_bursts += 1
-                print("      burst kept nothing — this station is unusable")
-
-            # Undo the burst rotation so the next forward move continues along
-            # the previous heading. A straight run is what produced the only
-            # frames that ever registered, so the sweep must not let the burst
-            # quietly re-aim the car by its full span.
-            span = args.burst_step_deg * (max(1, args.burst_frames) - 1)
-            if car and span > 0:
-                car.spin_left(args.speed)
-                time.sleep(span / args.spin_deg_per_s)
-                car.stop()
-                time.sleep(args.settle_s)
+            if kept_here == 0:
+                empty_sweeps += 1
+                print("      sweep kept nothing — this station is unusable")
     except KeyboardInterrupt:
         print("\nInterrupted.")
     finally:
@@ -345,17 +304,158 @@ def main() -> int:
         pending.unlink(missing_ok=True)
 
     print("-" * 72)
-    print(f"Kept {n} frames -> {args.out_dir} in {step} stations "
+    print(f"Kept {ctx.kept} frames -> {args.out_dir} in {step} stations "
           f"({blocked_count} blocked, {step - blocked_count} forward, "
-          f"{rejected_count} captures rejected, {empty_bursts} empty bursts)")
-    for key, count in sorted(reject_reasons.items(), key=lambda kv: -kv[1]):
+          f"{ctx.rejected} captures rejected, {empty_sweeps} empty sweeps)")
+    for key, count in sorted(ctx.reject_reasons.items(), key=lambda kv: -kv[1]):
         print(f"  rejected {count}x: {key}")
-    if n < args.frames:
-        print(f"Stopped at the {max_steps}-step cap with {n}/{args.frames} frames — the room "
-              f"is rejecting most poses. Check the reject reasons before raising --max-steps.")
+    if ctx.overlaps:
+        weak = sum(1 for v in ctx.overlaps if v < args.min_overlap_matches)
+        print(f"Overlap with the previous kept frame: min {min(ctx.overlaps)}, "
+              f"median {sorted(ctx.overlaps)[len(ctx.overlaps) // 2]}, "
+              f"max {max(ctx.overlaps)} — {weak} below {args.min_overlap_matches}, "
+              f"{ctx.bridges} bridge frames inserted")
+    if ctx.kept < args.frames:
+        print(f"Stopped at the {max_steps}-step cap with {ctx.kept}/{args.frames} frames — the "
+              f"room is rejecting most poses. Check the reject reasons before raising "
+              f"--max-steps.")
     if args.dry_run:
         print("Dry run: no motor commands were sent.")
     return 0
+
+
+@dataclass
+class PatrolContext:
+    """State the capture helpers share, so each takes one argument instead of ten."""
+
+    args: Any
+    car: Any  # None during a dry run
+    camera: Any
+    sonar: Sonar
+    pending: Path
+    rejected_dir: Path
+    kept: int = 0
+    last_kept: Path | None = None
+    rejected: int = 0
+    bridges: int = 0
+    overlaps: list[int] = field(default_factory=list)
+    reject_reasons: dict[str, int] = field(default_factory=dict)
+
+
+def _spin(ctx: PatrolContext, degrees: float, direction: str) -> None:
+    """Rotate and settle. A no-op during a dry run."""
+    if not ctx.car or degrees <= 0:
+        return
+    spin = ctx.car.spin_left if direction == "left" else ctx.car.spin_right
+    spin(ctx.args.speed)
+    time.sleep(degrees / ctx.args.spin_deg_per_s)
+    ctx.car.stop()
+    time.sleep(ctx.args.settle_s)
+
+
+def _sweep_and_capture(ctx: PatrolContext, total_deg: float, direction: str, tag: str) -> int:
+    """Rotate through ``total_deg`` in steps, trying to capture at every stop.
+
+    Both the burst and the avoidance turn are this same primitive; they differ
+    only in how far they rotate and whether the caller rotates back afterwards.
+    Returns how many frames were kept.
+    """
+    args = ctx.args
+    step_deg = args.burst_step_deg
+    stops = max(1, round(total_deg / step_deg) + 1) if total_deg > 0 else 1
+    kept_here = 0
+    for index in range(stops):
+        if ctx.kept >= args.frames:
+            break
+        if index > 0:
+            _spin(ctx, step_deg, direction)
+        shot = _try_capture(ctx, f"[{tag} {index + 1}/{stops}]")
+        if not shot.kept:
+            continue
+        kept_here += 1
+        # Loop A: a weak link is repaired on the spot rather than discovered
+        # minutes later on the workstation. Rotating halfway back puts a frame
+        # between the two headings, which overlaps both.
+        if (
+            shot.overlap is not None
+            and shot.overlap < args.min_overlap_matches
+            and ctx.kept < args.frames  # a bridge is still a frame, and must not overrun
+        ):
+            print(f"      weak link ({shot.overlap} matches) -> bridging")
+            back = "left" if direction == "right" else "right"
+            _spin(ctx, step_deg / 2, back)
+            if _try_capture(ctx, f"[{tag} bridge]").kept:
+                ctx.bridges += 1
+                kept_here += 1
+            _spin(ctx, step_deg / 2, direction)
+    return kept_here
+
+
+@dataclass
+class ShotResult:
+    """Whether a capture was kept, and how well it linked to the previous one."""
+
+    kept: bool
+    overlap: int | None = None
+
+
+def _try_capture(ctx: PatrolContext, label: str) -> ShotResult:
+    """Run the gates at the current pose and keep the frame if they all pass."""
+    args = ctx.args
+    # Re-checked at every stop: rotating changes what the camera and the sonar
+    # are pointed at, so the verdict changes with them.
+    reason = _standoff_reason(ctx.sonar, args.min_standoff_cm)
+    quality = None
+    if reason is None:
+        ctx.camera.capture_file(str(ctx.pending))
+        quality, reason = _quality_reason(ctx.pending, args.min_textured_tiles)
+    elif args.keep_rejected:
+        # Shoot anyway, purely to record what the standoff gate skipped. Without
+        # this the flag saves nothing when standoff is doing all the rejecting,
+        # which is exactly when the threshold needs calibrating.
+        ctx.camera.capture_file(str(ctx.pending))
+
+    if reason is not None:
+        ctx.rejected += 1
+        key = reason.split(":")[0]
+        ctx.reject_reasons[key] = ctx.reject_reasons.get(key, 0) + 1
+        print(f"      no capture {label}: {reason}")
+        if args.keep_rejected and ctx.pending.exists():
+            ctx.pending.replace(ctx.rejected_dir / f"reject-{ctx.rejected:03d}.jpg")
+        return ShotResult(kept=False)
+
+    overlap = _overlap(ctx.last_kept, ctx.pending) if args.min_overlap_matches > 0 else None
+    path = args.out_dir / f"frame-{ctx.kept:03d}.jpg"
+    ctx.pending.replace(path)
+    ctx.kept += 1
+    ctx.last_kept = path
+    if overlap is not None:
+        ctx.overlaps.append(overlap)
+
+    line = f"      {path.name} {label}"
+    if args.frame_report and quality:
+        line += f": {quality.summary()}"
+    else:
+        line += f" kept ({ctx.kept}/{args.frames})"
+    if overlap is not None:
+        line += f" overlap={overlap}"
+    print(line)
+    return ShotResult(kept=True, overlap=overlap)
+
+
+def _overlap(previous: Path | None, current: Path) -> int | None:
+    """Matches shared with the previously kept frame, or None when there is none.
+
+    This is the measurement the workstation used to diagnose why three runs of
+    good-looking frames would not reconstruct. Running it on the Pi is what turns
+    that diagnosis into something the car can act on during the run.
+    """
+    if previous is None or not previous.exists():
+        return None
+    try:
+        return repeatable_keypoints_between_files(str(previous), str(current))
+    except (RuntimeError, ValueError):
+        return None
 
 
 def _standoff_reason(sonar: Sonar, minimum_cm: float) -> str | None:
