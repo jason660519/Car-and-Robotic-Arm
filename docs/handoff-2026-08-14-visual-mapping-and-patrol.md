@@ -43,6 +43,12 @@ Write the fused patrol loop. Two parts:
 
 ### A. Camera-mode switching (the hard part)
 
+> **Superseded — do not build this.** Measured in
+> [`progress/2026-08-14-camera-modes-exposure-and-preflight-fix.md`](progress/2026-08-14-camera-modes-exposure-and-preflight-fix.md):
+> the IMX500 delivers the inference tensor *and* 2028×1520 stills from a single
+> configuration (5/5 frames, 0.05 s per capture). No mode switching is needed.
+> The rest of this section is kept as the record of what was assumed.
+
 IMX500 inference runs on a **640×480 preview stream**; SfM needs **2028×1520
 stills**. One camera must do both, so the loop has to switch modes:
 

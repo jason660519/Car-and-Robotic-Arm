@@ -41,7 +41,7 @@ python3 examples/05_ai_camera_check.py --photo      # AI Camera (IMX500) — sys
 python3 examples/06_ultrasonic_avoidance.py         # HC-SR04 obstacle detector — no moving parts
 PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py --dry-run  # sensor only first
 PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py            # ⚠️ avoidance run, operator beside it
-python3 examples/08_battery_check.py                # battery / power health — no moving parts
+PYTHONPATH=src python3 examples/08_battery_check.py  # battery / power health — no moving parts
 PYTHONPATH=src python3 examples/09_room_scan.py     # ⚠️ spin-scan the room (HC-SR04), operator beside it
 PYTHONPATH=src python3 examples/10_calibrate_motion.py  # ⚠️ drive/spin calibration, operator beside it
 PYTHONPATH=src python3 examples/11_explore_mapping.py   # ⚠️ M3 exploration loop, operator beside it
@@ -92,7 +92,7 @@ standing beside the robot who can cut main power instantly. Run `14` before any 
 | 05 | `examples/05_ai_camera_check.py` | AI Camera (IMX500) detected, picamera2 capture, models listed; `--photo` saves a still, `--inference` runs an on-sensor object-detection pass (first run uploads the model to the camera — takes a few minutes) | `python3 examples/05_ai_camera_check.py --photo` | ✅ No moving parts (use system interpreter, not `uv`) |
 | 06 | `examples/06_ultrasonic_avoidance.py` | HC-SR04 obstacle detector: distance readings + obstacle warning; `--trials`/`--threshold` to tune | `python3 examples/06_ultrasonic_avoidance.py` | ✅ No moving parts |
 | 07 | `examples/07_obstacle_avoidance_drive.py` | Closed-loop avoidance: HC-SR04 drives the car (forward / stop + spin); `--dry-run` tests the sensor loop only | `PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py` | ⚠️ Operator beside it; lifted by default, `--ground` for a floor run |
-| 08 | `examples/08_battery_check.py` | Battery / power health: `EXT5V_V`, `get_throttled` bits, temperature | `python3 examples/08_battery_check.py` | ✅ No moving parts |
+| 08 | `examples/08_battery_check.py` | Battery / power health: `EXT5V_V`, `get_throttled` bits (live vs since-boot), temperature | `PYTHONPATH=src python3 examples/08_battery_check.py` | ✅ No moving parts |
 | 09 | `examples/09_room_scan.py` | Room spin-scan (M1): logs the HC-SR04 polar distance profile while the car spins; one frame of the mapping loop | `PYTHONPATH=src python3 examples/09_room_scan.py` | ⚠️ Operator beside it (lifted or floor) |
 | 10 | `examples/10_calibrate_motion.py` | Drive-speed and spin calibration with the HC-SR04; honours `--spin-seconds`/`--spin-speed`; confirms before constructing `Car()` | `PYTHONPATH=src python3 examples/10_calibrate_motion.py` | ⚠️ Operator beside it (lifted or floor) |
 | 11 | `examples/11_explore_mapping.py` | M3 exploration loop: spin-scan -> ICP -> grid -> small step; `--spin-speed`/`--drive-speed` separated | `PYTHONPATH=src python3 examples/11_explore_mapping.py` | ⚠️ Operator beside it (lifted or floor) |
@@ -104,6 +104,8 @@ standing beside the robot who can cut main power instantly. Run `14` before any 
 | 17 | `examples/17_patrol_capture.py` | Roomba-style random-bounce patrol + capture (superseded by planned vision fusion) | `PYTHONPATH=src python3 examples/17_patrol_capture.py --frames 150` | ⚠️ Operator beside it |
 | 18 | `examples/18_wall_follow_capture.py` | Single-sonar wall-following patrol + capture (same sonar limitation) | `PYTHONPATH=src python3 examples/18_wall_follow_capture.py --frames 150` | ⚠️ Operator beside it |
 | 20 | `examples/20_visual_detection_check.py` | IMX500 on-sensor object detection for visual avoidance (`OBSTACLE AHEAD`) | `PYTHONPATH=src python3 examples/20_visual_detection_check.py` | ✅ No moving parts |
+| 21 | `examples/21_camera_dual_mode_check.py` | Camera experiments for the patrol: compares `single`/`switch`/`restart` capture modes, and sweeps auto-exposure settings ranked by repeatable keypoints | `PYTHONPATH=src python3 examples/21_camera_dual_mode_check.py` | ✅ No moving parts |
+| 22 | `examples/22_fused_patrol_capture.py` | Vision + sonar fused patrol with 2028×1520 SfM capture — avoids the chairs a single sonar cannot see | `PYTHONPATH=src python3 examples/22_fused_patrol_capture.py --dry-run --frames 10` | ⚠️ Operator beside it (`--dry-run` is safe) |
 
 Expected results (verified on this build, 2026-08):
 
@@ -116,9 +118,22 @@ Expected results (verified on this build, 2026-08):
 - `05` prints `All checks passed` and (with `--photo`) writes `/tmp/ai-camera-check.jpg`.
 - `06` prints an average distance in cm and warns when it drops below the obstacle threshold.
 - `07` prints one `clear`/`OBSTACLE` decision per loop; `--dry-run` never drives motors.
-- `08` prints `✓ Power health OK.` when `EXT5V_V >= 4.8 V` with no current throttle bits
-  (a non-zero `get_throttled` with current bits set means low battery / power problems —
-  fix the power supply before motor tests).
+- `08` prints `✓ Power health OK.` when `EXT5V_V >= 4.8 V` with no **live** throttle bits.
+  In `get_throttled` the low nibble (`0x1`/`0x2`/`0x4`/`0x8`) is the live state and bits
+  16-19 (`0x10000`+) are sticky since-boot history. Only a live bit means fix the power
+  supply before motor tests; a since-boot bit prints as `[INFO]` because it stays set
+  until reboot.
+- `21` reports `Use mode 'single' in the fused patrol.` — the IMX500 delivers inference
+  frames and 2028×1520 stills from one configuration, so no mode switching is needed.
+  Its exposure sweep ranks settings by *repeatable* keypoints (matched across two captures
+  of the same scene), not raw counts, because analogue gain manufactures keypoints out of
+  sensor noise: `ev+1.5` reports 21% more raw keypoints than the default at gain 15.5 while
+  matching fewer of them. `long-shutter+spot` wins at gain 4.0, but its 97 ms shutter still
+  has to be proven sharp on a car that has only just stopped.
+- `22 --dry-run` reads the sonar and the detector and prints one fused `clear`/`BLOCKED`
+  decision per step without sending any motor command. Raise `--obstacle-cm` above the
+  measured distance to exercise the sonar branch, or lower `--threshold` to exercise the
+  vision branch, before any supervised run.
 - `12` detects AprilTag ID 0 using its measured 70 mm black square and writes annotated and
   undistorted images under `/tmp`.
 - `13` requires the measured, fixed wall targets documented in
@@ -168,7 +183,7 @@ ssh carpi 'whoami && hostname -I'
 Power health checks — run on the Pi (e.g. via `ssh carpi`):
 
 ```bash
-vcgencmd get_throttled                # 0x0 = healthy; non-zero bits mean past/active undervoltage or throttling
+vcgencmd get_throttled                # 0x0 = healthy; low nibble = throttling now, bits 16-19 = since boot
 sudo vcgencmd pmic_read_adc EXT5V_V   # expect >= 4.8V when fed by the battery pack
 ```
 
