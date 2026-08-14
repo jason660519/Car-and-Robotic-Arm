@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""Drive the black line on the track map by camera, closed-loop.
+
+Downward camera frames feed :func:`carbot.line_follow.detect_line`; the
+resulting readings drive :class:`carbot.line_nav.LineNav`, whose wheel commands
+are applied through `carbot.Car` (``car.drive(left, right)``). The car follows
+the line, searches when it disappears, and treats a persistent fork as a
+roundabout entry with a time-confirmed lap.
+
+**Motor-moving. An operator must stand beside the car able to cut main power
+instantly.** Run `examples/14_preflight_check.py` first, lift the wheels for
+the first smoke test, then place the car on the track map at the start zone.
+
+    # stationary logic check — camera + detection + state machine, never drives
+    PYTHONPATH=src python3 examples/26_line_follow_drive.py --dry-run --duration 10
+
+    # supervised run (prompts for operator confirmation)
+    PYTHONPATH=src python3 examples/26_line_follow_drive.py --duration 60
+
+Run with the system python3: picamera2 and OpenCV are apt packages. The line
+detection threshold and the navigation policy are tunable; defaults match the
+verified 2026-08-15 downward still (map paper ~208 gray, line ~2.3 % of
+pixels, threshold 100).
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+import time
+from pathlib import Path
+
+from carbot.line_follow import LinePolicy, detect_line
+from carbot.line_nav import LineNav, NavPolicy
+
+PREVIEW_SIZE = (2028, 1520)
+
+
+def _open_camera():
+    from picamera2 import Picamera2
+
+    camera = Picamera2()
+    camera.configure(camera.create_preview_configuration(main={"size": PREVIEW_SIZE}))
+    camera.start()
+    time.sleep(1.5)  # auto-exposure settle
+    return camera
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Camera line-following drive")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="run detection and the state machine but never drive")
+    parser.add_argument("--duration", type=float, default=60.0,
+                        help="seconds to run (0 = until Ctrl-C)")
+    parser.add_argument("--threshold", type=int, default=LinePolicy().dark_threshold,
+                        help="gray value below which a pixel counts as line")
+    parser.add_argument("--roi-top", type=float, default=LinePolicy().roi_top)
+    parser.add_argument("--roi-bottom", type=float, default=LinePolicy().roi_bottom)
+    parser.add_argument("--speed", type=int, default=200,
+                        help="base drive speed 0-1000; 200 is the calibrated spin rate")
+    parser.add_argument("--turn-gain", type=float, default=0.45)
+    parser.add_argument("--roundabout-loop-min-s", type=float, default=6.5,
+                        help="minimum seconds inside a roundabout before an exit fork counts")
+    parser.add_argument("--expected-center", type=float, default=0.571,
+                        help="frame-width fraction where the line sits when the car is "
+                             "aligned; calibrated 2026-08-15 (camera is offset from the "
+                             "chassis centre line)")
+    parser.add_argument("--start-turn-s", type=float, default=1.5,
+                        help="right turn at launch before line-following starts, per the "
+                             "track plan (depart the start zone, turn right)")
+    parser.add_argument("--exposure-time-us", type=int, default=50_000,
+                        help="fixed shutter in us; fixed exposure stops the auto-exposure "
+                             "drift that broke detection while the car moved")
+    parser.add_argument("--analogue-gain", type=float, default=4.5,
+                        help="fixed analogue gain with --exposure-time-us")
+    parser.add_argument("--log-dir", type=Path, default=Path("/tmp/line-follow"),
+                        help="save every Nth annotated frame here (--save-every)")
+    parser.add_argument("--save-every", type=int, default=0,
+                        help="save an annotated frame every N frames (0 = never)")
+    args = parser.parse_args()
+
+    line_policy = LinePolicy(
+        dark_threshold=args.threshold, roi_top=args.roi_top, roi_bottom=args.roi_bottom
+    )
+    nav_policy = NavPolicy(
+        speed=args.speed,
+        turn_gain=args.turn_gain,
+        roundabout_loop_min_s=args.roundabout_loop_min_s,
+        expected_center_fraction=args.expected_center,
+    )
+    nav = LineNav(nav_policy)
+
+    if not args.dry_run:
+        answer = input(
+            "Operator beside the car, path clear, power ready to cut? (yes/no) "
+        ).strip()
+        if answer.lower() != "yes":
+            print("Re-run when an operator is ready beside the car.")
+            return 1
+
+    import cv2
+
+    from carbot import Car, NeZhaError
+
+    car = None
+    if not args.dry_run:
+        try:
+            car = Car()
+        except NeZhaError as exc:
+            print(f"Connection failed: {exc}")
+            print("Run `examples/01_i2c_probe.py` first to debug the link.")
+            return 1
+
+    try:
+        camera = _open_camera()
+    except Exception as exc:  # noqa: BLE001 - report any camera backend error
+        print(f"camera failed: {exc}", file=sys.stderr)
+        if car:
+            car.close()
+        return 1
+
+    # Fixed exposure: auto-exposure drifted the frame darker while the car
+    # moved, pushing the map background under the line threshold.
+    try:
+        camera.set_controls({
+            "AeEnable": False,
+            "ExposureTime": args.exposure_time_us,
+            "AnalogueGain": args.analogue_gain,
+        })
+        time.sleep(0.5)
+    except Exception as exc:  # noqa: BLE001 - report control failure
+        print(f"exposure controls failed: {exc}", file=sys.stderr)
+
+    # Departure: the track plan starts with a right turn out of the start
+    # zone, before line-following takes over.
+    if car and args.start_turn_s > 0:
+        print(f"departure: turning right for {args.start_turn_s:.1f}s")
+        car.turn_right(args.speed, ratio=0.5)
+        time.sleep(args.start_turn_s)
+        car.stop()
+
+    if args.save_every and args.save_every > 0:
+        args.log_dir.mkdir(parents=True, exist_ok=True)
+
+    start = time.monotonic()
+    last = start
+    frame_index = 0
+    try:
+        while True:
+            now = time.monotonic()
+            dt = now - last
+            last = now
+            frame_index += 1
+
+            frame = camera.capture_array("main")
+            reading = detect_line(frame, line_policy)
+            command = nav.step(reading, dt)
+            if car:
+                car.drive(command.left, command.right)
+
+            print(f"[{now - start:6.1f}s] #{frame_index:4d} {reading.summary} -> "
+                  f"{command.state.value}:{command.action} L{command.left} "
+                  f"R{command.right} | {command.reason}")
+
+            if args.save_every and frame_index % args.save_every == 0:
+                annotated = frame.copy()
+                cv2.putText(
+                    annotated, f"{command.state.value} {command.action}",
+                    (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3,
+                )
+                cv2.imwrite(str(args.log_dir / f"frame-{frame_index:05d}.jpg"), annotated)
+
+            if args.duration and (now - start) >= args.duration:
+                break
+    except KeyboardInterrupt:
+        print("\nstopped by operator")
+    finally:
+        if car:
+            car.stop()
+            car.close()
+        camera.close()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
