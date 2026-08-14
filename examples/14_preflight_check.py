@@ -26,6 +26,7 @@ from collections.abc import Callable
 
 from carbot.config import HAS_ENCODERS
 from carbot.nezha import DEFAULT_ADDRESS, DEFAULT_BUS, NeZhaError
+from carbot.power import decode_throttled, parse_throttled_output
 
 TRIG_PIN = 17  # GPIO 17 (Pin 11)
 ECHO_PIN = 27  # GPIO 27 (Pin 13)
@@ -113,14 +114,15 @@ def _check_power() -> tuple[bool, str]:
         problems += 0 if ok else 1
     throttled_raw = _vcgencmd("get_throttled")
     try:
-        bits = int(throttled_raw.split("=")[1].strip(), 16)
-    except (IndexError, ValueError):
+        status = decode_throttled(parse_throttled_output(throttled_raw))
+    except ValueError:
         parts.append(f"get_throttled unreadable ({throttled_raw!r})")
         problems += 1
     else:
-        current = bool(bits & 0x1F0000)  # "now" bits: undervoltage/cap/throttle/soft-temp
-        parts.append(f"get_throttled=0x{bits:05X} ({'throttling NOW' if current else 'no current throttle'})")
-        problems += 1 if current else 0
+        # Only the live half gates a motion test; the since-boot half stays set
+        # until reboot and would block motor work forever after one power dip.
+        parts.append(f"get_throttled={status.describe()}")
+        problems += 1 if status.throttled_now else 0
     temp_raw = _vcgencmd("measure_temp")
     try:
         temp = float(temp_raw.split("=")[1].replace("'C", "").strip())

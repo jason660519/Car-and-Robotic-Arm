@@ -3,16 +3,19 @@
 
 Run on the Raspberry Pi (safe over SSH, no moving parts):
 
-    python3 examples/08_battery_check.py
+    PYTHONPATH=src python3 examples/08_battery_check.py
 
 Reads (all without sudo on Raspberry Pi OS Bookworm+):
   - EXT5V_V: the external 5V rail voltage (battery feeds the NeZha board, which
     feeds this rail via Pin 4). Expect >= 4.8V on this build.
-  - get_throttled: historical + current undervoltage / throttling / soft-temp bits
+  - get_throttled: live + since-boot undervoltage / throttling / soft-temp bits,
+    decoded by :mod:`carbot.power`
   - measure_temp: SoC temperature
 
-Exit code 0 = no active warning (EXT5V_V >= threshold and no "now" throttle bits set);
-1 = at least one active problem detected.
+Exit code 0 = no active warning (EXT5V_V >= threshold and no live throttle bits set);
+1 = at least one active problem detected. Since-boot flags print as [INFO], not a
+failure: they stay set until reboot, so one power dip would otherwise fail this
+check for the rest of the session.
 """
 
 from __future__ import annotations
@@ -20,20 +23,10 @@ from __future__ import annotations
 import subprocess
 import sys
 
+from carbot.power import decode_throttled, parse_throttled_output
+
 EXT5V_MIN = 4.8  # volts; below this warn
 TEMP_MAX = 80.0  # °C; soft limit is around 85°C on Pi 5
-
-# get_throttled bits (from the Raspberry Pi documentation)
-THROTTLE_BITS: dict[int, tuple[str, str]] = {
-    0x1: ("Undervoltage occurred", "past"),
-    0x2: ("ARM frequency capped occurred", "past"),
-    0x4: ("Throttled occurred", "past"),
-    0x8: ("Soft temperature limit occurred", "past"),
-    0x10000: ("Undervoltage now", "current"),
-    0x20000: ("ARM frequency capped now", "current"),
-    0x40000: ("Throttled now", "current"),
-    0x80000: ("Soft temperature limit now", "current"),
-}
 
 
 def vcgencmd(*args: str) -> str:
@@ -64,22 +57,21 @@ def main() -> int:
 
     # 2. Throttling / undervoltage status
     throttled_raw = vcgencmd("get_throttled")
-    bits = 0
     try:
-        bits = int(throttled_raw.split("=")[1].strip(), 16)
-    except (IndexError, ValueError):
+        status = decode_throttled(parse_throttled_output(throttled_raw))
+    except ValueError:
         print(f"[FAIL] could not parse get_throttled: {throttled_raw!r}")
         problems += 1
     else:
-        active = False
-        for mask, (label, kind) in THROTTLE_BITS.items():
-            if bits & mask:
-                active = True
-                print(f"[WARN] {label} ({kind})")
-                if kind == "current":
-                    problems += 1
-        if not active:
+        for name in status.live:
+            print(f"[WARN] {name} — happening now")
+            problems += 1
+        for name in status.since_boot:
+            print(f"[INFO] {name} — occurred since boot (sticky until reboot)")
+        if not status.live and not status.since_boot:
             print("[OK] get_throttled = 0x0 — no undervoltage or throttling recorded")
+        elif not status.live:
+            print(f"[OK] get_throttled = 0x{status.raw:05X} — nothing throttling now")
 
     # 3. Temperature
     temp_raw = vcgencmd("measure_temp")
