@@ -174,25 +174,42 @@ def fuse(
     if sonar_cm is None:
         reason = "no sonar reading (blind zone or fault)"
         if blocking:
-            reason += f"; vision: {_describe(blocking)}"
+            reason += f"; vision: {_describe(blocking, frame_size)}"
         return ObstacleVerdict(True, reason, None, blocking)
 
     if sonar_cm < policy.sonar_stop_cm:
         reason = f"sonar {sonar_cm:.0f} cm < {policy.sonar_stop_cm:.0f} cm"
         if blocking:
-            reason += f"; vision: {_describe(blocking)}"
+            reason += f"; vision: {_describe(blocking, frame_size)}"
         return ObstacleVerdict(True, reason, sonar_cm, blocking)
 
     if blocking:
         return ObstacleVerdict(
-            True, f"vision: {_describe(blocking)} (sonar {sonar_cm:.0f} cm)", sonar_cm, blocking
+            True, f"vision: {_describe(blocking, frame_size)} (sonar {sonar_cm:.0f} cm)",
+            sonar_cm, blocking
         )
 
     return ObstacleVerdict(False, f"clear (sonar {sonar_cm:.0f} cm)", sonar_cm, ())
 
 
-def _describe(detections: Sequence[Detection]) -> str:
-    return ", ".join(f"{d.label()} {d.confidence:.2f}" for d in detections)
+def _describe(detections: Sequence[Detection], frame_size: tuple[int, int]) -> str:
+    """Name each blocking detection with the box area that made it block.
+
+    Area and box bottom are both included because they are the two tunables that
+    decide how close something has to be before it stops the car. Area alone
+    turned out not to separate the cases: the dining table that originally
+    trapped the car filled 0.123 of the frame, and a spurious "scissors" at over
+    a metre filled 0.11 — so raising the area threshold enough to drop the false
+    block would also drop the obstacle the whole vision layer exists to catch.
+    The box bottom is the other candidate, since something on the floor in front
+    of the car sits lower in frame than a small object across the room.
+    """
+    width, height = frame_size
+    return ", ".join(
+        f"{d.label()} {d.confidence:.2f} area={d.area_fraction(width, height):.2f} "
+        f"bottom={d.bottom / height:.2f}"
+        for d in detections
+    )
 
 
 def detections_from_metadata(
