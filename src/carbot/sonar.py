@@ -73,6 +73,22 @@ class Sonar:
         return distance_from_pulse(self._clock() - pulse_start)
 
 
+    def measure_nearest(self, trials: int = 3) -> float | None:
+        """Nearest of ``trials`` readings, or ``None`` when none return a value.
+
+        ``None`` means "cannot confirm clear" — the blind zone below roughly
+        20 cm, or a fault — and callers must treat it as an obstacle, never as
+        free space. The first patrol read it as clear and drove into a wall.
+
+        The nearest reading wins rather than the mean because a spurious long
+        reading must not average away a real close one.
+        """
+        if trials < 1:
+            raise ValueError("trials must be at least 1")
+        values = [d for d in (self.measure() for _ in range(trials)) if d is not None]
+        return min(values) if values else None
+
+
 def distance_from_pulse(pulse_s: float) -> float:
     """Echo pulse width in seconds -> one-way distance in cm."""
     return pulse_s * SPEED_OF_SOUND_CM_S / 2.0

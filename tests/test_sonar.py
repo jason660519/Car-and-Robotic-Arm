@@ -96,3 +96,43 @@ def test_measure_short_pulse_close_object():
     dist = sonar.measure()
     assert dist is not None
     assert dist == pytest.approx(distance_from_pulse(0.0003), abs=0.1)
+
+
+class ScriptedSonar(Sonar):
+    """Returns a fixed sequence of readings, so measure_nearest is testable alone."""
+
+    def __init__(self, readings: list[float | None]) -> None:
+        self.readings = list(readings)
+        self.calls = 0
+
+    def measure(self) -> float | None:
+        self.calls += 1
+        return self.readings.pop(0) if self.readings else None
+
+
+def test_measure_nearest_returns_the_closest_reading():
+    """A spurious long reading must not average away a real close one."""
+    sonar = ScriptedSonar([80.0, 22.0, 75.0])
+    assert sonar.measure_nearest() == 22.0
+    assert sonar.calls == 3
+
+
+def test_measure_nearest_ignores_missing_readings():
+    sonar = ScriptedSonar([None, 41.0, None])
+    assert sonar.measure_nearest() == 41.0
+
+
+def test_measure_nearest_is_none_when_every_reading_fails():
+    """All-None must stay None: the patrol treats it as an obstacle, not as 0 cm."""
+    assert ScriptedSonar([None, None, None]).measure_nearest() is None
+
+
+def test_measure_nearest_honours_the_trial_count():
+    sonar = ScriptedSonar([50.0, 30.0, 10.0])
+    assert sonar.measure_nearest(trials=2) == 30.0
+    assert sonar.calls == 2
+
+
+def test_measure_nearest_rejects_a_zero_trial_count():
+    with pytest.raises(ValueError, match="at least 1"):
+        ScriptedSonar([50.0]).measure_nearest(trials=0)
