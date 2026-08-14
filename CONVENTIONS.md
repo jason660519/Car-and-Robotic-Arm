@@ -22,6 +22,7 @@ Car-and-Robotic-Arm/
 │   ├── setup/             Bring-up and environment setup guides
 │   ├── progress/          Verified progress logs from real hardware work
 │   ├── adr/               Architecture decision records
+│   ├── reflections/       Project reflection and engineering role reports
 │   ├── handoff-*.md       Current continuation notes for another developer/agent
 │   ├── Mechatronics Folio and Journal/   School assessment materials (name kept as-is)
 │   ├── robot-base-platform-research.md   Research background report (modular robot base platform)
@@ -127,6 +128,7 @@ bilingual guide into two files.
 | Document | Language |
 |---|---|
 | `docs/hardware/`, `docs/adr/`, `docs/progress/` | English |
+| `docs/reflections/` | English |
 | `docs/setup/mac-to-raspberry-pi-access.md` | Bilingual (visitor-facing) |
 | Other `docs/setup/` procedures | English |
 
