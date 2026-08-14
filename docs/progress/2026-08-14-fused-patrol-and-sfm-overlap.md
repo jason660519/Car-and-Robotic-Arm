@@ -33,14 +33,19 @@ Registration across the three hardware runs:
 | 3 | burst of 5 at ~20 deg, gated | 17/30 (57%) | 1606 | 3 |
 | 4 | **capture through the turn, 15 deg, live overlap repair** | **30/30 (100%)** | **7972** | **1 connected** |
 
-Run 4 is the first complete reconstruction the photo route has produced: a single
-connected model containing every frame. Three changes got it there — the
-avoidance turn became a capture sweep (run 3's model boundaries all sat on those
-turns), the step tightened from 20 to 15 deg for ~77% overlap, and a weak link is
-now repaired during the run by inserting a bridging frame.
+Run 4 is the first single connected model the photo route has produced. Three
+changes got it there — the avoidance turn became a capture sweep (run 3's model
+boundaries all sat on those turns), the step tightened from 20 to 15 deg for
+~77% overlap, and a weak link is now repaired during the run by inserting a
+bridging frame. It also got cheaper: 30 frames in 5 stations with 3 rejections,
+against run 3's 10 stations and 18 rejections.
 
-It also got cheaper: 30 frames in 5 stations with 3 rejections, against run 3's
-10 stations and 18 rejections.
+**Read that result with its scale.** Anchoring the model to the wall tag
+(section 7) put the whole camera trajectory inside **0.13 x 0.02 x 0.10 m**. Run
+4 is therefore a rotation panorama from essentially one spot, not a traverse of a
+room. Registration is easy for near-pure rotation and the parallax is small, so
+30/30 says the capture policy now produces a connected chain — it does not yet
+say the robot can map a room.
 
 ## 2. Verification
 
@@ -199,20 +204,63 @@ retuning risks a regression against a result that currently works. Revisit with
 more rejects, and prefer lowering the threshold over removing the gate — the
 sonar read is far cheaper than the ORB pass behind the quality gate.
 
+## 7. Scale Anchoring, and What It Revealed
+
+[`src/carbot/scale.py`](../../src/carbot/scale.py) and
+[`scripts/anchor_sfm_scale.py`](../../scripts/anchor_sfm_scale.py) recover metres
+per reconstruction unit from the 70 mm wall tag, using distance ratios only —
+a COLMAP model differs from reality by a similarity transform, and ratios are
+blind to its rotation and translation.
+
+```text
+uv run --extra vision --extra mapping python scripts/anchor_sfm_scale.py \
+    sfm3/work/sparse/1 sfm3/images
+  Tags: 12 images carry a usable detection (tag 0 in 7, tag 2 in 6)
+  Scale: 0.0107 m/unit from 16 pairs, spread 9.5%
+  Camera trajectory extent: 0.13 x 0.02 x 0.10 m
+```
+
+The first attempt returned 0.0114 m/unit with a 25% spread and was correctly
+rejected by its own trust check. Two filters were too loose:
+
+- **The baseline floor was absolute.** Reconstruction units are arbitrary, so a
+  fixed `0.02` units meant nothing; pairs separated by 0.7-1.8 units produced
+  ratios up to seven times those from well-separated pairs. The floor is now a
+  fraction of the trajectory's own extent.
+- **The reprojection limit was 2.0 px.** Every remaining outlier came from one
+  detection at 2.02 px. Tightening to 1.0 px removed them.
+
+**The finding that matters is the extent.** The car travelled about 13 cm during
+the entire 30-frame run, and the mechanism is arithmetic: three blocked stations
+reversed for 0.6 s each (1.8 s) against two forward steps of 1.0 s (2.0 s), so
+net travel was roughly 0.2 s of driving. The tag range corroborates it
+independently — it stayed between 0.55 and 0.64 m across seven frames spanning
+stations 1 to 5, which a room traverse could not produce.
+
+So with a high block rate the avoidance manoeuvre reverses nearly as far as the
+patrol advances, and the robot explores almost nothing. That is a patrol design
+problem, not a scale-recovery problem, and it is the next thing to fix.
+
 ## 6. Follow-up
 
-**Scale anchoring is the next real step.** The reconstruction is up to scale, so
-it has shape but no size. `carbot.vision` already detects the 70 mm wall AprilTag
-and estimates its metric pose; using that to solve metres-per-unit turns the
-sparse model into a floor map. This runs entirely on the Mac and needs no
-operator.
+**The patrol has to actually travel.** Section 7 measured the whole run inside
+13 cm, because the avoidance reverse very nearly cancels the forward step
+whenever the block rate is high. Until that is fixed nothing downstream can
+produce a room map, however well it reconstructs. Candidate levers, none yet
+tested: longer forward steps, a shorter backup, and fewer false blocks — the
+detector flags chairs and people constantly at the 0.30 threshold.
 
-Caveats on run 4 worth keeping in view:
+**Linear speed has never been measured.** Spin rate was measured carefully while
+travel speed was assumed. The wall tag makes a clean measurement possible without
+a tape measure and without circularity: point the camera at the tag, record its
+metric range, drive forward for a known time, record it again. The difference is
+the distance travelled.
 
-- **One room, one run.** Registration of 30/30 is a strong result but not yet
-  evidence that the pipeline is stable. The route through a low-texture room is
-  the case ADR 0002 flagged as the weak point of the photo route, and it has not
-  been tried.
-- Random-bounce routing was left alone deliberately. Whether a deliberate route
-  (perimeter then interior) is needed is now testable against a working baseline.
+Also open:
+
+- **One room, one run**, and now known to be one spot. ADR 0002 flagged
+  low-texture rooms as this route's weak point; that case is still untried.
+- Random-bounce routing was left alone deliberately. It is now testable against
+  a working capture policy — but only once the car covers ground.
+- The standoff gate looks redundant against the quality gate (section 5).
 - `examples/17` and `examples/18` still carry the old 43.9 deg/s constant.
