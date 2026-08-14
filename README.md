@@ -106,6 +106,8 @@ standing beside the robot who can cut main power instantly. Run `14` before any 
 | 20 | `examples/20_visual_detection_check.py` | IMX500 on-sensor object detection for visual avoidance (`OBSTACLE AHEAD`) | `PYTHONPATH=src python3 examples/20_visual_detection_check.py` | ✅ No moving parts |
 | 21 | `examples/21_camera_dual_mode_check.py` | Camera experiments for the patrol: compares `single`/`switch`/`restart` capture modes, and sweeps auto-exposure settings ranked by repeatable keypoints | `PYTHONPATH=src python3 examples/21_camera_dual_mode_check.py` | ✅ No moving parts |
 | 22 | `examples/22_fused_patrol_capture.py` | Vision + sonar fused patrol with 2028×1520 SfM capture — avoids the chairs a single sonar cannot see | `PYTHONPATH=src python3 examples/22_fused_patrol_capture.py --dry-run --frames 10` | ⚠️ Operator beside it (`--dry-run` is safe) |
+| 23 | `examples/23_spin_rate_check.py` | Measures the real spin rate and startup dead time from the camera's own view — no protractor, no encoders | `PYTHONPATH=src python3 examples/23_spin_rate_check.py --speed 200` | ⚠️ Operator beside it |
+| 24 | `examples/24_linear_speed_check.py` | Measures forward and reverse travel distance against a wall AprilTag | `PYTHONPATH=src python3 examples/24_linear_speed_check.py --speed 200` | ⚠️ Operator beside it (drives toward a wall) |
 
 Expected results (verified on this build, 2026-08):
 

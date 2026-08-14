@@ -1,5 +1,11 @@
 # Handoff — Visual Mapping and Patrol (2026-08-14)
 
+> **Superseded by
+> [`handoff-2026-08-14-room-sweep-and-mapping.md`](handoff-2026-08-14-room-sweep-and-mapping.md).**
+> The fusion described below was built, verified on hardware, and has since been
+> through four supervised runs. Read the newer handoff for the current state and
+> the next task; keep this one for the reasoning that led here.
+
 > For the next AI/engineer continuing this project. The immediate goal is to
 > fuse the **verified** IMX500 visual obstacle detection into the patrol loop,
 > so the car stops driving under chairs/tables that the single sonar cannot
