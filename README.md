@@ -101,6 +101,9 @@ standing beside the robot who can cut main power instantly. Run `14` before any 
 | 14 | `examples/14_preflight_check.py` | No-motion preflight: camera, I2C, HC-SR04, power, encoders — run before any motion test | `PYTHONPATH=src python3 examples/14_preflight_check.py` | ✅ No moving parts |
 | 15 | `examples/15_gate_b_pose_log.py` | Gate B manual-reposition pose log: per-location repeatability + displacement vs tape | `PYTHONPATH=src python3 examples/15_gate_b_pose_log.py --anchor-height-cm 14.65` | ✅ No moving parts (operator moves the car by hand) |
 | 16 | `examples/16_capture_room.py` | Room sweep of stills for Structure-from-Motion (push the stopped car; capture every `--interval` s) | `PYTHONPATH=src python3 examples/16_capture_room.py --duration 90` | ✅ No moving parts (operator pushes the car) |
+| 17 | `examples/17_patrol_capture.py` | Roomba-style random-bounce patrol + capture (superseded by planned vision fusion) | `PYTHONPATH=src python3 examples/17_patrol_capture.py --frames 150` | ⚠️ Operator beside it |
+| 18 | `examples/18_wall_follow_capture.py` | Single-sonar wall-following patrol + capture (same sonar limitation) | `PYTHONPATH=src python3 examples/18_wall_follow_capture.py --frames 150` | ⚠️ Operator beside it |
+| 20 | `examples/20_visual_detection_check.py` | IMX500 on-sensor object detection for visual avoidance (`OBSTACLE AHEAD`) | `PYTHONPATH=src python3 examples/20_visual_detection_check.py` | ✅ No moving parts |
 
 Expected results (verified on this build, 2026-08):
 
