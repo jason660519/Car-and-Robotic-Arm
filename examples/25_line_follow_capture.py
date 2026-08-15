@@ -26,38 +26,70 @@ import sys
 import time
 from pathlib import Path
 
+from carbot.ground_view import load_optional_ground_view
 from carbot.line_follow import LinePolicy, detect_line
 
 PREVIEW_SIZE = (2028, 1520)  # same stream shape the closed-loop run will use
 
 
-def _capture(size: tuple[int, int]) -> object:
+def _capture(
+    size: tuple[int, int],
+    exposure_time_us: int = 50_000,
+    analogue_gain: float = 4.5,
+) -> object:
     from picamera2 import Picamera2
 
     camera = Picamera2()
     camera.configure(camera.create_preview_configuration(main={"size": size}))
     camera.start()
-    time.sleep(1.5)  # let auto-exposure converge
+    # Match the drive script: auto-exposure made start-zone locks unrepeatable.
+    try:
+        camera.set_controls({
+            "AeEnable": False,
+            "ExposureTime": exposure_time_us,
+            "AnalogueGain": analogue_gain,
+        })
+        time.sleep(0.5)
+    except Exception:  # noqa: BLE001 - camera controls are optional on some builds
+        time.sleep(1.5)
     frame = camera.capture_array("main")
     camera.close()
     return frame
 
 
 def _overlay(frame, reading: object, cv2) -> object:
-    """Annotate the frame for human inspection."""
+    """Annotate the frame for human inspection.
+
+    Blue rectangle = ROI. Red vertical = geometric frame centre. Cyan crosses =
+    every tracked dark candidate. Green cross = the main line the controller
+    will steer on. Confirm the green cross sits on the 2 cm black line before
+    any closed-loop drive.
+    """
     image = frame.copy()
     if image.ndim == 2:
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
     height, width = image.shape[:2]
     y_top, y_bottom, _, _ = reading.roi
+    mark_y = int(reading.centroid_y) if reading.centroid_y is not None else (y_top + y_bottom) // 2
 
     cv2.rectangle(image, (0, y_top), (width - 1, y_bottom - 1), (255, 0, 0), 4)
     cv2.line(image, (width // 2, 0), (width // 2, height - 1), (0, 0, 255), 2)
 
-    if reading.centroid_x is not None:
+    for candidate_x in reading.candidate_centroids:
         cv2.drawMarker(
-            image, (int(reading.centroid_x), (y_top + y_bottom) // 2),
+            image, (int(candidate_x), mark_y),
+            (255, 255, 0), cv2.MARKER_CROSS, 28, 3,
+        )
+
+    if reading.centroid_x is not None and reading.centroid_y is not None:
+        cv2.drawMarker(
+            image, (int(reading.centroid_x), int(reading.centroid_y)),
+            (0, 255, 0), cv2.MARKER_CROSS, 40, 6,
+        )
+    elif reading.centroid_x is not None:
+        cv2.drawMarker(
+            image, (int(reading.centroid_x), mark_y),
             (0, 255, 0), cv2.MARKER_CROSS, 40, 6,
         )
     if reading.visible:
@@ -68,6 +100,11 @@ def _overlay(frame, reading: object, cv2) -> object:
         cv2.putText(
             image, f"width={reading.line_width_px:.0f}px rows={reading.tracked_rows}",
             (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3,
+        )
+        candidates = ",".join(f"{x:.0f}" for x in reading.candidate_centroids[:6])
+        cv2.putText(
+            image, f"candidates x=[{candidates}]",
+            (20, 180), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 0), 3,
         )
     else:
         cv2.putText(
@@ -87,6 +124,8 @@ def main() -> int:
                         help="ROI bottom as a fraction of frame height")
     parser.add_argument("--output", type=Path, default=Path("/tmp/line-follow"),
                         help="directory for raw and overlay images")
+    parser.add_argument("--ground-view", type=Path, default=None,
+                        help="bird's-eye homography JSON from examples/27")
     args = parser.parse_args()
 
     try:
@@ -101,7 +140,8 @@ def main() -> int:
         roi_top=args.roi_top,
         roi_bottom=args.roi_bottom,
     )
-    reading = detect_line(frame, policy)
+    ground_view = load_optional_ground_view(args.ground_view)
+    reading = detect_line(frame, policy, ground_view=ground_view)
 
     args.output.mkdir(parents=True, exist_ok=True)
     raw_path = args.output / "line-follow-raw.jpg"
@@ -115,6 +155,12 @@ def main() -> int:
     print(f"frame {frame.shape[1]}x{frame.shape[0]}  roi=({policy.roi_top}-{policy.roi_bottom}) "
           f"threshold={policy.dark_threshold}")
     print(f"detection: {reading.summary}")
+    print(f"main x={reading.centroid_x}  candidates={reading.candidate_centroids[:8]}")
+    if ground_view is not None:
+        print("ground-view: bird's-eye detector")
+        bev_path = args.output / "line-follow-bev.jpg"
+        cv2.imwrite(str(bev_path), ground_view.warp(frame))
+        print(f"saved: {bev_path}")
     print(f"saved: {raw_path}")
     print(f"saved: {overlay_path}")
     return 0

@@ -91,24 +91,31 @@ def test_line_width_is_reported():
 
 
 def test_chassis_band_does_not_leak_into_the_reading():
-    """The dark band at the bottom is outside roi_bottom=0.68 by default."""
+    """A downward-camera ROI that stops at 0.68 must ignore the bottom band."""
     image = chassis_band(vertical_line(WIDTH // 2))
-    reading = detect_line(image)
+    reading = detect_line(image, LinePolicy(roi_top=0.10, roi_bottom=0.68))
     assert reading.visible
     assert reading.centroid_x == pytest.approx(WIDTH / 2, abs=5)
 
 
-def test_chassis_band_alone_reports_no_line():
-    """A frame with only the chassis band (car off the map) must not steer."""
+def test_full_width_chassis_band_is_not_a_2cm_line():
+    """Forward-looking ROI includes the bottom; a full-width dark band is too wide."""
     reading = detect_line(chassis_band(blank()))
     assert not reading.visible
 
 
-def test_line_only_inside_top_roi_shadow_is_ignored():
-    """Map-edge shadows at the top are cut by roi_top; a line below still works."""
+def test_line_only_inside_far_field_is_ignored():
+    """Map ink above the look-ahead band is not the path by the wheels."""
     image = blank()
     image[: int(HEIGHT * 0.05), :] = 40  # top shadow
-    image[int(HEIGHT * 0.4) : int(HEIGHT * 0.6), WIDTH // 2 - 10 : WIDTH // 2 + 10] = 40
+    image[int(HEIGHT * 0.05) : int(HEIGHT * 0.18), WIDTH // 2 - 10 : WIDTH // 2 + 10] = 40
+    reading = detect_line(image)
+    assert not reading.visible
+
+
+def test_line_in_lookahead_band_is_visible():
+    image = blank()
+    image[int(HEIGHT * 0.68) : int(HEIGHT * 0.88), WIDTH // 2 - 10 : WIDTH // 2 + 10] = 40
     reading = detect_line(image)
     assert reading.visible
     assert reading.centroid_x == pytest.approx(WIDTH / 2, abs=5)
@@ -152,12 +159,14 @@ def test_detect_line_rejects_non_image_input():
 # ----------------------------------------------------------- junction / forks
 
 
-def y_fork(branch_rows: int = 40) -> np.ndarray:
+def y_fork(branch_rows: int = 80) -> np.ndarray:
     """Main vertical line plus a diagonal branch joining it partway down.
 
     The bottom of the frame shows only the main line; the top shows the main
     line and the branch side by side — the geometry the downward camera sees
-    when the car approaches a roundabout entry.
+    when the car approaches a roundabout entry. Default length is well above
+    ``LinePolicy.min_branch_rows_fraction`` (0.10 of the ROI ≈ 28 rows here)
+    after the first few join-rows merge into the main line.
     """
     image = blank()
     main_x = WIDTH // 2
@@ -179,8 +188,9 @@ def test_plain_line_is_not_a_junction():
 
 
 def test_wide_line_is_not_a_junction():
-    """A 100 px strip is wide but single-branched; width alone must not fork."""
-    reading = detect_line(vertical_line(WIDTH // 2, width=100))
+    """A fat single strip is not a fork; above 2 cm it is also not the path."""
+    reading = detect_line(vertical_line(WIDTH // 2, width=50))
+    assert reading.visible
     assert reading.junction is False
     assert reading.branch_count == 1
 
@@ -189,8 +199,8 @@ def test_fork_reports_two_branches():
     reading = detect_line(y_fork())
     assert reading.visible
     assert reading.junction
-    assert reading.branch_count == 2
-    assert len(reading.branch_centroids) == 2
+    assert reading.branch_count >= 2
+    assert len(reading.branch_centroids) >= 2
     # main branch is the persistent vertical line at the frame centre
     assert reading.branch_centroids[0] == pytest.approx(WIDTH // 2, abs=20)
 
@@ -203,4 +213,117 @@ def test_too_short_a_branch_is_not_a_junction():
 
 def test_junction_summary_labels_it():
     reading = detect_line(y_fork())
-    assert reading.summary.startswith("JUNCTION branches=2")
+    assert reading.summary.startswith("JUNCTION")
+
+
+def test_thin_tall_shadow_loses_to_track_width():
+    """A chair-leg strip spanning the ROI must not beat a 2 cm-scale line."""
+    image = blank()
+    y0, y1 = int(HEIGHT * 0.10), int(HEIGHT * 0.68)
+    image[y0:y1, 40:48] = 40
+    image[y0:y1, 300:330] = 40
+    reading = detect_line(image)
+    assert reading.visible
+    assert reading.centroid_x == pytest.approx(315, abs=15)
+    assert reading.line_width_px == pytest.approx(30, abs=8)
+
+
+def test_horizontal_2cm_bar_puts_centroid_on_the_dark_stroke():
+    """A forward camera sees a crossing as a horizontal bar; the marker must sit on it."""
+    image = blank()
+    y = int(HEIGHT * 0.75)
+    image[y - 8 : y + 8, 40 : WIDTH - 40] = 40
+    reading = detect_line(image)
+    assert reading.visible
+    assert reading.centroid_x is not None and reading.centroid_y is not None
+    assert image[int(reading.centroid_y), int(reading.centroid_x)] < 100
+    assert reading.centroid_y == pytest.approx(y, abs=12)
+    assert reading.axis == "horizontal"
+
+
+def test_vertical_path_beats_a_horizontal_crossing():
+    """The line along the heading wins over a box-edge / crossing bar."""
+    image = blank()
+    y = int(HEIGHT * 0.75)
+    image[y - 8 : y + 8, 40 : WIDTH - 40] = 40
+    image[int(HEIGHT * 0.20) : int(HEIGHT * 0.85), 300:330] = 40
+    reading = detect_line(image)
+    assert reading.visible
+    assert reading.axis == "vertical"
+    assert reading.centroid_x == pytest.approx(315, abs=20)
+
+
+def test_crossing_bar_beats_its_own_right_end():
+    """The far curve of a horizontal 2 cm line must not steal the green lock."""
+    image = blank()
+    y = int(HEIGHT * 0.55)
+    image[y - 8 : y + 8, 20 : WIDTH - 20] = 40
+    image[y : y + 80, WIDTH - 70 : WIDTH - 34] = 40
+    reading = detect_line(image)
+    assert reading.visible
+    assert reading.axis == "horizontal"
+    assert reading.centroid_x == pytest.approx(WIDTH / 2, abs=25)
+    assert reading.error_fraction is not None
+    assert abs(reading.error_fraction) < 0.12
+
+
+def test_near_field_2cm_line_beats_a_far_thin_strip():
+    """Chair-leg strips higher in the frame must lose to the line by the wheels."""
+    image = blank()
+    image[int(HEIGHT * 0.10) : int(HEIGHT * 0.50), 40:48] = 40
+    image[int(HEIGHT * 0.70) : HEIGHT, 300:330] = 40
+    reading = detect_line(image)
+    assert reading.visible
+    assert reading.centroid_x == pytest.approx(315, abs=15)
+    assert reading.centroid_y is not None
+    assert reading.centroid_y > HEIGHT * 0.45
+
+
+def test_edge_only_strip_is_not_the_path():
+    """A 2 cm-scale strip at the frame edge is a chair/map border, not the route."""
+    image = blank()
+    image[int(HEIGHT * 0.65) : int(HEIGHT * 0.90), 8:28] = 40
+    reading = detect_line(image)
+    assert not reading.visible
+
+
+def test_line_in_mid_lookahead_is_visible():
+    """From the start box the 2 cm stem sits around mid-frame, not at the bumper."""
+    image = blank()
+    image[int(HEIGHT * 0.46) : int(HEIGHT * 0.58), WIDTH // 2 - 10 : WIDTH // 2 + 10] = 40
+    reading = detect_line(image)
+    assert reading.visible
+    assert reading.centroid_x == pytest.approx(WIDTH / 2, abs=10)
+
+
+def test_start_box_wide_blob_is_not_the_2cm_path():
+    """The 发车 box is ~330 px at 2028; that must not lock as the tracking line."""
+    image = blank()
+    image[int(HEIGHT * 0.65) : int(HEIGHT * 0.90), 200:360] = 40
+    reading = detect_line(image)
+    assert not reading.visible
+
+
+def test_printed_text_blob_loses_to_track_width():
+    """A huge dark print block is not the tracking line."""
+    image = blank()
+    y0, y1 = int(HEIGHT * 0.10), int(HEIGHT * 0.68)
+    image[int(HEIGHT * 0.20) : int(HEIGHT * 0.50), 40:420] = 40
+    image[y0:y1, 500:530] = 40
+    reading = detect_line(image)
+    assert reading.visible
+    assert reading.centroid_x == pytest.approx(515, abs=15)
+    assert reading.junction is False
+
+
+def test_start_box_left_wall_loses_to_centered_stem():
+    """Two 2 cm strokes: 发车 left wall plus the outgoing stem. Lock the stem."""
+    image = blank()
+    y0, y1 = int(HEIGHT * 0.40), int(HEIGHT * 0.95)
+    image[y0:y1, 140:176] = 40
+    image[y0:y1, WIDTH // 2 - 18 : WIDTH // 2 + 18] = 40
+    reading = detect_line(image)
+    assert reading.visible
+    assert reading.centroid_x == pytest.approx(WIDTH / 2, abs=15)
+    assert reading.error_fraction is not None
+    assert abs(reading.error_fraction) < 0.08

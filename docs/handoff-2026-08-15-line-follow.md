@@ -1,3 +1,6 @@
+**Superseded by** [`docs/handoff-2026-08-16-line-follow.md`](handoff-2026-08-16-line-follow.md)
+(2026-08-16). Do not follow the next-steps in this file.
+
 # Handoff — 2026-08-15 Line-Following: pass to next engineer
 
 > **Read first**: work log [`docs/progress/2026-08-15-line-follow.md`](progress/2026-08-15-line-follow.md)

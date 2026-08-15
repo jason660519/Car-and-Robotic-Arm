@@ -30,6 +30,7 @@ import sys
 import time
 from pathlib import Path
 
+from carbot.ground_view import load_optional_ground_view
 from carbot.line_follow import LinePolicy, detect_line
 from carbot.line_nav import LineNav, NavPolicy
 
@@ -58,16 +59,24 @@ def main() -> int:
     parser.add_argument("--roi-bottom", type=float, default=LinePolicy().roi_bottom)
     parser.add_argument("--speed", type=int, default=200,
                         help="base drive speed 0-1000; 200 is the calibrated spin rate")
-    parser.add_argument("--turn-gain", type=float, default=0.45)
+    parser.add_argument("--turn-gain", type=float, default=2.5,
+                        help="steering sensitivity; 2.5 = strong (188-200 speed spread for small error)")
     parser.add_argument("--roundabout-loop-min-s", type=float, default=6.5,
                         help="minimum seconds inside a roundabout before an exit fork counts")
-    parser.add_argument("--expected-center", type=float, default=0.571,
-                        help="frame-width fraction where the line sits when the car is "
-                             "aligned; calibrated 2026-08-15 (camera is offset from the "
-                             "chassis centre line)")
-    parser.add_argument("--start-turn-s", type=float, default=1.5,
-                        help="right turn at launch before line-following starts, per the "
-                             "track plan (depart the start zone, turn right)")
+    parser.add_argument("--junction-width-factor", type=float, default=2.0,
+                        help="line must widen by this factor to count as junction; "
+                             "2.0 = stricter (rejects scattered dark structures)")
+    parser.add_argument("--junction-min-branch-rows-fraction", type=float, default=0.10,
+                        help="branch must span this fraction of ROI height to count as fork; "
+                             "0.10 = stricter (needs 88+ rows on 1763-row ROI)")
+    parser.add_argument("--expected-center", type=float, default=0.46,
+                        help="frame-width fraction treated as on heading; 0.46 "
+                             "because the camera sits right of the axle")
+    parser.add_argument("--roundabout", action="store_true",
+                        help="enable roundabout entry/exit (off until line-follow is stable)")
+    parser.add_argument("--start-turn-s", type=float, default=0.0,
+                        help="optional right turn at launch before line-following; "
+                             "0 (default) because the start-zone line already bends right")
     parser.add_argument("--exposure-time-us", type=int, default=50_000,
                         help="fixed shutter in us; fixed exposure stops the auto-exposure "
                              "drift that broke detection while the car moved")
@@ -77,18 +86,29 @@ def main() -> int:
                         help="save every Nth annotated frame here (--save-every)")
     parser.add_argument("--save-every", type=int, default=0,
                         help="save an annotated frame every N frames (0 = never)")
+    parser.add_argument("--ground-view", type=Path, default=None,
+                        help="bird's-eye homography JSON from examples/27")
     args = parser.parse_args()
 
     line_policy = LinePolicy(
-        dark_threshold=args.threshold, roi_top=args.roi_top, roi_bottom=args.roi_bottom
+        dark_threshold=args.threshold,
+        roi_top=args.roi_top,
+        roi_bottom=args.roi_bottom,
+        min_branch_rows_fraction=args.junction_min_branch_rows_fraction,
     )
     nav_policy = NavPolicy(
         speed=args.speed,
         turn_gain=args.turn_gain,
         roundabout_loop_min_s=args.roundabout_loop_min_s,
+        junction_width_factor=args.junction_width_factor,
+        junction_min_branch_rows_fraction=args.junction_min_branch_rows_fraction,
         expected_center_fraction=args.expected_center,
+        enable_roundabout=args.roundabout,
     )
     nav = LineNav(nav_policy)
+    ground_view = load_optional_ground_view(args.ground_view)
+    if ground_view is not None:
+        print("using bird's-eye ground view for line detection")
 
     if not args.dry_run:
         answer = input(
@@ -153,7 +173,7 @@ def main() -> int:
             frame_index += 1
 
             frame = camera.capture_array("main")
-            reading = detect_line(frame, line_policy)
+            reading = detect_line(frame, line_policy, ground_view=ground_view)
             command = nav.step(reading, dt)
             if car:
                 car.drive(command.left, command.right)

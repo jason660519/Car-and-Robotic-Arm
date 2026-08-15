@@ -18,6 +18,18 @@ from carbot.line_nav import LineNav, NavPolicy, NavState, steer_command
 ROI = (48, 326, 0, 640)
 
 
+def near_t_bar(**kwargs) -> LineReading:
+    """A 2 cm crossing low in the ROI — wheels have reached the T."""
+    defaults = dict(
+        error_fraction=0.0,
+        axis="horizontal",
+        line_width=120,
+        centroid_y=280.0,
+    )
+    defaults.update(kwargs)
+    return line_reading(**defaults)
+
+
 def line_reading(
     visible: bool = True,
     error_fraction: float = 0.0,
@@ -25,8 +37,13 @@ def line_reading(
     branch_count: int = 1,
     line_width: float = 20.0,
     candidate_centroids: tuple[float, ...] | None = None,
+    axis: str = "vertical",
+    centroid_y: float | None = None,
 ) -> LineReading:
     centroid = 320 + (error_fraction or 0) * 320
+    if junction and branch_count < 2:
+        branch_count = 2
+    branches = (centroid,) + tuple(centroid + 80 * (i + 1) for i in range(branch_count - 1))
     return LineReading(
         visible=visible,
         error_px=error_fraction * 320 if error_fraction is not None else None,
@@ -36,10 +53,12 @@ def line_reading(
         dark_fraction=0.02,
         tracked_rows=100,
         roi=ROI,
+        centroid_y=centroid_y,
         branch_count=branch_count,
-        branch_centroids=(centroid,) * branch_count,
+        branch_centroids=branches,
         junction=junction,
-        candidate_centroids=candidate_centroids or (centroid,),
+        candidate_centroids=candidate_centroids or branches,
+        axis=axis,
     )
 
 
@@ -62,6 +81,11 @@ def test_line_left_of_centre_slows_the_left_wheel():
 
 def test_centred_line_drives_straight():
     cmd = steer_command(line_reading(error_fraction=0.0), NavPolicy(speed=200))
+    assert cmd.left == cmd.right == 200
+
+
+def test_small_error_inside_deadband_drives_straight():
+    cmd = steer_command(line_reading(error_fraction=0.06), NavPolicy(speed=200, steer_deadband=0.10))
     assert cmd.left == cmd.right == 200
 
 
@@ -93,19 +117,20 @@ def test_lost_line_search_after_timeout():
     cmd = nav.step(line_reading(visible=False), dt=0.5)  # 2.0 s elapsed -> SEARCH
     assert nav.state is NavState.SEARCH
     assert cmd.action == "search"
-    assert cmd.left == -200 and cmd.right == 200  # spin left first
+    assert cmd.left == cmd.right == 0
 
 
-def test_search_alternates_direction():
+def test_search_holds_still():
+    """Spinning to search walked the car off the map; hold until a centred line returns."""
     nav = LineNav(NavPolicy(speed=200, search_timeout_s=0.0))
     first = nav.step(line_reading(visible=False), dt=0.1)
     second = nav.step(line_reading(visible=False), dt=0.1)
-    assert (first.left, first.right) == (-200, 200)
-    assert (second.left, second.right) == (200, -200)
+    assert first.left == first.right == 0
+    assert second.left == second.right == 0
 
 
 def test_reacquired_line_returns_to_follow():
-    nav = LineNav(NavPolicy(speed=200, search_timeout_s=1.0))
+    nav = LineNav(NavPolicy(speed=200, search_timeout_s=1.0, reacquire_error=0.40))
     nav.step(line_reading(visible=False), dt=1.1)
     assert nav.state is NavState.SEARCH
     cmd = nav.step(line_reading(error_fraction=-0.3), dt=0.1)
@@ -114,11 +139,11 @@ def test_reacquired_line_returns_to_follow():
 
 
 def test_persistent_junction_enters_roundabout():
-    nav = LineNav(NavPolicy(speed=200, junction_min_s=1.0))
+    nav = LineNav(NavPolicy(speed=200, junction_min_s=1.0, enable_roundabout=True))
     nav.step(line_reading(error_fraction=0.0), dt=0.5)  # baseline width 20
-    nav.step(line_reading(error_fraction=0.0, junction=True, line_width=40), dt=0.5)
+    nav.step(line_reading(error_fraction=0.0, junction=True, line_width=50), dt=0.5)
     assert nav.state is NavState.FOLLOW  # under junction_min_s
-    nav.step(line_reading(error_fraction=0.0, junction=True, line_width=40), dt=0.5)
+    nav.step(line_reading(error_fraction=0.0, junction=True, line_width=50), dt=0.5)
     assert nav.state is NavState.ROUNDABOUT
 
 
@@ -132,10 +157,10 @@ def test_junction_without_width_jump_stays_follow():
 
 
 def test_roundabout_stays_until_lap_time_elapsed():
-    nav = LineNav(NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=6.5))
+    nav = LineNav(NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=6.5, enable_roundabout=True))
     nav.step(line_reading(error_fraction=0.1), dt=0.1)  # baseline
     for _ in range(5):
-        nav.step(line_reading(error_fraction=0.1, junction=True, line_width=40), dt=0.1)
+        nav.step(line_reading(error_fraction=0.1, junction=True, line_width=50), dt=0.1)
     assert nav.state is NavState.ROUNDABOUT
     # 3 s in, no exit fork yet
     for _ in range(25):
@@ -145,42 +170,233 @@ def test_roundabout_stays_until_lap_time_elapsed():
 
 
 def test_roundabout_exits_after_lap_and_fork():
-    nav = LineNav(NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=2.0))
+    nav = LineNav(NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=2.0, enable_roundabout=True))
     nav.step(line_reading(error_fraction=0.1), dt=0.1)  # baseline
     for _ in range(5):
-        nav.step(line_reading(error_fraction=0.1, junction=True, line_width=40), dt=0.1)
+        nav.step(line_reading(error_fraction=0.1, junction=True, line_width=50), dt=0.1)
     # drive the lap: 2.0 s with no junction
     for _ in range(20):
         nav.step(line_reading(error_fraction=0.1), dt=0.1)
     assert nav.state is NavState.ROUNDABOUT
     # exit fork after the lap minimum
-    cmd = nav.step(line_reading(error_fraction=0.1, junction=True, line_width=40), dt=0.1)
+    cmd = nav.step(line_reading(error_fraction=0.1, junction=True, line_width=50), dt=0.1)
     assert nav.state is NavState.FOLLOW
     assert "roundabout exit" in cmd.reason
 
 
 def test_roundabout_does_not_exit_before_lap_minimum():
-    nav = LineNav(NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=10.0))
+    nav = LineNav(NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=10.0, enable_roundabout=True))
     nav.step(line_reading(error_fraction=0.1), dt=0.1)  # baseline
     for _ in range(5):
-        nav.step(line_reading(error_fraction=0.1, junction=True, line_width=40), dt=0.1)
+        nav.step(line_reading(error_fraction=0.1, junction=True, line_width=50), dt=0.1)
     for _ in range(20):
         nav.step(line_reading(error_fraction=0.1), dt=0.1)
-    nav.step(line_reading(error_fraction=0.1, junction=True, line_width=40), dt=0.1)
+    nav.step(line_reading(error_fraction=0.1, junction=True, line_width=50), dt=0.1)
     assert nav.state is NavState.ROUNDABOUT
 
 
-def test_line_lock_keeps_target_when_detector_flips():
-    """The detector flipping main line to a distant shadow must not yank the wheel."""
-    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5))
-    nav.step(line_reading(error_fraction=0.0), dt=0.1)  # track centroid 320
-    # next frame: detector reports main at 0, but candidate 320 is closest to the lock
-    flipped = line_reading(
-        error_fraction=-1.0, candidate_centroids=(0.0, 320.0)
-    )
-    cmd = nav.step(flipped, dt=0.1)
+def test_lookahead_target_is_not_overridden_by_stale_lock():
+    """A centred path must steer straight even if the previous frame was offset."""
+    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5, max_error_jump=1.5))
+    nav.step(line_reading(error_fraction=-1.0, candidate_centroids=(0.0, 320.0)), dt=0.1)
+    cmd = nav.step(line_reading(error_fraction=0.0, candidate_centroids=(0.0, 320.0)), dt=0.1)
     assert cmd.action == "follow"
-    assert cmd.left == cmd.right == 200  # locked 320 = centre -> straight
+    assert cmd.left == cmd.right == 200
+
+
+def test_horizontal_stroke_spins_to_align():
+    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5, right_turn_after_s=0.0))
+    cmd = nav.step(near_t_bar(), dt=0.1)
+    assert cmd.action == "search"
+    assert cmd.left == 200
+    assert cmd.right == -200
+
+
+def test_far_thin_crossing_does_not_spin():
+    """Forward camera sees the T while wheels are still on the stem."""
+    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5, right_turn_after_s=0.0))
+    cmd = nav.step(
+        line_reading(error_fraction=0.0, axis="horizontal", line_width=18, centroid_y=120.0),
+        dt=0.1,
+    )
+    assert cmd.left == cmd.right == 200
+    assert "spin" not in cmd.reason
+    assert "straight" in cmd.reason
+
+
+def test_off_center_bar_does_not_start_a_t_turn():
+    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5))
+    cmd = nav.step(line_reading(error_fraction=-0.33, axis="horizontal", line_width=40), dt=0.1)
+    assert cmd.right != -200
+    assert "spin" not in cmd.reason
+
+
+def test_later_crossbar_does_not_restart_t_turn_after_follow():
+    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5))
+    nav.step(line_reading(error_fraction=-0.12, axis="vertical", line_width=100), dt=0.2)
+    nav.step(line_reading(error_fraction=-0.06, axis="vertical", line_width=100), dt=0.2)
+    cmd = nav.step(near_t_bar(line_width=46), dt=0.1)
+    assert "spin" not in cmd.reason
+
+
+def test_horizontal_stroke_stops_after_a_right_angle():
+    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5, right_turn_after_s=0.0))
+    cmd = None
+    for _ in range(25):
+        cmd = nav.step(near_t_bar(), dt=0.1)
+    assert cmd is not None
+    assert cmd.left == cmd.right == 200
+    assert "spin" not in cmd.reason
+
+
+def test_start_box_keeps_straight_until_the_t():
+    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5, right_turn_after_s=2.5))
+    cmd = nav.step(near_t_bar(), dt=0.1)
+    assert cmd.left == cmd.right == 200
+    assert "straight" in cmd.reason or "keep straight" in cmd.reason
+
+
+def test_error_jump_stops_then_searches():
+    nav = LineNav(
+        NavPolicy(
+            speed=200,
+            expected_center_fraction=0.5,
+            max_error_jump=0.35,
+            jump_search_s=0.3,
+        )
+    )
+    first = nav.step(line_reading(error_fraction=0.0), dt=0.1)
+    assert first.left == first.right == 200
+    stopped = nav.step(line_reading(error_fraction=-0.9), dt=0.1)
+    assert stopped.left == stopped.right == 0
+    assert "jump: stop" in stopped.reason
+    assert nav.state is NavState.FOLLOW
+    searching = nav.step(line_reading(error_fraction=-0.9), dt=0.3)
+    assert nav.state is NavState.SEARCH
+    assert searching.action == "search"
+    assert searching.left == searching.right == 0
+
+
+def test_search_ignores_far_edge_lock():
+    nav = LineNav(NavPolicy(speed=200, search_timeout_s=0.0, reacquire_error=0.40))
+    nav.step(line_reading(visible=False), dt=0.1)
+    assert nav.state is NavState.SEARCH
+    cmd = nav.step(line_reading(error_fraction=-0.9), dt=0.1)
+    assert nav.state is NavState.SEARCH
+    assert cmd.left == cmd.right == 0
+
+
+def test_search_give_up_stops():
+    nav = LineNav(NavPolicy(speed=200, search_timeout_s=0.0, search_give_up_s=0.5))
+    nav.step(line_reading(visible=False), dt=0.1)
+    nav.step(line_reading(visible=False), dt=0.3)
+    cmd = nav.step(line_reading(visible=False), dt=0.3)
+    assert cmd.left == cmd.right == 0
+    assert "hold" in cmd.reason
+
+
+def test_junction_prefers_the_right_branch():
+    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5, right_turn_after_s=0.0))
+    nav.step(line_reading(error_fraction=0.0, line_width=20), dt=0.1)
+    cmd = nav.step(
+        line_reading(error_fraction=0.0, junction=True, branch_count=2, line_width=50),
+        dt=0.1,
+    )
+    assert cmd.action == "follow"
+    assert cmd.left == 200
+    assert cmd.right < 200
+
+
+def test_false_junction_does_not_retarget():
+    """Forward camera always sees far forks; only a widened local line is a T."""
+    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5))
+    nav.step(line_reading(error_fraction=0.0, line_width=20), dt=0.1)
+    cmd = nav.step(
+        line_reading(error_fraction=0.0, junction=True, branch_count=2, line_width=22),
+        dt=0.1,
+    )
+    assert cmd.left == cmd.right == 200
+
+
+def test_fat_junction_does_not_poison_line_width():
+    nav = LineNav(NavPolicy(speed=200, min_width_ratio=0.5))
+    nav.step(line_reading(error_fraction=0.0, line_width=130), dt=0.1)
+    nav.step(line_reading(error_fraction=0.0, junction=True, line_width=350), dt=0.1)
+    cmd = nav.step(line_reading(error_fraction=0.05, line_width=128), dt=0.1)
+    assert cmd.left > 0 and cmd.right > 0
+    assert "thin" not in cmd.reason
+
+
+def test_rightward_junction_jump_is_followed():
+    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5, max_error_jump=0.35, right_turn_after_s=0.0))
+    nav.step(line_reading(error_fraction=0.0), dt=0.1)
+    cmd = nav.step(line_reading(error_fraction=0.45, junction=True), dt=0.1)
+    assert cmd.left == 200
+    assert cmd.right < cmd.left
+    assert "jump" not in cmd.reason
+
+
+def test_thin_lock_is_held_not_followed():
+    nav = LineNav(NavPolicy(speed=200, min_width_ratio=0.5))
+    nav.step(line_reading(error_fraction=0.0, line_width=150), dt=0.1)
+    cmd = nav.step(line_reading(error_fraction=0.3, line_width=60), dt=0.1)
+    assert cmd.left == cmd.right == 0
+    assert "thin" in cmd.reason
+
+
+def test_centered_narrower_line_is_still_followed():
+    nav = LineNav(NavPolicy(speed=200, min_width_ratio=0.5, steer_deadband=0.10))
+    nav.step(line_reading(error_fraction=0.0, line_width=120), dt=0.1)
+    cmd = nav.step(line_reading(error_fraction=0.0, line_width=54), dt=0.1)
+    assert cmd.left == cmd.right == 200
+    assert "thin" not in cmd.reason
+
+
+def test_t_turn_keeps_spinning_through_vertical_flicker():
+    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5, right_turn_after_s=0.0))
+    nav.step(near_t_bar(), dt=0.1)
+    cmd = nav.step(line_reading(error_fraction=0.14, axis="vertical", line_width=113), dt=0.1)
+    assert cmd.left == 200
+    assert cmd.right == -200
+    assert "spin" in cmd.reason
+
+
+def test_t_turn_does_not_spin_a_second_time():
+    nav = LineNav(
+        NavPolicy(
+            speed=200,
+            expected_center_fraction=0.5,
+            spin_deg_per_s_at_200=90.0,
+            right_turn_after_s=0.0,
+        )
+    )
+    for _ in range(12):
+        nav.step(near_t_bar(), dt=0.1)
+    follow = nav.step(line_reading(error_fraction=0.0, axis="vertical", line_width=120), dt=0.1)
+    assert follow.left == follow.right == 200
+    later = nav.step(near_t_bar(), dt=0.1)
+    assert later.left == later.right == 200
+    assert "spin" not in later.reason
+
+
+def test_first_right_spins_then_resumes_follow():
+    nav = LineNav(
+        NavPolicy(
+            speed=200,
+            first_right_s=0.3,
+            first_right_deg=90.0,
+            spin_deg_per_s_at_200=90.0,
+        )
+    )
+    nav.step(line_reading(error_fraction=0.0), dt=0.2)
+    cmd = nav.step(line_reading(error_fraction=0.0), dt=0.2)
+    assert nav.state is NavState.RIGHT_TURN
+    assert cmd.left == 200
+    assert cmd.right == -200
+    nav.step(line_reading(error_fraction=0.0), dt=0.5)
+    cmd = nav.step(line_reading(error_fraction=0.0), dt=0.6)
+    assert nav.state is NavState.FOLLOW
+    assert cmd.left == cmd.right == 200
 
 
 def test_nav_rejects_negative_dt():
