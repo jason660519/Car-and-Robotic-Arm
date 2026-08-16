@@ -24,8 +24,8 @@ from dataclasses import dataclass
 class StepKind:
     """Step kinds understood by :class:`carbot.route_nav.RouteNav`."""
 
-    STRAIGHT = "straight"      # drive straight, vision closes the loop
-    TURN_LEFT = "turn_left"    # spin left in place to a heading
+    STRAIGHT = "straight"  # drive straight, vision closes the loop
+    TURN_LEFT = "turn_left"  # spin left in place to a heading
     TURN_RIGHT = "turn_right"  # spin right in place to a heading
     ROUNDABOUT = "roundabout"  # left arc lap, finish on accumulated angle
 
@@ -59,25 +59,37 @@ class RoutePlan:
         return iter(self.steps)
 
 
+#: The reprint map is 840x588 mm = the original 1000x700 mm Task-1 map scaled
+#: by 0.84. Every straight/arc distance scales with the map; the 20 mm black
+#: line and the 20 mm AprilTags keep their physical size (see
+#: scripts/generate_task1_map.py). Turn angles are unaffected by the scale.
+MAP_SCALE = 0.84
+
+
 def task1_route() -> RoutePlan:
-    """The full Task-1 lap: start zone -> outer loop -> roundabout -> return."""
+    """The full Task-1 lap: start zone -> outer loop -> roundabout -> return.
+
+    Distances are the corrected-v2 SSOT values multiplied by ``MAP_SCALE``
+    so the plan matches the reprint map's physical size.
+    """
+    s = MAP_SCALE
     return RoutePlan(
         name="task1",
         steps=(
-            RouteStep(StepKind.STRAIGHT, 0.10, 0.0, "Phase 1 stem"),
+            RouteStep(StepKind.STRAIGHT, round(0.10 * s, 4), 0.0, "Phase 1 stem"),
             RouteStep(StepKind.TURN_RIGHT, 0.0, 90.0, "T junction right"),
-            RouteStep(StepKind.STRAIGHT, 0.16, 0.0, "Phase 2 east"),
+            RouteStep(StepKind.STRAIGHT, round(0.16 * s, 4), 0.0, "Phase 2 east"),
             RouteStep(StepKind.TURN_LEFT, 0.0, 90.0, "ARC 1 SE corner"),
-            RouteStep(StepKind.STRAIGHT, 0.19, 0.0, "Phase 4 north"),
+            RouteStep(StepKind.STRAIGHT, round(0.19 * s, 4), 0.0, "Phase 4 north"),
             RouteStep(StepKind.TURN_LEFT, 0.0, 90.0, "ARC 2 NE corner"),
-            RouteStep(StepKind.STRAIGHT, 0.585, 0.0, "Phase 6 west"),
+            RouteStep(StepKind.STRAIGHT, round(0.585 * s, 4), 0.0, "Phase 6 west"),
             RouteStep(StepKind.TURN_LEFT, 0.0, 90.0, "ARC 3 NW corner"),
-            RouteStep(StepKind.STRAIGHT, 0.075, 0.0, "Phase 8 entry"),
-            RouteStep(StepKind.ROUNDABOUT, 0.848, 270.0, "Phase 9 roundabout"),
+            RouteStep(StepKind.STRAIGHT, round(0.075 * s, 4), 0.0, "Phase 8 entry"),
+            RouteStep(StepKind.ROUNDABOUT, round(0.848 * s, 4), 270.0, "Phase 9 roundabout"),
             RouteStep(StepKind.TURN_RIGHT, 0.0, 90.0, "exit 3 right"),
-            RouteStep(StepKind.STRAIGHT, 0.23, 0.0, "Phase 10 return"),
+            RouteStep(StepKind.STRAIGHT, round(0.23 * s, 4), 0.0, "Phase 10 return"),
             RouteStep(StepKind.TURN_RIGHT, 0.0, 90.0, "T junction right"),
-            RouteStep(StepKind.STRAIGHT, 0.10, 0.0, "Phase 11 stem back"),
+            RouteStep(StepKind.STRAIGHT, round(0.10 * s, 4), 0.0, "Phase 11 stem back"),
         ),
     )
 
