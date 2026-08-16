@@ -119,16 +119,32 @@ def _draw_scale_bar(canvas, page_width_mm: float, y_mm: float, length_mm: float 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("scratch/landmarks/apriltag-sheet.pdf"))
-    parser.add_argument("--tag-map-out", type=Path, default=None,
-                        help="also write a tag-map JSON template (yaw 0, placeholder positions)")
-    parser.add_argument("--ids", default="0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15",
-                        help="space-separated tag IDs (default: the Task-1 draft set 0..15)")
-    parser.add_argument("--tag-size-mm", type=float, default=20.0,
-                        help="printed black-square side length (operator limit: 20 mm on the 100x70 map)")
-    parser.add_argument("--quiet-zone-mm", type=float, default=5.0,
-                        help="white margin around each tag (default 5 mm; 20 mm tag + 5 mm = 30 mm footprint)")
-    parser.add_argument("--columns", type=int, default=0,
-                        help="tags per row (default: fit the page width)")
+    parser.add_argument(
+        "--tag-map-out",
+        type=Path,
+        default=None,
+        help="also write a tag-map JSON template (yaw 0, placeholder positions)",
+    )
+    parser.add_argument(
+        "--ids",
+        default="0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15",
+        help="space-separated tag IDs (default: the Task-1 draft set 0..15)",
+    )
+    parser.add_argument(
+        "--tag-size-mm",
+        type=float,
+        default=20.0,
+        help="printed black-square side length (operator limit: 20 mm on the 100x70 map)",
+    )
+    parser.add_argument(
+        "--quiet-zone-mm",
+        type=float,
+        default=5.0,
+        help="white margin around each tag (default 5 mm; 20 mm tag + 5 mm = 30 mm footprint)",
+    )
+    parser.add_argument(
+        "--columns", type=int, default=0, help="tags per row (default: fit the page width)"
+    )
     args = parser.parse_args()
 
     if args.tag_size_mm <= 0 or args.quiet_zone_mm <= 0:
@@ -181,17 +197,19 @@ def main() -> int:
     _draw_scale_bar(pdf, page_w_mm, 8.0)
     pdf.showPage()
     pdf.save()
-    print(f"wrote {args.output} ({len(ids)} tags, {args.tag_size_mm:.0f} mm + "
-          f"{args.quiet_zone_mm:.0f} mm quiet zone)")
+    print(
+        f"wrote {args.output} ({len(ids)} tags, {args.tag_size_mm:.0f} mm + "
+        f"{args.quiet_zone_mm:.0f} mm quiet zone)"
+    )
 
     if args.tag_map_out is not None:
         template = {
             "name": "task1-map",
             "description": "Fill x_m/y_m with the measured/designed position of each tag "
-                           "after placement; yaw 0 = N arrow pointing map-north. "
-                           "Map frame: origin at the map's SOUTH-WEST corner, x east, "
-                           "y north, metres; NE corner = (1.00, 0.70). Measure x from "
-                           "the west edge and y from the south edge to the tag center.",
+            "after placement; yaw 0 = N arrow pointing map-north. "
+            "Map frame: origin at the map's SOUTH-WEST corner, x east, "
+            "y north, metres; NE corner = (1.00, 0.70). Measure x from "
+            "the west edge and y from the south edge to the tag center.",
             "tags": [
                 {
                     "id": tag_id,

@@ -28,32 +28,39 @@ import cv2
 import numpy as np
 
 MAP_NORTH_Y_M = 0.70  # NE corner y, metres
-PX_PER_M = 1000.0     # 1000 px = 1.00 m = 100 cm
+PX_PER_M = 1000.0  # 1000 px = 1.00 m = 100 cm
 
 
 def map_to_px(x_m: float, y_m: float) -> tuple[int, int]:
     """Map frame (SW origin, x east / y north, metres) -> pixel (NW origin, y down)."""
-    px = int(round(x_m * PX_PER_M))
-    py = int(round((MAP_NORTH_Y_M - y_m) * PX_PER_M))
+    px = round(x_m * PX_PER_M)
+    py = round((MAP_NORTH_Y_M - y_m) * PX_PER_M)
     return px, py
 
 
 def draw_tag(img, x_m, y_m, yaw_deg, tag_id, size_m=0.02, quiet_m=0.005):
     """Draw one tag footprint + N arrow + ID label at its map position."""
     cx, cy = map_to_px(x_m, y_m)
-    half_foot = int(round((size_m + 2 * quiet_m) * PX_PER_M / 2.0))  # 30 mm -> 15 px
-    half_tag = int(round(size_m * PX_PER_M / 2.0))                    # 20 mm -> 10 px
+    half_foot = round((size_m + 2 * quiet_m) * PX_PER_M / 2.0)  # 30 mm -> 15 px
+    half_tag = round(size_m * PX_PER_M / 2.0)  # 20 mm -> 10 px
 
     MAGENTA = (203, 0, 255)
     DARK = (60, 0, 90)
     WHITE = (255, 255, 255)
 
     # Footprint (quiet-zone border, the 30 mm square to cut out).
-    cv2.rectangle(img, (cx - half_foot, cy - half_foot),
-                  (cx + half_foot, cy + half_foot), MAGENTA, 2, cv2.LINE_AA)
+    cv2.rectangle(
+        img,
+        (cx - half_foot, cy - half_foot),
+        (cx + half_foot, cy + half_foot),
+        MAGENTA,
+        2,
+        cv2.LINE_AA,
+    )
     # The tag itself (20 mm).
-    cv2.rectangle(img, (cx - half_tag, cy - half_tag),
-                  (cx + half_tag, cy + half_tag), MAGENTA, 1, cv2.LINE_AA)
+    cv2.rectangle(
+        img, (cx - half_tag, cy - half_tag), (cx + half_tag, cy + half_tag), MAGENTA, 1, cv2.LINE_AA
+    )
     # Centre cross.
     cv2.line(img, (cx - 4, cy), (cx + 4, cy), MAGENTA, 1, cv2.LINE_AA)
     cv2.line(img, (cx, cy - 4), (cx, cy + 4), MAGENTA, 1, cv2.LINE_AA)
@@ -61,7 +68,7 @@ def draw_tag(img, x_m, y_m, yaw_deg, tag_id, size_m=0.02, quiet_m=0.005):
     # N arrow: yaw 0 = pointing map-north (up in pixels, y down).
     theta = np.deg2rad(yaw_deg)
     dx, dy = np.sin(theta), -np.cos(theta)
-    tip = (int(round(cx + dx * 26)), int(round(cy + dy * 26)))
+    tip = (round(cx + dx * 26), round(cy + dy * 26))
     cv2.arrowedLine(img, (cx, cy), tip, MAGENTA, 2, cv2.LINE_AA, tipLength=0.45)
 
     # ID label with a white background box.
@@ -84,12 +91,17 @@ def draw_tag(img, x_m, y_m, yaw_deg, tag_id, size_m=0.02, quiet_m=0.005):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--map", type=Path,
-                        default=Path("assets/reference/task1/2026-08-16-task1-100x70-route-map-corrected.png"))
-    parser.add_argument("--tag-map", type=Path,
-                        default=Path("scratch/landmarks/task1-tag-map-draft.json"))
-    parser.add_argument("--output", type=Path,
-                        default=Path("scratch/landmarks/task1-tag-placement-map.png"))
+    parser.add_argument(
+        "--map",
+        type=Path,
+        default=Path("assets/reference/task1/2026-08-16-task1-100x70-route-map-corrected.png"),
+    )
+    parser.add_argument(
+        "--tag-map", type=Path, default=Path("scratch/landmarks/task1-tag-map-draft.json")
+    )
+    parser.add_argument(
+        "--output", type=Path, default=Path("scratch/landmarks/task1-tag-placement-map.png")
+    )
     args = parser.parse_args()
 
     if not args.map.exists():
