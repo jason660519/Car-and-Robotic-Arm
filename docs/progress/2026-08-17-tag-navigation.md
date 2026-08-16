@@ -16,6 +16,27 @@ because (a) the 2026-08-14 camera intrinsics are wrong for this lens
 bad position the vision T-turn fires on the wrong structure. The intrinsics
 must be recalibrated before tag supervision can be trusted for turns.
 
+> **Update (same session, run-13):** the "intrinsics are wrong" conclusion
+> above was itself a false alarm from a bug in the *diagnostic* script (the
+> aruco corner order — corner0 is the tag's north-west corner, not
+> south-west — was wrong in my ad-hoc analysis, so every PNP came out
+> mirrored). The project's own pipeline (`vision._tag_object_points` +
+> `landmarks.localize_camera`) is correct: with the old fx=1553 intrinsics it
+> localised the departure-zone camera to x=0.550 y=0.177 z=0.242 heading
+> 94.3°, all sane. The real root cause of the recurring "drives north-west
+> from departure" was that the stem sits inside the camera blind zone at
+> launch, so the detector locked a departure-zone structure at map x≈0.54
+> instead of the stem at 0.59. Fix: a DEPART phase that aligns the heading
+> to map-north (tag heading), blind-creeps straight, and only switches to
+> line-follow when a centred narrow stroke (the stem) appears. **run-13
+> (operator beside the car): departure confirm → heading align 75→90 →
+> blind creep 1 s → stem lock → stem follow → position-confirmed T right
+> turn (anchored y=0.226) → 90° spin → Phase 2 follow → turn cooldown.**
+> Position stayed x≈0.55-0.57 with y increasing monotonically — **no
+> north-west drift**. The remaining work is the rest of the lap (Phase 2 →
+> outer loop → roundabout → return), which the route plan
+> (`carbot.route_plan.task1_route`) already describes.
+
 Nothing committed (user did not ask).
 
 ## Verification (what actually ran)
