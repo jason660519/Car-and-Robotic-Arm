@@ -63,7 +63,7 @@ class NavPolicy:
     search_timeout_s: float = 4.0
     # A forward-tilted low camera has a blind cone right under/just ahead of
     # the wheels — the map is a loop with several places (a junction, a map
-    # edge) where the 2 cm path is briefly outside that FOV even though the
+    # edge) where the 15 mm path is briefly outside that FOV even though the
     # chassis is still squarely on the route (verified 2026-08-16: a
     # confidently-centred stem run lost the line completely, with the
     # calibration target visibly closer/bigger between frames — the chassis
@@ -94,7 +94,7 @@ class NavPolicy:
     # transient dark structure and only count persistent forks as junctions.
     junction_min_branch_rows_fraction: float = 0.10
     # Camera sits right of the axle and tilts forward, so a chassis-centred
-    # 2 cm line is left of the image centre. 0.46 is ~4 % of width (~3–4 cm
+    # 15 mm line is left of the image centre. 0.46 is ~4 % of width (~3–4 cm
     # at the look-ahead). Geometric 0.5 would steer the camera onto the line
     # and leave the wheels to the left of it.
     expected_center_fraction: float = 0.46
@@ -108,7 +108,7 @@ class NavPolicy:
     search_give_up_s: float = 2.5
     search_sweep_deg: float = 20.0
     search_spin_speed_ratio: float = 0.75
-    # First intersection after 发车 is a right turn onto the 2 cm line.
+    # First intersection after 发车 is a right turn onto the 15 mm line.
     prefer_right_branch: bool = True
     # How far right of frame centre a T-branch may sit (fraction of width).
     right_branch_max_offset: float = 0.42
@@ -117,17 +117,25 @@ class NavPolicy:
     # on the 发车 stem (~10 cm); turning then is early. 1.0 s at speed 150 is
     # ~9 cm, about the stem. 0 lets tests spin on the first near bar.
     right_turn_after_s: float = 1.0
-    # Far T (poem / crossing at look-ahead) was 18 px; the 2 cm stroke near
-    # the bumper is ~115 px at 2028. Only a fat bar is "the car is at the T".
-    t_bar_min_width_px: float = 70.0
+    # Far T (poem / crossing at look-ahead) was 18 px; the 15 mm stroke near
+    # the bumper is ~86 px at 2028. Only a fat bar is "the car is at the T".
+    # (52 = 86 * 0.61, the same fraction of the near width the old 2 cm-era
+    # threshold 70 = 115 * 0.61 used.)
+    t_bar_min_width_px: float = 52.0
     # Lower in the ROI is nearer the wheels (forward-tilted camera). A bar
     # in the top half is still ahead; keep driving straight to point 3.
-    t_min_roi_y_fraction: float = 0.55
+    # On the Task-1 map the raw-y fraction maps non-linearly to distance:
+    # frac 0.70 ≈ cross-bar still 40 cm away (the BEV window only spans
+    # raw 600..1514 ≈ world 0.62..0.18 m), which triggered the spin ~17 cm
+    # before the T and the car "turned early and left the line" (operator,
+    # 2026-08-17). 0.85 ≈ raw y>1290 ≈ cross-bar within ~24 cm — still
+    # visible (blind zone starts ~17 cm) but genuinely at the junction.
+    t_min_roi_y_fraction: float = 0.85
     # Reject a lock thinner than this multiple of the recent line width
     # (the 20 s run followed a 65 px strip off the map after a 150 px path).
     min_width_ratio: float = 0.5
     # |error| below this is treated as on-line. The interior-white run held
-    # err≈+0.06 for seconds (L150 R128) and drifted off the 2 cm stem.
+    # err≈+0.06 for seconds (L150 R128) and drifted off the 15 mm stem.
     steer_deadband: float = 0.10
     # Timed first right: the 15 s deadband run drove straight off the top of
     # the paper because the T never switched the lock off the far stem.
@@ -263,7 +271,7 @@ class LineNav:
         return self._follow_step(reading, dt)
 
     def _locked(self, reading: LineReading) -> LineReading:
-        """Look-ahead already picked the 2 cm path; do not retarget.
+        """Look-ahead already picked the track path; do not retarget.
 
         Candidate locking was for the old "most persistent dark strip" detector,
         which flipped between chair legs. It now keeps steering at a stale
@@ -356,7 +364,10 @@ class LineNav:
                 reading.axis == "vertical"
                 and reading.error_fraction is not None
                 and abs(reading.error_fraction) <= 0.12
-                and reading.line_width_px >= 80
+                # A 15 mm stroke near the bumper reads ~86 px at 2028; a
+                # centred vertical line at least this wide means the chassis
+                # is aligned with the outer loop after the T spin.
+                and reading.line_width_px >= 60
             )
             if aligned and self._horiz_spin_s >= 0.70 * spin_limit:
                 self._t_turn_done = True
@@ -486,7 +497,7 @@ class LineNav:
     def _is_near_t(self, reading: LineReading) -> bool:
         """True when the chassis, not just the camera, has reached the T.
 
-        The IMX500 sits forward and tilted down, so a 2 cm crossing is visible
+        The IMX500 sits forward and tilted down, so a 15 mm crossing is visible
         as a thin far bar long before the wheels arrive. Spin only when the
         bar is fat (near) and in the lower ROI (near the bumper).
         """
@@ -563,7 +574,7 @@ class LineNav:
         )
 
     def _plausible_lock(self, reading: LineReading) -> bool:
-        """Far-edge dark structure is not the 2 cm path in front of the wheels."""
+        """Far-edge dark structure is not the track path in front of the wheels."""
         if reading.error_fraction is None or self._too_thin(reading):
             return False
         return abs(reading.error_fraction) <= self.policy.reacquire_error

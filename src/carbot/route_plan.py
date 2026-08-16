@@ -60,7 +60,7 @@ class RoutePlan:
 
 
 #: The reprint map is 840x588 mm = the original 1000x700 mm Task-1 map scaled
-#: by 0.84. Every straight/arc distance scales with the map; the 20 mm black
+#: by 0.84. Every straight/arc distance scales with the map; the 15 mm black
 #: line and the 20 mm AprilTags keep their physical size (see
 #: scripts/generate_task1_map.py). Turn angles are unaffected by the scale.
 MAP_SCALE = 0.84

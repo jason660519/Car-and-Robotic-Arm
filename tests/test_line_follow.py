@@ -325,3 +325,44 @@ def test_start_box_left_wall_loses_to_centered_stem():
     assert reading.centroid_x == pytest.approx(WIDTH / 2, abs=15)
     assert reading.error_fraction is not None
     assert abs(reading.error_fraction) < 0.08
+
+
+# ----------------------------------------------------------------------
+# 15 mm Task-1 reprint line semantics (line_width_m)
+# ----------------------------------------------------------------------
+
+
+def test_line_policy_defaults_are_anchored_to_15mm():
+    policy = LinePolicy()
+    assert policy.line_width_m == pytest.approx(0.015)
+    assert policy.expected_line_width_fraction == pytest.approx(0.043, abs=1e-3)
+    assert policy.min_line_width_fraction == pytest.approx(0.019, abs=1e-3)
+    assert policy.max_line_width_fraction == pytest.approx(0.10, abs=1e-3)
+
+
+def test_line_policy_width_fractions_scale_with_line_width_m():
+    wide = LinePolicy(line_width_m=0.020)  # old 2 cm Yahboom paper
+    nominal = LinePolicy(line_width_m=0.015)
+    ratio = 0.020 / 0.015
+    assert wide.expected_line_width_fraction == pytest.approx(
+        nominal.expected_line_width_fraction * ratio, rel=1e-6
+    )
+    assert wide.min_line_width_fraction == pytest.approx(
+        nominal.min_line_width_fraction * ratio, rel=1e-6
+    )
+    assert wide.max_line_width_fraction == pytest.approx(
+        nominal.max_line_width_fraction * ratio, rel=1e-6
+    )
+
+
+def test_line_policy_explicit_fractions_are_not_overridden():
+    policy = LinePolicy(expected_line_width_fraction=0.10, line_width_m=0.030)
+    assert policy.expected_line_width_fraction == pytest.approx(0.10)
+    assert policy.line_width_m == pytest.approx(0.030)
+
+
+def test_line_policy_rejects_non_positive_line_width():
+    with pytest.raises(ValueError):
+        LinePolicy(line_width_m=0.0)
+    with pytest.raises(ValueError):
+        LinePolicy(line_width_m=-0.01)

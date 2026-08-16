@@ -168,6 +168,12 @@ def main() -> int:
     parser.add_argument(
         "--ground-view", type=Path, default=None, help="bird's-eye homography JSON from examples/27"
     )
+    parser.add_argument(
+        "--line-width-mm",
+        type=float,
+        default=LinePolicy().line_width_m * 1000,
+        help="physical width of the track line in mm (Task-1 reprint map: 15)",
+    )
     args = parser.parse_args()
 
     line_policy = LinePolicy(
@@ -175,6 +181,7 @@ def main() -> int:
         roi_top=args.roi_top,
         roi_bottom=args.roi_bottom,
         min_branch_rows_fraction=args.junction_min_branch_rows_fraction,
+        line_width_m=args.line_width_mm / 1000,
     )
     nav_policy = NavPolicy(
         speed=args.speed,

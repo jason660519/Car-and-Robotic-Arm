@@ -10,8 +10,13 @@ bottom edge. A verified still (2026-08-15, 4056x3040, IMX500 AI Camera):
   defaults to 100)
 - the chassis/shadow band starts near y=2081 (68 % of the frame height) and
   the map edge shadows occupy the top ~8 %; the ROI excludes both by default
-- the main line is chosen by width (about 2 cm), not by which dark strip
-  spans the most ROI rows — chair legs and map-edge shadows otherwise win
+- the main line is chosen by width (about ``line_width_m``, 15 mm on the
+  Task-1 reprint map), not by which dark strip spans the most ROI rows —
+  chair legs and map-edge shadows otherwise win
+
+The default ``line_width_m`` is 0.015 m because the current track is the
+Task-1 reprint map (``scripts/generate_task1_map.py``), whose black route
+line is 15 mm wide (the old 20 mm Yahboom paper is no longer the target).
 
 The line is not assumed to be straight. Each scan row's dark-pixel centroid is
 computed and the row centroids are combined with a median, which is robust to
@@ -46,13 +51,21 @@ class LinePolicy:
     It is deliberately not aggressive: paper peaks at ~208, the line is well
     below 90 in the verified frame, so 100 leaves headroom for exposure changes
     without pulling in map shadows or dirt.
+
+    ``line_width_m`` is the physical width of the track line in metres — the
+    15 mm route line of the Task-1 reprint map. The pixel-width fractions
+    below are anchored to it at the 2028-px preview width (a 15 mm stroke
+    near the bumper reads ~86 px vs ~115 px for the old 20 mm line); pass a
+    different value for a different track. Width *fractions* (not raw pixels)
+    keep the same policy valid at any capture resolution.
     """
 
     dark_threshold: int = 100
+    line_width_m: float = 0.015
     roi_top: float = 0.10
     # Forward-looking mount: the bottom of the frame is the track in front of
     # the wheels, not a chassis band. Cutting at 0.68 (the old downward-camera
-    # default) dropped the 2 cm line and left the green overlay cross on paper.
+    # default) dropped the 15 mm line and left the green overlay cross on paper.
     roi_bottom: float = 1.0
     min_row_dark_fraction: float = 0.002
     min_tracked_rows: int = 6
@@ -70,32 +83,57 @@ class LinePolicy:
     min_branch_rows_fraction: float = 0.10
     # Main-line selection. Persistence (row count) alone prefers chair legs
     # and map-edge shadows that span the ROI as thin dark strips (~11 px on
-    # the 2026-08-15 start-zone preview). The real tracking line is ~2 cm
-    # (~115 px at 2028, ~0.057 of frame width). Width bounds reject both the
-    # thin strips and the huge dark blocks of printed text; among survivors
-    # the score prefers a width close to 2 cm.
-    min_line_width_fraction: float = 0.025
-    # 0.18 allowed the 发车 box (~330 px) to count as the path and trigger a
-    # false right turn. The 2 cm stroke stays ~115-150 px at 2028.
-    max_line_width_fraction: float = 0.10
-    expected_line_width_fraction: float = 0.057
-    # Look-ahead band: the 2 cm stroke the camera actually sees ahead of the
+    # the 2026-08-15 start-zone preview). The real tracking line is
+    # ``line_width_m`` (~86 px for 15 mm at 2028, ~0.043 of frame width).
+    # Width bounds reject both the thin strips and the huge dark blocks of
+    # printed text; among survivors the score prefers a width close to the
+    # expected value. All three are ``None`` by default and derived from
+    # ``line_width_m`` in ``__post_init__`` (a 15 mm line at the 2028-px
+    # preview: min 0.019, max 0.10, expected 0.043 of frame width); pass a
+    # concrete value to override.
+    min_line_width_fraction: float | None = None
+    # 0.10 allowed the 发车 box (~330 px) to count as the path and trigger a
+    # false right turn. The 15 mm stroke stays ~86-115 px at 2028.
+    max_line_width_fraction: float | None = None
+    expected_line_width_fraction: float | None = None
+    # Look-ahead band: the 15 mm stroke the camera actually sees ahead of the
     # car (often a *horizontal* bar under a forward mount). Mean-x/mean-y of a
     # vertically tracked blob lands on paper; the target must be a dark pixel
     # on this band.
     lookahead_top: float = 0.40
     lookahead_bottom: float = 0.98
-    # Drop a 2 cm-scale strip farther than this from frame centre (fraction of
-    # width). The 15 s start-zone run locked x≈50 / x≈1840 (chairs / map edge)
-    # after the real line left the band; those sit ~0.47 of width off centre.
+    # Drop a 15 mm-scale strip farther than this from frame centre (fraction
+    # of width). The 15 s start-zone run locked x≈50 / x≈1840 (chairs / map
+    # edge) after the real line left the band; those sit ~0.47 of width off
+    # centre.
     max_center_offset_fraction: float = 0.40
     min_horizontal_length_fraction: float = 0.15
-    min_bar_thickness_fraction: float = 0.008
-    max_bar_thickness_fraction: float = 0.06
+    # Horizontal crossing-bar thickness band (fraction of frame height),
+    # also derived from ``line_width_m`` when left None (a 15 mm bar reads
+    # ~9..91 px of 1520: 0.006..0.06).
+    min_bar_thickness_fraction: float | None = None
+    max_bar_thickness_fraction: float | None = None
 
     def __post_init__(self) -> None:
         if not 0 <= self.dark_threshold <= 255:
             raise ValueError("dark_threshold must be in [0, 255]")
+        if self.line_width_m <= 0:
+            raise ValueError("line_width_m must be positive")
+        # Width fractions are anchored to the nominal 15 mm Task-1 line at
+        # the 2028x1520 preview (86 px near the bumper); any other physical
+        # line width scales them linearly. Frozen dataclass, so assign via
+        # object.__setattr__.
+        scale = self.line_width_m / 0.015
+        defaults = {
+            "min_line_width_fraction": 0.019 * scale,
+            "max_line_width_fraction": 0.10 * scale,
+            "expected_line_width_fraction": 0.043 * scale,
+            "min_bar_thickness_fraction": 0.006 * scale,
+            "max_bar_thickness_fraction": 0.06 * scale,
+        }
+        for name, value in defaults.items():
+            if getattr(self, name) is None:
+                object.__setattr__(self, name, value)
         if not 0.0 <= self.roi_top < self.roi_bottom <= 1.0:
             raise ValueError("roi must satisfy 0 <= roi_top < roi_bottom <= 1")
         if not 0.0 <= self.min_row_dark_fraction <= 1.0:
@@ -324,12 +362,12 @@ def _snap_to_dark(gray: np.ndarray, x: float, y: float, threshold: int) -> tuple
 def _lookahead_target(
     gray: np.ndarray, policy: LinePolicy
 ) -> tuple[float, float, float, tuple[float, ...], str, tuple[float, ...]] | None:
-    """Pick a 2 cm stroke in the look-ahead band; the point is on the stroke.
+    """Pick a track-width stroke in the look-ahead band; the point is on the stroke.
 
-    A forward-looking camera often sees both a 2 cm-wide *vertical* path
+    A forward-looking camera often sees both a track-width *vertical* path
     (along the heading) and a *horizontal* bar (box edge or crossing). The
     car must lock the vertical path when it exists; a horizontal bar is
-    only used when no vertical 2 cm stroke is in the band, and then nav
+    only used when no vertical track-width stroke is in the band, and then nav
     spins to align rather than driving straight onto the bar.
     """
     height, width = gray.shape
@@ -350,7 +388,7 @@ def _lookahead_target(
     cluster_gap = 0.06 * width
 
     best_horiz: tuple[float, float, float, float] | None = None
-    hits_2cm: list[tuple[float, float, float]] = []
+    hits_nominal: list[tuple[float, float, float]] = []
     hits_any: list[tuple[float, float, float]] = []
     vert_xs: list[float] = []
 
@@ -367,7 +405,7 @@ def _lookahead_target(
             hits_any.append(hit)
             vert_xs.append(s[0])
             if abs(s[1] - expected_w) / expected_w <= 0.55:
-                hits_2cm.append(hit)
+                hits_nominal.append(hit)
         if horiz:
             for picked in horiz:
                 thickness = _bar_thickness(gray, y, picked[2], picked[3] + 1, policy.dark_threshold)
@@ -382,14 +420,14 @@ def _lookahead_target(
                 if best_horiz is None or cand[0] > best_horiz[0]:
                     best_horiz = cand
 
-    best_vert = _cluster_vertical_hits(hits_2cm or hits_any, cluster_gap, expected_x)
+    best_vert = _cluster_vertical_hits(hits_nominal or hits_any, cluster_gap, expected_x)
     junction_xs: tuple[float, ...] = ()
     near_vert = best_vert is not None and abs(best_vert[1] - expected_x) <= 0.22 * width
     center_horiz = best_horiz is not None and abs(best_horiz[1] - expected_x) <= 0.12 * width
-    # The right end of a crossing bar looks like a 2 cm vertical blob. Only
+    # The right end of a crossing bar looks like a track-width vertical blob. Only
     # a stroke near the red centre line is the path; otherwise lock the bar.
     if near_vert:
-        groups = _x_clusters(hits_2cm or hits_any, cluster_gap)
+        groups = _x_clusters(hits_nominal or hits_any, cluster_gap)
         if len(groups) >= 2:
             junction_xs = tuple(float(np.median([h[0] for h in g])) for g in groups[:4])
         _, x, y, line_width = best_vert
@@ -429,7 +467,7 @@ def _cluster_vertical_hits(
     gap: float,
     expected_x: float,
 ) -> tuple[float, float, float, float] | None:
-    """Pick the 2 cm stroke nearest frame centre across the whole look-ahead.
+    """Pick the track-width stroke nearest frame centre across the whole look-ahead.
 
     One scan row used to win by a slightly closer left box-wall; the outgoing
     stem then sat unused as a cyan candidate. Voting by x-cluster, then taking
@@ -521,7 +559,7 @@ def detect_line(
             if min_width <= line_width <= max_width and line_rows[i] >= policy.min_tracked_rows
         ]
         # Do not fall back to over-wide blobs (printed text, chassis). If
-        # nothing is 2 cm-scale, report no line.
+        # nothing is track-width-scale, report no line.
         if in_band:
 
             def _score(i: int) -> float:

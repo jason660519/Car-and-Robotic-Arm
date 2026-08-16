@@ -19,12 +19,12 @@ ROI = (48, 326, 0, 640)
 
 
 def near_t_bar(**kwargs) -> LineReading:
-    """A 2 cm crossing low in the ROI — wheels have reached the T."""
+    """A crossing low in the ROI — wheels have reached the T (frac > 0.85)."""
     defaults = {
         "error_fraction": 0.0,
         "axis": "horizontal",
         "line_width": 120,
-        "centroid_y": 280.0,
+        "centroid_y": 296.0,  # (296-48)/(326-48) ≈ 0.89, above t_min_roi_y_fraction
     }
     defaults.update(kwargs)
     return line_reading(**defaults)

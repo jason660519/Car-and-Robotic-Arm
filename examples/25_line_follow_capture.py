@@ -36,6 +36,7 @@ def _capture(
     size: tuple[int, int],
     exposure_time_us: int = 50_000,
     analogue_gain: float = 4.5,
+    auto_exposure: bool = False,
 ) -> object:
     from picamera2 import Picamera2
 
@@ -43,17 +44,25 @@ def _capture(
     camera.configure(camera.create_preview_configuration(main={"size": size}))
     camera.start()
     # Match the drive script: auto-exposure made start-zone locks unrepeatable.
-    try:
-        camera.set_controls(
-            {
-                "AeEnable": False,
-                "ExposureTime": exposure_time_us,
-                "AnalogueGain": analogue_gain,
-            }
-        )
-        time.sleep(0.5)
-    except Exception:  # noqa: BLE001 - camera controls are optional on some builds
-        time.sleep(1.5)
+    if auto_exposure:
+        try:
+            camera.set_controls({"AeEnable": True})
+        except Exception:  # noqa: BLE001 - camera controls are optional on some builds
+            print("auto-exposure control unavailable; using fixed exposure")
+            camera.set_controls({"AeEnable": False, "ExposureTime": 50000, "AnalogueGain": 4.5})
+            time.sleep(1.0)
+    else:
+        try:
+            camera.set_controls(
+                {
+                    "AeEnable": False,
+                    "ExposureTime": exposure_time_us,
+                    "AnalogueGain": analogue_gain,
+                }
+            )
+            time.sleep(0.5)
+        except Exception:  # noqa: BLE001 - camera controls are optional on some builds
+            time.sleep(1.5)
     frame = camera.capture_array("main")
     camera.close()
     return frame
@@ -64,7 +73,7 @@ def _overlay(frame, reading: object, cv2) -> object:
 
     Blue rectangle = ROI. Red vertical = geometric frame centre. Cyan crosses =
     every tracked dark candidate. Green cross = the main line the controller
-    will steer on. Confirm the green cross sits on the 2 cm black line before
+    will steer on. Confirm the green cross sits on the 15 mm black line before
     any closed-loop drive.
     """
     image = frame.copy()
@@ -177,10 +186,30 @@ def main() -> int:
     parser.add_argument(
         "--ground-view", type=Path, default=None, help="bird's-eye homography JSON from examples/27"
     )
+    parser.add_argument(
+        "--auto-exposure", action="store_true", help="let the camera auto-expose instead of fixed"
+    )
+    parser.add_argument(
+        "--exposure-time-us", type=int, default=50_000, help="fixed shutter in us"
+    )
+    parser.add_argument(
+        "--analogue-gain", type=float, default=4.5, help="fixed analogue gain"
+    )
+    parser.add_argument(
+        "--line-width-mm",
+        type=float,
+        default=LinePolicy().line_width_m * 1000,
+        help="physical width of the track line in mm (Task-1 reprint map: 15)",
+    )
     args = parser.parse_args()
 
     try:
-        frame = _capture(PREVIEW_SIZE)
+        frame = _capture(
+            PREVIEW_SIZE,
+            exposure_time_us=args.exposure_time_us,
+            analogue_gain=args.analogue_gain,
+            auto_exposure=args.auto_exposure,
+        )
     except Exception as exc:  # noqa: BLE001 - report any camera backend error
         print(f"camera failed: {exc}", file=sys.stderr)
         print("If the camera was just connected, reboot the Pi once and retry.", file=sys.stderr)
@@ -190,6 +219,7 @@ def main() -> int:
         dark_threshold=args.threshold,
         roi_top=args.roi_top,
         roi_bottom=args.roi_bottom,
+        line_width_m=args.line_width_mm / 1000,
     )
     ground_view = load_optional_ground_view(args.ground_view)
     reading = detect_line(frame, policy, ground_view=ground_view)

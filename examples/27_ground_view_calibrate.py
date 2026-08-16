@@ -4,7 +4,7 @@
 The camera looks forward, so the paper is a trapezoid. Four correspondences
 on the floor (a measured rectangle, or the ChArUco board laid flat) give a
 homography; later captures are warped to a metric top-down patch before the
-2 cm line is measured.
+15 mm line is measured.
 
 Stationary, **no motors**.
 
@@ -116,6 +116,12 @@ def main() -> int:
     parser.add_argument("--x-max-m", type=float, default=0.30)
     parser.add_argument("--y-min-m", type=float, default=-0.10)
     parser.add_argument("--y-max-m", type=float, default=0.90)
+    parser.add_argument(
+        "--line-width-mm",
+        type=float,
+        default=LinePolicy().line_width_m * 1000,
+        help="physical width of the track line in mm (Task-1 reprint map: 15)",
+    )
     args = parser.parse_args()
 
     if args.image is not None:
@@ -137,6 +143,7 @@ def main() -> int:
         "x_max_m": args.x_max_m,
         "y_min_m": args.y_min_m,
         "y_max_m": args.y_max_m,
+        "line_width_m": args.line_width_mm / 1000,
     }
     try:
         if args.charuco:
@@ -181,7 +188,7 @@ def main() -> int:
     print(
         f"bird's-eye {view.bev_width}x{view.bev_height}  "
         f"{view.metres_per_pixel * 1000:.1f} mm/px  "
-        f"2 cm ≈ {view.expected_line_width_px:.0f} px"
+        f"line {view.line_width_m * 1000:.0f} mm ≈ {view.expected_line_width_px:.0f} px"
     )
     print(f"line: {reading.summary}")
     return 0

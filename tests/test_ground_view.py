@@ -123,7 +123,7 @@ def test_wide_near_bar_is_reported_as_a_horizontal_crossing():
     reading = detect_line_on_ground(image, view)
     assert reading.visible
     assert reading.axis == "horizontal"
-    assert reading.line_width_px >= 70  # NavPolicy.t_bar_min_width_px default
+    assert reading.line_width_px >= 52  # NavPolicy.t_bar_min_width_px default (15 mm line)
     assert reading.error_fraction is not None
     assert abs(reading.error_fraction) < 0.15
 
@@ -285,3 +285,52 @@ def test_auto_calibrate_ground_view_raises_without_a_target():
             target_height_m=0.05,
             near_m=0.18,
         )
+
+
+# ----------------------------------------------------------------------
+# 15 mm Task-1 reprint line semantics
+# ----------------------------------------------------------------------
+
+
+def test_15mm_line_in_birds_eye_is_detected_with_near_zero_error():
+    """The Task-1 reprint map's route line is 15 mm wide — at the default
+    2 mm/px BEV scale that is 7.5 px, not the old 2 cm (10 px) stroke. The
+    detector's width band must accept it as the main line."""
+    view = _view()  # default line_width_m = 0.015
+    assert view.expected_line_width_px == pytest.approx(7.5, abs=1e-6)
+    image = np.full((400, 300), PAPER, dtype=np.uint8)
+    image[:, 146:154] = LINE  # 8 px wide stroke, near the 7.5 px expectation
+    reading = detect_line_on_ground(image, view)
+    assert reading.visible
+    assert reading.axis == "vertical"
+    assert reading.error_fraction is not None
+    assert abs(reading.error_fraction) < 0.08
+    assert reading.line_width_px == pytest.approx(8.0, abs=2.0)
+
+
+def test_line_width_m_scales_the_detection_band():
+    """The width band scales with ``line_width_m``: a 44 mm stroke is inside
+    a 20 mm view's band (max 2.5 * 10 = 25 px) but outside a 15 mm view's
+    band (max 2.5 * 7.5 = 18.75 px)."""
+    image = np.full((400, 300), PAPER, dtype=np.uint8)
+    image[:, 139:161] = LINE  # 22 px = 44 mm stroke
+    view20 = replace(_view(), line_width_m=0.020)
+    assert view20.expected_line_width_px == pytest.approx(10.0, abs=1e-6)
+    assert detect_line_on_ground(image, view20).visible
+    view15 = _view()
+    assert not detect_line_on_ground(image, view15).visible
+
+
+def test_line_width_m_round_trips_through_json():
+    view = replace(_view(), line_width_m=0.020)
+    loaded = load_ground_view(save_ground_view_roundtrip(view))
+    assert loaded.line_width_m == pytest.approx(0.020)
+    assert loaded.expected_line_width_px == pytest.approx(10.0, abs=1e-6)
+
+
+def save_ground_view_roundtrip(view) -> str:
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as fh:
+        save_ground_view(fh.name, view)
+        return fh.name

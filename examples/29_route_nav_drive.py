@@ -5,7 +5,7 @@
 instantly.**
 
 The controller is the vision-driven state machine in ``carbot.line_nav``
-(the same one example 26 uses): follow the 2 cm line while it is visible,
+(the same one example 26 uses): follow the 15 mm line while it is visible,
 spin at a detected horizontal crossing (T junction), lap the roundabout on a
 persistent fork, and search when the line drops. The Task-1 route plan
 (``carbot.route_plan``) is advisory only — it is printed as a phase tracker
@@ -88,6 +88,12 @@ def main() -> int:
     parser.add_argument(
         "--ground-view", type=Path, default=None, help="bird's-eye homography JSON (recommended)"
     )
+    parser.add_argument(
+        "--line-width-mm",
+        type=float,
+        default=LinePolicy().line_width_m * 1000,
+        help="physical width of the track line in mm (Task-1 reprint map: 15)",
+    )
     parser.add_argument("--save-every", type=int, default=0)
     parser.add_argument("--log-dir", type=Path, default=Path("/tmp/route-nav"))
     args = parser.parse_args()
@@ -96,6 +102,7 @@ def main() -> int:
         dark_threshold=args.threshold,
         roi_top=args.roi_top,
         roi_bottom=args.roi_bottom,
+        line_width_m=args.line_width_mm / 1000,
     )
     nav_policy = NavPolicy(
         speed=args.speed,
