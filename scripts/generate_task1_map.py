@@ -4,7 +4,7 @@
 The map is drawn vector-style at exact millimetre scale and split into a
 4x2 grid of A4 pages (each 210x297 mm) that tile into a 840x594 mm sheet
 carrying a 840x588 mm map (the original 1000x700 mm Task-1 map scaled by
-0.84). The 20 mm black route line and the 20 mm AprilTags are NOT scaled —
+0.84). The 15 mm black route line and the 20 mm AprilTags are NOT scaled —
 they keep their physical size so line-follow and tag pose estimation keep
 working; only the route geometry and tag positions are scaled.
 
@@ -44,7 +44,7 @@ A4_W_MM, A4_H_MM = 210.0, 297.0
 SCALE = 0.84
 MAP_W_MM = 840.0
 MAP_H_MM = 588.0
-LINE_W_MM = 20.0  # 2 cm black line, kept at physical size
+LINE_W_MM = 15.0  # 1.5 cm black line, kept at physical size
 TAG_SIZE_MM = 20.0  # AprilTag side, kept at physical size
 MIN_TAG_CLEAR_MM = 20.0  # tag edge to black-line edge
 
@@ -72,7 +72,7 @@ TAGS = [
     # tile 1 (NW) — TL, TR, BL, BR
     (0, 30, 558), (1, 180, 558), (2, 30, 324), (3, 180, 324),
     # tile 2 (N) — TL, TR, BL, BR (BR pulled east of the roundabout)
-    (4, 240, 558), (5, 390, 558), (6, 240, 324), (7, 403, 345),
+    (4, 240, 558), (5, 390, 558), (6, 240, 324), (7, 398, 345),
     # tile 3 (NE-left) — TL, TR, BL, BR (BR moved left of the scale box)
     (8, 450, 558), (9, 600, 558), (10, 450, 324), (11, 500, 320),
     # tile 4 (NE) — TL, TR, BL (right of scale box), BR
@@ -184,7 +184,7 @@ def validate_tags(tags):
 # ---------------------------------------------------------------------------
 def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) -> None:
     # Start (departure) box and scale-bar/origin box: white fill + black
-    # border, drawn first so the 20 mm route line stays visible on top.
+    # border, drawn first so the 15 mm route line stays visible on top.
     c.setStrokeColor(black)
     c.setLineWidth(pt(1.2))
     c.setFillColor(white)
@@ -193,7 +193,7 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) 
     bx, by, bw, bh = SCALE_BOX
     c.rect(pt(bx), pt(by), pt(bw), pt(bh), stroke=1, fill=1)
 
-    # Route black line (20 mm wide, round joins) — drawn over the boxes.
+    # Route black line (15 mm wide, round joins) — drawn over the boxes.
     c.setStrokeColor(black)
     c.setLineWidth(pt(LINE_W_MM))
     c.setLineCap(1)
@@ -233,11 +233,15 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) 
             stroke=1,
             fill=0,
         )
-        # One-line label "ID n (N ↑)"; flipped below the tag when it would
-        # collide with the tile page number near the top corner.
+        # One-line label "ID n (N ↑)" pointing toward the map centre so it
+        # never crowds the corner cross or the page number; flipped below on
+        # bottom-row tiles when the upper label would hit the page-number
+        # band or the paper edge (tags with y > 262.7, e.g. y=264 and 278.5).
         if detail:
-            page_top = 289.0 if ty <= 294.0 else 583.0
-            label_dy = -12.5 if abs(ty + 12.5 - page_top) < 6.0 else 12.5
+            if ty <= 294.0:
+                label_dy = -12.5 if ty > 262.7 else 12.5
+            else:
+                label_dy = 12.5 if 319.5 < ty < 325.5 else -12.5
             c.setFont("Helvetica-Bold", 8)
             c.setFillColor(black)
             c.drawCentredString(
@@ -259,9 +263,10 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) 
 
     if detail:
         # Departure-area labels inside the start box (the 150x150 box holds
-        # no route line, so the labels sit centred).
+        # no route line, so the labels sit centred). 18 pt keeps the text
+        # clear of the tile 7 paper edge (the 22 pt label was clipped).
         c.setFillColor(black)
-        c.setFont("Helvetica-Bold", 22)
+        c.setFont("Helvetica-Bold", 16)
         c.drawCentredString(pt(sx + sw / 2), pt(sy + sh / 2 + 6), "DEPARTURE AREA")
         c.setFont("Helvetica-Bold", 11)
         c.drawCentredString(pt(sx + sw / 2), pt(sy + sh / 2 - 26), "START")
@@ -286,10 +291,10 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) 
             c.line(pt(cx_), pt(y), pt(cx_ + h), pt(y))
         c.setFont("Helvetica", 7)
         c.drawString(pt(bx - 4), pt(cy_ - 8), "0")
-        c.drawRightString(pt(bx + bw), pt(cy_ - 8), "80 mm")
-        c.drawString(pt(cx_ + 5), pt(cy_ + 20.0 - 2), "40 mm")
+        c.drawRightString(pt(bx + bw - 14), pt(cy_ - 8), "80 mm")
+        c.drawRightString(pt(cx_ - 18), pt(cy_ + 21), "40 mm")
         c.setFont("Helvetica-Bold", 7)
-        c.drawCentredString(pt(cx_), pt(cy_ + 24), "scale bar (X 80 / Y 40 mm)")
+        c.drawCentredString(pt(cx_), pt(cy_ + 26), "scale bar (X 80 / Y 40 mm)")
 
     # Map border.
     c.setStrokeColor(black)
@@ -305,21 +310,23 @@ def draw_page_marks(c: canvas.Canvas, tile_no: int, total: int = 8) -> None:
     """
     c.setStrokeColor(black)
     c.setLineWidth(pt(0.4))
+    # Crosses sit 17 mm in from the paper edge (lines 14-20 mm) so they
+    # survive typical printer margins; the old 12 mm corners got clipped.
     corners = [
-        (12, 12),
-        (A4_W_MM - 12, 12),
-        (12, A4_H_MM - 12),
-        (A4_W_MM - 12, A4_H_MM - 12),
+        (17, 17),
+        (A4_W_MM - 17, 17),
+        (17, A4_H_MM - 17),
+        (A4_W_MM - 17, A4_H_MM - 17),
     ]
     for cx, cy in corners:
-        c.line(pt(cx - 4), pt(cy), pt(cx + 4), pt(cy))
-        c.line(pt(cx), pt(cy - 4), pt(cx), pt(cy + 4))
+        c.line(pt(cx - 3), pt(cy), pt(cx + 3), pt(cy))
+        c.line(pt(cx), pt(cy - 3), pt(cx), pt(cy + 3))
     c.setFont("Helvetica-Bold", 8)
     label = f"tile {tile_no}/{total}"
-    c.drawString(pt(20), pt(5), label)  # bottom-left
-    c.drawRightString(pt(A4_W_MM - 20), pt(5), label)  # bottom-right
-    c.drawString(pt(20), pt(A4_H_MM - 5), label)  # top-left
-    c.drawRightString(pt(A4_W_MM - 20), pt(A4_H_MM - 5), label)  # top-right
+    c.drawString(pt(24), pt(17), label)  # bottom-left
+    c.drawRightString(pt(A4_W_MM - 24), pt(17), label)  # bottom-right
+    c.drawString(pt(24), pt(A4_H_MM - 17), label)  # top-left
+    c.drawRightString(pt(A4_W_MM - 24), pt(A4_H_MM - 17), label)  # top-right
 
 
 def draw_overview(c: canvas.Canvas, tag_pngs: dict[int, bytes]) -> None:
@@ -407,6 +414,7 @@ def draw_guide(c: canvas.Canvas) -> None:
         [
             "Print PDF pages 4\u201311 on A4 at 100% / Actual Size. Do NOT use \u201cfit to page\u201d.",
             "Verify the scale bar (X 80 mm / Y 40 mm) with a ruler before assembling.",
+            "If the corner crosses are clipped, enable borderless printing or reduce printer margins.",
         ],
     )
     para(
@@ -436,7 +444,7 @@ def draw_guide(c: canvas.Canvas) -> None:
         "5. Scale",
         [
             "Map 840 x 588 mm = original 1000 x 700 mm Task-1 map scaled 0.84.",
-            "Route black line 20 mm; AprilTags 20 mm (physical sizes unchanged).",
+            "Route black line 15 mm; AprilTags 20 mm (physical sizes unchanged).",
         ],
     )
 
