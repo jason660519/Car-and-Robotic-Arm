@@ -292,20 +292,29 @@ def draw_arrow(c: canvas.Canvas, a, b) -> None:
     c.drawPath(p, stroke=0, fill=1)
 
 
-def draw_page_marks(
-    c: canvas.Canvas, tile_no: int, total: int = 8, pdf_page: int | None = None
-) -> None:
-    """Corner crosses + tile number, in page coordinates (mm from page bottom-left)."""
+def draw_page_marks(c: canvas.Canvas, tile_no: int, total: int = 8) -> None:
+    """Corner crosses + tile number at all four corners.
+
+    The corners are empty on every tile, so the page number never overlaps
+    the route or a tag (unlike a centred footer).
+    """
     c.setStrokeColor(black)
     c.setLineWidth(pt(0.4))
-    for cx, cy in [(10, 10), (A4_W_MM - 10, 10), (10, A4_H_MM - 10), (A4_W_MM - 10, A4_H_MM - 10)]:
-        c.line(pt(cx - 3), pt(cy), pt(cx + 3), pt(cy))
-        c.line(pt(cx), pt(cy - 3), pt(cx), pt(cy + 3))
+    corners = [
+        (12, 12),
+        (A4_W_MM - 12, 12),
+        (12, A4_H_MM - 12),
+        (A4_W_MM - 12, A4_H_MM - 12),
+    ]
+    for cx, cy in corners:
+        c.line(pt(cx - 4), pt(cy), pt(cx + 4), pt(cy))
+        c.line(pt(cx), pt(cy - 4), pt(cx), pt(cy + 4))
+    c.setFont("Helvetica-Bold", 9)
     label = f"tile {tile_no}/{total}"
-    if pdf_page is not None:
-        label += f"  (PDF page {pdf_page})"
-    c.setFont("Helvetica", 7)
-    c.drawCentredString(pt(A4_W_MM / 2), pt(8), label)
+    c.drawString(pt(20), pt(9), label)  # bottom-left
+    c.drawRightString(pt(A4_W_MM - 20), pt(9), label)  # bottom-right
+    c.drawString(pt(20), pt(A4_H_MM - 15), label)  # top-left
+    c.drawRightString(pt(A4_W_MM - 20), pt(A4_H_MM - 15), label)  # top-right
 
 
 def draw_overview(c: canvas.Canvas, tag_pngs: dict[int, bytes]) -> None:
@@ -485,7 +494,7 @@ def main() -> int:
         pdf.translate(-pt(col * 210.0), -pt(row * 294.0))
         draw_map(pdf, tag_pngs)
         pdf.restoreState()
-        draw_page_marks(pdf, page + 1, 8, pdf_page=page + 3)
+        draw_page_marks(pdf, page + 1, 8)
         pdf.showPage()
 
     pdf.save()
