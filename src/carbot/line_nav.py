@@ -61,6 +61,21 @@ class NavPolicy:
     min_ratio: float = 0.15
     max_ratio: float = 1.0
     search_timeout_s: float = 4.0
+    # A forward-tilted low camera has a blind cone right under/just ahead of
+    # the wheels — the map is a loop with several places (a junction, a map
+    # edge) where the 2 cm path is briefly outside that FOV even though the
+    # chassis is still squarely on the route (verified 2026-08-16: a
+    # confidently-centred stem run lost the line completely, with the
+    # calibration target visibly closer/bigger between frames — the chassis
+    # had moved, the line just was not in view). Sitting stopped can never
+    # recover from that: a static camera never re-sees a line by waiting.
+    # Creep straight, at the calibrated speed, for this many seconds before
+    # falling back to the stopped wait/search below — long enough to clear a
+    # typical blind cone, short enough that a genuine off-track loss is still
+    # caught by the existing stop-and-search safety net afterwards. 0 (the
+    # historical default) disables this and preserves the old stop-and-wait
+    # behaviour.
+    blind_creep_s: float = 0.0
     junction_min_s: float = 1.0
     roundabout_loop_min_s: float = 6.5
     # Roundabout entry is opt-in. The 2026-08-15 on-map run treated every
@@ -84,14 +99,15 @@ class NavPolicy:
     # and leave the wheels to the left of it.
     expected_center_fraction: float = 0.46
     # Ignore a one-frame flip larger than this (fraction of half-width).
-    # The 15 s start-zone run jumped from x≈840 to x≈172 and yanked the wheels.
-    max_error_jump: float = 0.35
+    max_error_jump: float = 1.25
     # Holding the last steer after a jump drove off the map (L162 R200).
     # Stop immediately, then spin-search if the jump lasts this long.
     jump_search_s: float = 0.4
-    # SEARCH only re-locks a line this close to the expected centre.
-    reacquire_error: float = 0.25
-    search_give_up_s: float = 0.0
+    # |error| threshold to exit search and enter follow mode (fraction of width).
+    reacquire_error: float = 0.65
+    search_give_up_s: float = 2.5
+    search_sweep_deg: float = 20.0
+    search_spin_speed_ratio: float = 0.75
     # First intersection after 发车 is a right turn onto the 2 cm line.
     prefer_right_branch: bool = True
     # How far right of frame centre a T-branch may sit (fraction of width).
@@ -131,6 +147,14 @@ class NavPolicy:
             raise ValueError("min_ratio/max_ratio must satisfy 0 < min <= max <= 1")
         if self.search_timeout_s < 0:
             raise ValueError("search_timeout_s must be non-negative")
+        if self.search_give_up_s < 0:
+            raise ValueError("search_give_up_s must be non-negative")
+        if self.search_sweep_deg < 0:
+            raise ValueError("search_sweep_deg must be non-negative")
+        if not 0.0 < self.search_spin_speed_ratio <= 1.0:
+            raise ValueError("search_spin_speed_ratio must be in (0, 1]")
+        if self.blind_creep_s < 0:
+            raise ValueError("blind_creep_s must be non-negative")
         if self.junction_min_s < 0:
             raise ValueError("junction_min_s must be non-negative")
         if self.roundabout_loop_min_s <= 0:
@@ -207,11 +231,20 @@ class LineNav:
         self._first_right_done = False
         self._horiz_spin_s = 0.0
         self._t_turn_done = False
+        self._blind_creep_elapsed = 0.0
         # Line continuity: the target line is the candidate closest to the last
         # frame's centroid, so the detector switching which dark structure it
         # counts as "main" does not yank the steering (the 2026-08-15 map run
         # jumped from err +0.91 to -0.34 in one frame and the car veered).
         self._last_centroid: float | None = None
+        # Ground-view continuity: the BEV x of the last *accepted* reading
+        # (never a jump-stop candidate — see `_follow_step`/`_search_step`),
+        # fed back into `detect_line(..., prefer_u=...)` next frame so the
+        # ground-view detector stays on the line the car was actually
+        # driving on instead of re-deciding by BEV-centre proximity. None
+        # outside ground-view mode (`reading.ground_u_px` is always None
+        # there, so this simply never gets set).
+        self.preferred_ground_u: float | None = None
         # Recent main-line widths while not in a fork; a junction only counts
         # as a roundabout entry when the line also widens past the baseline.
         self._baseline_widths: deque[float] = deque(maxlen=30)
@@ -239,8 +272,22 @@ class LineNav:
         return reading
 
     def _recenter(self, reading: LineReading) -> LineReading:
-        """Steer against the calibrated camera offset, not the frame centre."""
+        """Steer against the calibrated camera offset, not the frame centre.
+
+        ``expected_center_fraction`` corrects a raw-pixel quirk of the
+        perspective detector (the camera sits right of the axle, so a
+        centred line does not land at frame-centre in that image). A
+        ground-view reading's `error_fraction` is already computed in BEV
+        world-metres against the calibration target's own centreline — this
+        raw-pixel correction does not apply there and previously corrupted
+        an already-correct near-zero error into a large false one (verified
+        2026-08-16: `error_fraction=-0.01` from the detector became `+0.27`
+        after this step), veering the car right from frame one on every run
+        instead of driving straight down the stem.
+        """
         if not reading.visible or reading.centroid_x is None:
+            return reading
+        if reading.ground_u_px is not None:
             return reading
         width = reading.roi[3]
         error_px = reading.centroid_x - self.policy.expected_center_fraction * width
@@ -255,11 +302,19 @@ class LineNav:
         if not reading.visible:
             self._junction_elapsed = 0.0
             self._roundabout_pending = False
+            self._blind_creep_elapsed += dt
+            if self._blind_creep_elapsed <= self.policy.blind_creep_s:
+                return self._drive(
+                    "follow", self.policy.speed, self.policy.speed,
+                    f"line lost: blind creep {self._blind_creep_elapsed:.1f}"
+                    f"/{self.policy.blind_creep_s:.1f}s (camera FOV gap, not off-track)",
+                )
             if self._state_time >= self.policy.search_timeout_s:
                 self._enter(NavState.SEARCH)
                 return self._search_step(reading, dt)
             return self._drive("follow", 0, 0, "line lost; waiting to search")
 
+        self._blind_creep_elapsed = 0.0
         reading = self._locked(reading)
         reading = self._prefer_right(reading)
         reading = self._recenter(reading)
@@ -284,6 +339,7 @@ class LineNav:
             )
         if not self._t_turn_done and finishing_t:
             self._last_centroid = reading.centroid_x
+            self.preferred_ground_u = reading.ground_u_px
             self._horiz_spin_s += dt
             aligned = (
                 reading.axis == "vertical"
@@ -297,15 +353,16 @@ class LineNav:
             elif self._horiz_spin_s < spin_limit:
                 return self._drive(
                     "search",
-                    self.policy.speed,
                     -self.policy.speed,
-                    "horizontal stroke: spin to align with the path",
+                    self.policy.speed,
+                    "horizontal stroke: spin right to align with outer loop",
                 )
             else:
                 self._t_turn_done = True
                 self._horiz_spin_s = 0.0
         elif not self._t_turn_done and near_t:
             self._last_centroid = reading.centroid_x
+            self.preferred_ground_u = reading.ground_u_px
             if self._follow_ok_s < self.policy.right_turn_after_s:
                 self._follow_ok_s += dt
                 return self._drive(
@@ -317,16 +374,18 @@ class LineNav:
             self._horiz_spin_s += dt
             return self._drive(
                 "search",
-                self.policy.speed,
                 -self.policy.speed,
-                "horizontal stroke: spin to align with the path",
+                self.policy.speed,
+                "horizontal stroke: spin right to align with outer loop",
             )
         elif reading.axis == "horizontal" and not self._t_turn_done:
             # Forward tilt: the T is already in view while wheels are on the
             # stem. A thin/high bar is look-ahead — drive straight to point 3.
             self._horiz_spin_s = 0.0
             self._follow_ok_s += dt
-            self._last_centroid = reading.centroid_x
+            if self._follow_ok_s >= self.policy.right_turn_after_s:
+                self._last_centroid = reading.centroid_x
+                self.preferred_ground_u = reading.ground_u_px
             return self._drive(
                 "follow",
                 self.policy.speed,
@@ -377,6 +436,7 @@ class LineNav:
         self._jump_elapsed = 0.0
         self._follow_ok_s += dt
         self._last_centroid = reading.centroid_x
+        self.preferred_ground_u = reading.ground_u_px
         if (
             self.policy.first_right_s > 0
             and not self._first_right_done
@@ -441,8 +501,8 @@ class LineNav:
             return self._follow_step(reading, 0.0)
         return self._drive(
             "search",
-            self.policy.speed,
             -self.policy.speed,
+            self.policy.speed,
             f"first intersection: spin right {self._state_time:.1f}s",
         )
 
@@ -453,10 +513,45 @@ class LineNav:
             if reading.axis != "horizontal" and self._plausible_lock(reading):
                 self._enter(NavState.FOLLOW)
                 self._last_centroid = reading.centroid_x
+                self.preferred_ground_u = reading.ground_u_px
                 self._prev_error_fraction = reading.error_fraction
                 self._jump_elapsed = 0.0
                 return steer_command(reading, self.policy, self._prev_error_fraction)
-        return self._drive("search", 0, 0, "search: hold")
+
+        # Give up if maximum search time is exceeded
+        if self.policy.search_give_up_s > 0 and self._state_time >= self.policy.search_give_up_s:
+            return self._drive("search", 0, 0, f"search: give up after {self._state_time:.1f}s")
+
+        # Step-by-step visual sweep search: oscillate left/right in small steps
+        spin_speed = int(round(self.policy.speed * self.policy.search_spin_speed_ratio))
+        spin_rate = self.policy.spin_deg_per_s_at_200 * (spin_speed / 200.0)
+
+        step_time = self.policy.search_sweep_deg / spin_rate if spin_rate > 0 else 0.5
+        cycle_time = 4 * step_time if step_time > 0 else 2.0
+
+        if step_time <= 0 or spin_speed <= 0:
+            return self._drive("search", 0, 0, "search: hold")
+
+        t_mod = self._state_time % cycle_time
+        if t_mod < step_time:
+            # Step 1: Spin left
+            left, right = -spin_speed, spin_speed
+            dir_str = "left"
+        elif t_mod < 3 * step_time:
+            # Step 2: Spin right across center
+            left, right = spin_speed, -spin_speed
+            dir_str = "right"
+        else:
+            # Step 3: Spin left back to center
+            left, right = -spin_speed, spin_speed
+            dir_str = "left"
+
+        return self._drive(
+            "search",
+            left,
+            right,
+            f"search: visual sweep {dir_str} ({self._state_time:.1f}/{self.policy.search_give_up_s:.1f}s)",
+        )
 
     def _plausible_lock(self, reading: LineReading) -> bool:
         """Far-edge dark structure is not the 2 cm path in front of the wheels."""
@@ -529,6 +624,7 @@ class LineNav:
         reading = self._locked(reading)
         reading = self._recenter(reading)
         self._last_centroid = reading.centroid_x
+        self.preferred_ground_u = reading.ground_u_px
         self._roundabout_elapsed += dt
         loop_done = self._roundabout_elapsed >= self.policy.roundabout_loop_min_s
 
@@ -555,6 +651,7 @@ class LineNav:
         self.state = state
         self._state_time = 0.0
         self._jump_elapsed = 0.0
+        self._blind_creep_elapsed = 0.0
 
     def _drive(self, action: str, left: int, right: int, reason: str) -> NavCommand:
         return NavCommand(action=action, left=left, right=right,
@@ -576,27 +673,31 @@ def steer_command(
     term yet, so the argument is unused.
     """
     policy = policy or NavPolicy()
-    if not reading.visible:
-        return NavCommand(action="follow", left=0, right=0,
-                          reason=reason or "no line", state=NavState.FOLLOW)
+    err = reading.error_fraction
+    if not reading.visible or err is None:
+        return NavCommand("follow", 0, 0, reason or "no line", NavState.FOLLOW)
 
-    error = reading.error_fraction if reading.error_fraction is not None else 0.0
-    if abs(error) <= policy.steer_deadband:
+    if abs(err) <= policy.steer_deadband:
         return NavCommand(
-            action="follow",
-            left=policy.speed,
-            right=policy.speed,
-            reason=reason or f"follow: err={error:+.2f} deadband",
-            state=NavState.FOLLOW,
+            "follow",
+            policy.speed,
+            policy.speed,
+            reason or f"follow: err={err:+.2f} deadband",
+            NavState.FOLLOW,
         )
-    ratio = 1.0 - policy.turn_gain * abs(error)
-    ratio = max(policy.min_ratio, min(policy.max_ratio, ratio))
-    base = policy.speed
-    if error > 0:
-        left, right = base, round(base * ratio)
-    else:
-        left, right = round(base * ratio), base
 
-    detail = f"err={error:+.2f} ratio={ratio:.2f}"
-    return NavCommand(action="follow", left=left, right=right,
-                      reason=f"{reason or 'follow'}: {detail}", state=NavState.FOLLOW)
+    raw_ratio = 1.0 - policy.turn_gain * abs(err)
+    ratio = max(max(policy.min_ratio, 0.10), min(policy.max_ratio, raw_ratio))
+
+    if err > 0:
+        left, right = policy.speed, round(policy.speed * ratio)
+    else:
+        left, right = round(policy.speed * ratio), policy.speed
+
+    return NavCommand(
+        "follow",
+        left,
+        right,
+        f"{reason or 'follow'}: err={err:+.2f} ratio={ratio:.2f}",
+        NavState.FOLLOW,
+    )

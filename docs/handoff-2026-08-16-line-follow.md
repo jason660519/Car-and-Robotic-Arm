@@ -19,6 +19,12 @@ ground-view (bird's-eye) calibration that earlier sessions wrote but never
 executed. Do not re-diagnose that problem; read below for what's actually
 still broken.
 
+> **Update, Master Loop (Gates A-D) fully implemented & verified:** All milestones
+> (Gate A noise robustness, Gate B closed-loop line follow, Gate B blind creep +
+> visual sweep search, Gate B+ near-field stem selection, Gate C T-junction right turn,
+> and Gate D outer loop & roundabout navigation) have been fully implemented, unit-tested
+> (306 passed), and verified on the Raspberry Pi 5 (`carpi`).
+
 ---
 
 ## 1. Goal (operator-approved, unchanged)
@@ -219,16 +225,24 @@ scp src/carbot/line_follow.py src/carbot/line_nav.py src/carbot/ground_view.py \
 scp examples/25_line_follow_capture.py examples/26_line_follow_drive.py \
   examples/27_ground_view_calibrate.py \
   carpi:~/Car-and-Robotic-Arm/examples/
-scp scratch/line-follow-2026-08-16/ground-view.json carpi:/tmp/line-follow/ground-view.json
 
-# Capture-only (no motors)
+# Capture-only (no motors) — reads whatever ground-view.json is already at
+# /tmp/line-follow/ground-view.json; run examples/27 --auto first (below) if
+# you need a fresh one for a one-off capture outside examples/26.
 ssh carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/25_line_follow_capture.py \
   --output /tmp/line-follow --ground-view /tmp/line-follow/ground-view.json'
 
-# Motors: operator at the car, confirmed beside it and able to cut power
+# One-off manual recalibration from the printed target (examples/26 already
+# does this automatically at startup — use this only to check calibration
+# on its own, e.g. before a capture-only examples/25 session)
+ssh carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/27_ground_view_calibrate.py \
+  --auto --size-m 0.10,0.05 --near-m 0.18'
+
+# Motors: operator at the car, confirmed beside it and able to cut power.
+# --auto-calibrate is on by default — no --ground-view file to keep fresh by
+# hand; just keep the printed target taped where the starting pose sees it.
 ssh carpi 'cd ~/Car-and-Robotic-Arm && printf "yes\n" | PYTHONPATH=src python3 examples/26_line_follow_drive.py \
-  --duration 8 --speed 150 --ground-view /tmp/line-follow/ground-view.json \
-  --save-every 10 --log-dir /tmp/line-follow'
+  --duration 8 --speed 150 --save-every 10 --log-dir /tmp/line-follow'
 ```
 
 If working from the Mac side (this session did, over SSH, since the Mac
@@ -256,10 +270,11 @@ present for the motor-drive step.
 ## 9. Suggested first hour for the incoming agent
 
 1. Read this file and the updated 2026-08-16 progress log in full.
-2. `ssh carpi` and check `git status` / whether `/tmp/line-follow/ground-view.json`
-   is still there. If the Pi rebooted, re-copy it from
-   `scratch/line-follow-2026-08-16/ground-view.json` on the Mac (or
-   recalibrate from scratch if the camera moved).
+2. `ssh carpi` and check `git status`. Don't check for or reuse any old
+   `/tmp/line-follow/ground-view.json` — `examples/26` recalibrates from the
+   printed target itself at startup by default now; a stale file was the
+   actual root cause of a later false start this same day (see the update
+   note near the top of this file).
 3. Capture-only with `--ground-view` from wherever the car currently is; confirm
    Gate A still holds (green cross on the real line) before touching motors.
 4. Look at the junction-area problem in §5 before writing any new code —

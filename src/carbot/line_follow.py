@@ -159,6 +159,12 @@ class LineReading:
     # "vertical" = path along heading (steer on x). "horizontal" = line across
     # the view; driving straight would climb the stroke, so nav spins to align.
     axis: str = "vertical"
+    # BEV x (bird's-eye pixels) of the chosen cluster, ground-view mode only.
+    # Feed back as `detect_line(..., prefer_u=...)` next frame so the
+    # detector stays on the line it was already tracking instead of
+    # re-deciding by BEV-centre proximity every frame — see
+    # `detect_line_on_ground`. None outside ground-view mode.
+    ground_u_px: float | None = None
 
     @property
     def summary(self) -> str:
@@ -454,6 +460,7 @@ def detect_line(
     image: np.ndarray,
     policy: LinePolicy | None = None,
     ground_view: object | None = None,
+    prefer_u: float | None = None,
 ) -> LineReading:
     """Locate the dark tracking line in one downward-looking frame.
 
@@ -465,13 +472,15 @@ def detect_line(
 
     When ``ground_view`` is a calibrated bird's-eye homography the line is
     measured on the ground plane instead of in the raw perspective frame.
+    ``prefer_u`` (ground-view mode only) is the previous frame's
+    ``LineReading.ground_u_px``; see `detect_line_on_ground`.
     """
     if ground_view is not None:
         from carbot.ground_view import GroundView, detect_line_on_ground
 
         if not isinstance(ground_view, GroundView):
             raise TypeError("ground_view must be a GroundView")
-        return detect_line_on_ground(image, ground_view, policy)
+        return detect_line_on_ground(image, ground_view, policy, prefer_u=prefer_u)
 
     policy = policy or LinePolicy()
     gray = _grayscale(image)

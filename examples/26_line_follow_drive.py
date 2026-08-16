@@ -59,6 +59,13 @@ def main() -> int:
     parser.add_argument("--roi-bottom", type=float, default=LinePolicy().roi_bottom)
     parser.add_argument("--speed", type=int, default=200,
                         help="base drive speed 0-1000; 200 is the calibrated spin rate")
+    parser.add_argument("--search-sweep-deg", type=float, default=20.0,
+                        help="sweep angle in degrees per step during visual search (default: 20.0 deg)")
+    parser.add_argument("--search-give-up-s", type=float, default=2.5,
+                        help="stop search after this many seconds if no line found (default: 2.5s)")
+    parser.add_argument("--blind-creep-s", type=float, default=1.5,
+                        help="creep straight for this many seconds when line is lost "
+                             "(clears forward camera blind cone) before search (default: 1.5s)")
     parser.add_argument("--turn-gain", type=float, default=2.5,
                         help="steering sensitivity; 2.5 = strong (188-200 speed spread for small error)")
     parser.add_argument("--roundabout-loop-min-s", type=float, default=6.5,
@@ -72,8 +79,8 @@ def main() -> int:
     parser.add_argument("--expected-center", type=float, default=0.46,
                         help="frame-width fraction treated as on heading; 0.46 "
                              "because the camera sits right of the axle")
-    parser.add_argument("--roundabout", action="store_true",
-                        help="enable roundabout entry/exit (off until line-follow is stable)")
+    parser.add_argument("--roundabout", action="store_true", default=True,
+                        help="enable roundabout entry/exit (default: enabled)")
     parser.add_argument("--start-turn-s", type=float, default=0.0,
                         help="optional right turn at launch before line-following; "
                              "0 (default) because the start-zone line already bends right")
@@ -82,6 +89,8 @@ def main() -> int:
                              "drift that broke detection while the car moved")
     parser.add_argument("--analogue-gain", type=float, default=4.5,
                         help="fixed analogue gain with --exposure-time-us")
+    parser.add_argument("--sonar-stop-cm", type=float, default=15.0,
+                        help="stop immediately if HC-SR04 sonar detects wall/obstacle closer than this (default: 15.0 cm; 0 to disable)")
     parser.add_argument("--log-dir", type=Path, default=Path("/tmp/line-follow"),
                         help="save every Nth annotated frame here (--save-every)")
     parser.add_argument("--save-every", type=int, default=0,
@@ -104,6 +113,8 @@ def main() -> int:
         junction_min_branch_rows_fraction=args.junction_min_branch_rows_fraction,
         expected_center_fraction=args.expected_center,
         enable_roundabout=args.roundabout,
+        search_sweep_deg=args.search_sweep_deg,
+        search_give_up_s=args.search_give_up_s,
     )
     nav = LineNav(nav_policy)
     ground_view = load_optional_ground_view(args.ground_view)
@@ -159,6 +170,18 @@ def main() -> int:
         time.sleep(args.start_turn_s)
         car.stop()
 
+    sonar_enabled = False
+    if car and args.sonar_stop_cm > 0:
+        try:
+            from RPi import GPIO
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(17, GPIO.OUT)
+            GPIO.setup(27, GPIO.IN)
+            sonar_enabled = True
+            print(f"HC-SR04 ultrasonic sonar active: emergency stop if obstacle < {args.sonar_stop_cm:.1f} cm")
+        except Exception as exc:  # noqa: BLE001
+            print(f"sonar setup skipped: {exc}")
+
     if args.save_every and args.save_every > 0:
         args.log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -171,6 +194,35 @@ def main() -> int:
             dt = now - last
             last = now
             frame_index += 1
+
+            # Ultrasonic safety check
+            if sonar_enabled:
+                try:
+                    from RPi import GPIO
+                    GPIO.output(17, GPIO.LOW)
+                    time.sleep(0.001)
+                    GPIO.output(17, GPIO.HIGH)
+                    time.sleep(0.00001)
+                    GPIO.output(17, GPIO.LOW)
+                    t0 = time.time()
+                    echo_ok = True
+                    while GPIO.input(27) == GPIO.LOW:
+                        if time.time() - t0 > 0.02:
+                            echo_ok = False
+                            break
+                    if echo_ok:
+                        p_start = time.time()
+                        while GPIO.input(27) == GPIO.HIGH:
+                            if time.time() - p_start > 0.02:
+                                break
+                        dist_cm = (time.time() - p_start) * 34300.0 / 2.0
+                        if 0.5 < dist_cm < args.sonar_stop_cm:
+                            print(f"\n[EMERGENCY STOP] Sonar detected obstacle/wall at {dist_cm:.1f} cm! Stopping motors.")
+                            if car:
+                                car.stop()
+                            break
+                except Exception:  # noqa: BLE001
+                    pass
 
             frame = camera.capture_array("main")
             reading = detect_line(frame, line_policy, ground_view=ground_view)

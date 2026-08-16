@@ -32,6 +32,7 @@ from pathlib import Path
 import numpy as np
 
 from carbot.ground_view import (
+    auto_calibrate_ground_view,
     calibrate_ground_view,
     detect_line_on_ground,
     ground_view_from_charuco,
@@ -91,6 +92,21 @@ def main() -> int:
     )
     parser.add_argument("--charuco", action="store_true",
                         help="fit from a ChArUco board lying on the paper")
+    parser.add_argument(
+        "--auto", action="store_true",
+        help="auto-detect the printed calibration target's corners "
+             "(scripts/generate_ground_view_target.py) instead of --corners; "
+             "use with --size-m/--near-m",
+    )
+    # The BEV world-y window. Defaults here are the 2026-08-16 verified
+    # values (`calibrate_ground_view`'s own defaults, y_min_m=0.12/y_max_m=0.72,
+    # excluded the real near-field line and produced "no line" even though
+    # the homography itself was correct) — worth exposing as flags so the
+    # next calibration does not need ad-hoc Python to widen the window.
+    parser.add_argument("--x-min-m", type=float, default=-0.30)
+    parser.add_argument("--x-max-m", type=float, default=0.30)
+    parser.add_argument("--y-min-m", type=float, default=-0.10)
+    parser.add_argument("--y-max-m", type=float, default=0.90)
     args = parser.parse_args()
 
     if args.image is not None:
@@ -107,9 +123,19 @@ def main() -> int:
             print(f"camera failed: {exc}", file=sys.stderr)
             return 1
 
+    window = dict(
+        x_min_m=args.x_min_m, x_max_m=args.x_max_m,
+        y_min_m=args.y_min_m, y_max_m=args.y_max_m,
+    )
     try:
         if args.charuco:
-            view = ground_view_from_charuco(frame)
+            view = ground_view_from_charuco(frame, **window)
+        elif args.auto:
+            width_m, height_m = (float(part) for part in args.size_m.split(","))
+            view = auto_calibrate_ground_view(
+                frame, target_width_m=width_m, target_height_m=height_m,
+                near_m=args.near_m, **window,
+            )
         elif args.corners:
             width_m, height_m = (float(part) for part in args.size_m.split(","))
             image_points = _parse_corners(args.corners)
@@ -123,10 +149,11 @@ def main() -> int:
                 ],
                 dtype=np.float64,
             )
-            view = calibrate_ground_view(image_points, world_points)
+            view = calibrate_ground_view(image_points, world_points, **window)
         else:
             print(
-                "Pass --charuco (board on the paper) or --corners with --size-m.",
+                "Pass --charuco (board on the paper), --auto (detect the "
+                "printed target), or --corners with --size-m.",
                 file=sys.stderr,
             )
             return 1
