@@ -162,7 +162,7 @@ def validate_tags(tags):
 # ---------------------------------------------------------------------------
 # Drawing (all in mm, SW origin)
 # ---------------------------------------------------------------------------
-def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes]) -> None:
+def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) -> None:
     # Route black line (20 mm wide, round joins).
     c.setStrokeColor(black)
     c.setLineWidth(pt(LINE_W_MM))
@@ -201,11 +201,12 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes]) -> None:
     c.setLineWidth(pt(1.2))
     c.setFillColor(white)
     c.rect(pt(sx - 30), pt(sy - 34), pt(60), pt(30), stroke=1, fill=1)
-    c.setFillColor(black)
-    c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(pt(sx), pt(sy - 22), "START")
-    c.setFont("STSong-Light", 8)
-    c.drawCentredString(pt(sx), pt(sy - 32), "发车区 / 归零点")
+    if detail:
+        c.setFillColor(black)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(pt(sx), pt(sy - 22), "START")
+        c.setFont("STSong-Light", 8)
+        c.drawCentredString(pt(sx), pt(sy - 32), "发车区 / 归零点")
 
     # AprilTags + labels.
     for tag_id, tx, ty in TAGS:
@@ -229,16 +230,18 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes]) -> None:
             fill=0,
         )
         # ID label + north tick
-        c.setFont("Helvetica-Bold", 8)
-        c.setFillColor(black)
-        c.drawCentredString(pt(tx), pt(ty + TAG_SIZE_MM / 2 + 3.5), f"ID {tag_id}")
-        c.drawCentredString(pt(tx), pt(ty + TAG_SIZE_MM / 2 + 7.5), "N \u2191")
+        if detail:
+            c.setFont("Helvetica-Bold", 8)
+            c.setFillColor(black)
+            c.drawCentredString(pt(tx), pt(ty + TAG_SIZE_MM / 2 + 3.5), f"ID {tag_id}")
+            c.drawCentredString(pt(tx), pt(ty + TAG_SIZE_MM / 2 + 7.5), "N \u2191")
 
     # North arrow.
     nx, ny = NORTH_MM
     c.setFillColor(black)
-    c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(pt(nx), pt(ny + 16), "N")
+    if detail:
+        c.setFont("Helvetica-Bold", 10)
+        c.drawCentredString(pt(nx), pt(ny + 16), "N")
     p = c.beginPath()
     p.moveTo(pt(nx), pt(ny + 12))
     p.lineTo(pt(nx - 6), pt(ny))
@@ -255,14 +258,17 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes]) -> None:
         x = bx + i * blen / 10.0
         h = 4.0 if i % 5 == 0 else 2.0
         c.line(pt(x), pt(by), pt(x), pt(by - h))
-    c.setFont("Helvetica", 7)
-    c.drawString(pt(bx - 4), pt(by - 8), "0")
-    c.drawString(pt(bx + blen / 2 - 3), pt(by - 8), "50")
-    c.drawString(pt(bx + blen - 6), pt(by - 8), "100 mm")
-    c.setFont("Helvetica-Bold", 7)
-    c.drawCentredString(
-        pt(bx + blen / 2), pt(by + 4), "scale bar \u2014 print at 100% and verify with a ruler"
-    )
+    if detail:
+        c.setFont("Helvetica", 7)
+        c.drawString(pt(bx - 4), pt(by - 8), "0")
+        c.drawString(pt(bx + blen / 2 - 3), pt(by - 8), "50")
+        c.drawString(pt(bx + blen - 6), pt(by - 8), "100 mm")
+        c.setFont("Helvetica-Bold", 7)
+        c.drawCentredString(
+            pt(bx + blen / 2),
+            pt(by + 4),
+            "scale bar \u2014 print at 100% and verify with a ruler",
+        )
 
     # Map border.
     c.setStrokeColor(black)
@@ -286,15 +292,85 @@ def draw_arrow(c: canvas.Canvas, a, b) -> None:
     c.drawPath(p, stroke=0, fill=1)
 
 
-def draw_page_marks(c: canvas.Canvas, page_no: int, total: int) -> None:
-    """Corner crosses + page number, in page coordinates (mm from page bottom-left)."""
+def draw_page_marks(
+    c: canvas.Canvas, tile_no: int, total: int = 8, pdf_page: int | None = None
+) -> None:
+    """Corner crosses + tile number, in page coordinates (mm from page bottom-left)."""
     c.setStrokeColor(black)
     c.setLineWidth(pt(0.4))
     for cx, cy in [(10, 10), (A4_W_MM - 10, 10), (10, A4_H_MM - 10), (A4_W_MM - 10, A4_H_MM - 10)]:
         c.line(pt(cx - 3), pt(cy), pt(cx + 3), pt(cy))
         c.line(pt(cx), pt(cy - 3), pt(cx), pt(cy + 3))
+    label = f"tile {tile_no}/{total}"
+    if pdf_page is not None:
+        label += f"  (PDF page {pdf_page})"
     c.setFont("Helvetica", 7)
-    c.drawCentredString(pt(A4_W_MM / 2), pt(8), f"page {page_no}/{total} \u2014 tile row/col")
+    c.drawCentredString(pt(A4_W_MM / 2), pt(8), label)
+
+
+def draw_overview(c: canvas.Canvas, tag_pngs: dict[int, bytes]) -> None:
+    """Page 1: whole-map thumbnail with the 8-page grid and tile numbers."""
+    s = 0.25
+    map_w_mm = MAP_W_MM * s  # 210
+    map_h_mm = MAP_H_MM * s  # 147
+    ox = (A4_W_MM - map_w_mm) / 2.0
+    oy = A4_H_MM - map_h_mm - 26.0
+
+    # Title.
+    c.setFillColor(black)
+    c.setFont("Helvetica-Bold", 15)
+    c.drawCentredString(pt(A4_W_MM / 2), pt(A4_H_MM - 14), "Task-1 Map \u2014 Overview")
+    c.setFont("STSong-Light", 10)
+    c.drawCentredString(
+        pt(A4_W_MM / 2),
+        pt(A4_H_MM - 23),
+        "\u603b\u89c8\u7f29\u56fe\uff08\u5bf9\u7167\u62fc\u63a5\uff09",
+    )
+
+    # Thumbnail (route + tags + border, no text labels).
+    c.saveState()
+    c.translate(pt(ox), pt(oy))
+    c.scale(s, s)
+    draw_map(c, tag_pngs, detail=False)
+    c.restoreState()
+
+    # 8-page grid (dashed) + tile numbers.
+    c.setDash(2, 2)
+    c.setLineWidth(pt(0.4))
+    c.setStrokeColor(black)
+    for i in range(1, 4):
+        x = ox + i * 210.0 * s
+        c.line(pt(x), pt(oy), pt(x), pt(oy + map_h_mm))
+    c.line(pt(ox), pt(oy + map_h_mm / 2), pt(ox + map_w_mm), pt(oy + map_h_mm / 2))
+    c.setDash()
+
+    c.setFont("Helvetica-Bold", 9)
+    for col in range(4):
+        for row in range(2):
+            tile = row * 4 + col + 1  # row 0 = top (tiles 1-4), row 1 = bottom (5-8)
+            cx = ox + (col + 0.5) * 210.0 * s
+            cy = oy + ((2 - row) * 294.0 - 147.0) * s
+            c.drawCentredString(pt(cx), pt(cy), f"{tile}")
+
+    # Bottom notes.
+    y = oy - 10.0
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(pt(20), pt(y), "Assemble order")
+    y -= 13
+    c.setFont("Helvetica", 8.5)
+    for ln in (
+        "Top row (north): tiles 1 \u2013 4, left to right.",
+        "Bottom row (south): tiles 5 \u2013 8, left to right.",
+        "Align the corner crosses on adjacent tiles and tape on the back.",
+    ):
+        c.drawString(pt(22), pt(y), ln)
+        y -= 12
+    c.setFont("STSong-Light", 8.5)
+    c.drawString(
+        pt(22),
+        pt(y),
+        "\u4e0a\u6392\uff08\u5317\uff09\u4e3a\u7b2c1\u20134\u5f20\uff0c\u4e0b\u6392\uff08\u5357\uff09\u4e3a\u7b2c5\u20138\u5f20\uff1b\u5bf9\u9f50\u56db\u89d2\u5341\u5b57\u6807\u8bb0\u62fc\u63a5\u3002",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -326,19 +402,19 @@ def draw_guide(c: canvas.Canvas) -> None:
         y -= 6
 
     para(
-        "1. Print (pages 1\u20138)",
+        "1. Print the 8 map tiles (PDF pages 3\u201310)",
         [
-            "Print pages 1\u20138 on A4 at 100% / Actual Size. Do NOT use \u201cfit to page\u201d.",
+            "Print PDF pages 3\u201310 on A4 at 100% / Actual Size. Do NOT use \u201cfit to page\u201d.",
             "Verify the 100 mm scale bar with a ruler before assembling.",
-            "\u6253\u5370\u7b2c1\u20138\u9875\uff0c\u9009\u201c\u5b9e\u9645\u5927\u5c0f 100%\u201d\uff0c\u4e0d\u8981\u201c\u7f29\u653e\u5230\u9875\u9762\u201d\uff1b\u5148\u7528\u5c3a\u91cf\u6bd4\u4f8b\u5c3a\u3002",
+            "\u6253\u5370 PDF \u7b2c3\u201310\u9875\uff0c\u9009\u201c\u5b9e\u9645\u5927\u5c0f 100%\u201d\uff0c\u4e0d\u8981\u201c\u7f29\u653e\u5230\u9875\u9762\u201d\uff1b\u5148\u7528\u5c3a\u91cf\u6bd4\u4f8b\u5c3a\u3002",
         ],
     )
     para(
-        "2. Assemble (4 columns x 2 rows)",
+        "2. Assemble (4 columns x 2 rows) \u2014 see the overview on PDF page 1",
         [
-            "Arrange pages in a 4 x 2 grid: row 1 = pages 1\u20134 (left to right), row 2 = pages 5\u20138.",
-            "Align the corner crosses on adjacent pages; tape on the back.",
-            "4\u5217 x 2\u884c\uff1a\u4e0a\u6392\u9875\u78011\u20134\uff0c\u4e0b\u6392\u9875\u78015\u20138\uff1b\u5bf9\u9f50\u56db\u89d2\u5341\u5b57\u6807\u8bb0\u3002",
+            "Top row (north) = tiles 1\u20134 left to right; bottom row (south) = tiles 5\u20138 left to right.",
+            "Align the corner crosses on adjacent tiles; tape on the back.",
+            "4\u5217 x 2\u884c\uff1a\u4e0a\u6392\uff08\u5317\uff09\u4e3a tile 1\u20134\uff0c\u4e0b\u6392\uff08\u5357\uff09\u4e3a tile 5\u20138\uff1b\u5bf9\u9f50\u56db\u89d2\u5341\u5b57\u6807\u8bb0\u3002",
         ],
     )
     para(
@@ -387,10 +463,16 @@ def main() -> int:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     pdf = canvas.Canvas(str(args.output), pagesize=A4)
-    pdf.setTitle("Task-1 map (8 pages + guide)")
+    pdf.setTitle("Task-1 map (overview + guide + 8 tiles)")
 
-    # Pages 1..8: map tiles, 4 columns x 2 rows. Pages 1-4 = top row
-    # (map north, y 294..588), pages 5-8 = bottom row (y 0..294).
+    # Page 1: overview thumbnail (with the 8-page grid); page 2: guide.
+    draw_overview(pdf, tag_pngs)
+    pdf.showPage()
+    draw_guide(pdf)
+    pdf.showPage()
+
+    # Pages 3..10: map tiles, 4 columns x 2 rows. Tiles 1-4 = top row
+    # (map north, y 294..588), tiles 5-8 = bottom row (y 0..294).
     for page in range(8):
         col = page % 4
         row = 1 - page // 4  # 1 = top row (map top), 0 = bottom row
@@ -403,15 +485,11 @@ def main() -> int:
         pdf.translate(-pt(col * 210.0), -pt(row * 294.0))
         draw_map(pdf, tag_pngs)
         pdf.restoreState()
-        draw_page_marks(pdf, page + 1, 8)
+        draw_page_marks(pdf, page + 1, 8, pdf_page=page + 3)
         pdf.showPage()
 
-    # Page 9: guide.
-    draw_guide(pdf)
-    pdf.showPage()
-
     pdf.save()
-    print(f"wrote {args.output} (8 map pages + 1 guide, {len(TAGS)} tags)")
+    print(f"wrote {args.output} (overview + guide + 8 tiles, {len(TAGS)} tags)")
 
     # Tag map JSON (metres, SW origin, x east / y north).
     tag_map = {
