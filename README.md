@@ -108,6 +108,12 @@ standing beside the robot who can cut main power instantly. Run `14` before any 
 | 22 | `examples/22_fused_patrol_capture.py` | Vision + sonar fused patrol with 2028×1520 SfM capture — avoids the chairs a single sonar cannot see | `PYTHONPATH=src python3 examples/22_fused_patrol_capture.py --dry-run --frames 10` | ⚠️ Operator beside it (`--dry-run` is safe) |
 | 23 | `examples/23_spin_rate_check.py` | Measures the real spin rate and startup dead time from the camera's own view — no protractor, no encoders | `PYTHONPATH=src python3 examples/23_spin_rate_check.py --speed 200` | ⚠️ Operator beside it |
 | 24 | `examples/24_linear_speed_check.py` | Measures forward and reverse travel distance against a wall AprilTag | `PYTHONPATH=src python3 examples/24_linear_speed_check.py --speed 200` | ⚠️ Operator beside it (drives toward a wall) |
+| 25 | `examples/25_line_follow_capture.py` | Line-follow capture + overlay: confirms the green cross sits on the real 2 cm line (Gate A) | `PYTHONPATH=src python3 examples/25_line_follow_capture.py` | ✅ No moving parts |
+| 26 | `examples/26_line_follow_drive.py` | Closed-loop line-follow drive with auto ground-view calibration (Gate B) | `printf "yes\n" \| PYTHONPATH=src python3 examples/26_line_follow_drive.py --duration 8 --speed 150` | ⚠️ Operator beside it |
+| 27 | `examples/27_ground_view_calibrate.py` | Bird's-eye (ground-view) homography calibration from a measured rectangle or flat ChArUco | `PYTHONPATH=src python3 examples/27_ground_view_calibrate.py --auto --size-m 0.10,0.05` | ✅ No moving parts |
+| 29 | `examples/29_route_nav_drive.py` | Task-1 route drive: vision-driven nav state machine, route plan advisory only | `PYTHONPATH=src python3 examples/29_route_nav_drive.py --dry-run --duration 10` | ⚠️ Operator beside it (`--dry-run` is safe) |
+| 30 | `examples/30_motion_calibrate.py` | Time-based motion model calibration (no encoders): forward speed + spin rate | `PYTHONPATH=src python3 examples/30_motion_calibrate.py --mode forward --seconds 1.0` | ⚠️ Operator beside it (car drives/spins) |
+| 31 | `examples/31_ground_tag_pose.py` | Ground AprilTag pose check: camera (x, y, heading) in the map frame from flat tags (Phase 0 of landmark localization) | `PYTHONPATH=src python3 examples/31_ground_tag_pose.py --tag-map scratch/landmarks/task1-tag-map.json` | ✅ No moving parts |
 
 Expected results (verified on this build, 2026-08):
 
