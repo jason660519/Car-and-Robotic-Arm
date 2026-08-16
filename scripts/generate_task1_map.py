@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the printable Task-1 map: 8 A4 map pages + 1 instruction page.
+"""Generate the printable Task-1 map: 8 A4 map pages + 3 front pages.
 
 The map is drawn vector-style at exact millimetre scale and split into a
 4x2 grid of A4 pages (each 210x297 mm) that tile into a 840x594 mm sheet
@@ -11,7 +11,8 @@ working; only the route geometry and tag positions are scaled.
 Units are millimetres throughout. Coordinate frame: map frame, SW origin,
 x east, y north (matches src/carbot/landmarks.py conventions).
 
-Page 1..8 = map tiles; page 9 = print/assemble + AprilTag usage guide.
+Page 1 = overview; page 2 = print/assemble guide; page 3 = AprilTag
+coordinate table; pages 4..11 = the 8 map tiles.
 
 Run:
     uv run --with reportlab python3 scripts/generate_task1_map.py \
@@ -32,8 +33,6 @@ import cv2
 from reportlab.lib.colors import black, white
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfgen import canvas
 
 MM_PER_PT = 25.4 / 72.0
@@ -66,29 +65,38 @@ ROUTE = [
     [(396.5, 247.8), (589.7, 247.8)],  # Phase 10 return
 ]
 
-# Designed tag positions (id, x_mm, y_mm), verified clear of the route and
-# page seams by scripts/../ (see --tag-map-out and the assert below).
+# Designed tag positions (id, x_mm, y_mm): one AprilTag at each of the four
+# corners of every tile (8 tiles x 4 corners = 32). All positions are clear of
+# the route (>=30 mm), the page seams (>=15 mm) and the start/scale boxes.
 TAGS = [
-    (0, 45, 565),
-    (1, 135, 435),
-    (2, 400, 485),
-    (3, 655, 485),
-    (4, 800, 545),
-    (5, 818, 335),
-    (6, 815, 205),
-    (7, 790, 60),
-    (8, 50, 60),
-    (9, 80, 130),
-    (10, 120, 540),
-    (11, 660, 200),
-    (12, 660, 130),
-    (13, 500, 200),
-    (14, 760, 215),
-    (15, 450, 180),
+    # tile 1 (NW) — TL, TR, BL, BR
+    (0, 30, 558), (1, 180, 558), (2, 30, 324), (3, 180, 324),
+    # tile 2 (N) — TL, TR, BL, BR (BR pulled east of the roundabout)
+    (4, 240, 558), (5, 390, 558), (6, 240, 324), (7, 403, 345),
+    # tile 3 (NE-left) — TL, TR, BL, BR (BR moved left of the scale box)
+    (8, 450, 558), (9, 600, 558), (10, 450, 324), (11, 500, 320),
+    # tile 4 (NE) — TL, TR, BL (right of scale box), BR
+    (12, 660, 558), (13, 810, 558), (14, 695, 320), (15, 818, 330),
+    # tile 5 (SW) — TL, TR, BL, BR
+    (16, 30, 264), (17, 180, 264), (18, 30, 30), (19, 180, 30),
+    # tile 6 (S) — TL, TR (clear of roundabout), BL, BR
+    (20, 240, 264), (21, 360, 264), (22, 240, 30), (23, 390, 30),
+    # tile 7 (SE-left) — TL below return line, TR above Phase 2, BL, BR
+    (24, 445, 200), (25, 500, 278.5), (26, 450, 30), (27, 528, 200),
+    # tile 8 (SE) — TL right of start box, TR, BL, BR
+    (28, 695, 85), (29, 810, 264), (30, 700, 30), (31, 810, 30),
 ]
 
 START_MM = (589.7, 163.8)  # stem bottom = start zone
-SCALE_BAR = (300.0, 20.0, 100.0)  # x, y, length (mm)
+# Departure box 150x150: top edge exactly touches the bottom edge of the
+# start stem (line y 153.8-173.8 -> box top = 153.8), centred on the stem
+# axis so its centre stays collinear with the stem and scale-box centres.
+START_BOX = (514.7, 3.8, 150.0, 150.0)
+# Scale-bar/origin box: centre aligned with the stem axis (x = 589.7) so the
+# start-box centre, the stem centre and the scale-box centre are collinear
+# (the car can zero/align before departure). Bottom edge 30 mm above the
+# departure road (y = 247.8 + 30 = 277.8), near the 3/4/7/8 tile crossing.
+SCALE_BOX = (549.7, 277.8, 80.0, 80.0)
 NORTH_MM = (150.0, 555.0)  # north arrow position
 
 SEAM_X = [210.0, 420.0, 630.0]  # vertical page seams
@@ -130,13 +138,22 @@ def min_route_dist(px: float, py: float) -> float:
 
 
 def roundabout_points(n: int = 360):
-    """270-degree arc from 12 o'clock counter-clockwise to 3 o'clock."""
+    """Full 360-degree circle (matches the physical printed ring)."""
     cx, cy, r = ROUNDABOUT
     pts = []
     for i in range(n + 1):
-        theta = math.radians(90.0 + 270.0 * i / n)  # 90 -> 360 deg
+        theta = math.radians(360.0 * i / n)  # 0 -> 360 deg
         pts.append((cx + r * math.cos(theta), cy + r * math.sin(theta)))
     return pts
+
+
+def dist_to_box(px: float, py: float, box) -> float:
+    x, y, w, h = box
+    if x <= px <= x + w and y <= py <= y + h:
+        return 0.0
+    dx = max(x - px, 0.0, px - (x + w))
+    dy = max(y - py, 0.0, py - (y + h))
+    return math.hypot(dx, dy)
 
 
 def validate_tags(tags):
@@ -156,6 +173,9 @@ def validate_tags(tags):
             or y > MAP_H_MM - TAG_SIZE_MM
         ):
             problems.append(f"tag {tid}: outside map ({x:.0f},{y:.0f})")
+        db = min(dist_to_box(x, y, START_BOX), dist_to_box(x, y, SCALE_BOX))
+        if db < 20.0:
+            problems.append(f"tag {tid}: box clearance {db:.1f} mm < 20")
     return problems
 
 
@@ -163,7 +183,17 @@ def validate_tags(tags):
 # Drawing (all in mm, SW origin)
 # ---------------------------------------------------------------------------
 def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) -> None:
-    # Route black line (20 mm wide, round joins).
+    # Start (departure) box and scale-bar/origin box: white fill + black
+    # border, drawn first so the 20 mm route line stays visible on top.
+    c.setStrokeColor(black)
+    c.setLineWidth(pt(1.2))
+    c.setFillColor(white)
+    sx, sy, sw, sh = START_BOX
+    c.rect(pt(sx), pt(sy), pt(sw), pt(sh), stroke=1, fill=1)
+    bx, by, bw, bh = SCALE_BOX
+    c.rect(pt(bx), pt(by), pt(bw), pt(bh), stroke=1, fill=1)
+
+    # Route black line (20 mm wide, round joins) — drawn over the boxes.
     c.setStrokeColor(black)
     c.setLineWidth(pt(LINE_W_MM))
     c.setLineCap(1)
@@ -174,39 +204,13 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) 
         for x, y in seg[1:]:
             p.lineTo(pt(x), pt(y))
         c.drawPath(p, stroke=1, fill=0)
-    # Roundabout arc.
+    # Roundabout: full 360-degree circle.
     ring = roundabout_points()
     p = c.beginPath()
     p.moveTo(pt(ring[0][0]), pt(ring[0][1]))
     for x, y in ring[1:]:
         p.lineTo(pt(x), pt(y))
     c.drawPath(p, stroke=1, fill=0)
-
-    # Direction arrows (white triangles on the line).
-    c.setFillColor(white)
-    arrows = [
-        ((589.7, 205.0), (589.7, 225.0)),  # stem up
-        ((655.0, 247.8), (675.0, 247.8)),  # Phase 2 east
-        ((783.7, 360.0), (783.7, 380.0)),  # Line A up
-        ((500.0, 525.0), (480.0, 525.0)),  # Phase 6 west
-        ((243.6, 440.0), (243.6, 420.0)),  # entry down
-        ((500.0, 247.8), (480.0, 247.8)),  # return west
-    ]
-    for (x1, y1), (x2, y2) in arrows:
-        draw_arrow(c, (x1, y1), (x2, y2))
-
-    # Start zone marker.
-    sx, sy = START_MM
-    c.setStrokeColor(black)
-    c.setLineWidth(pt(1.2))
-    c.setFillColor(white)
-    c.rect(pt(sx - 30), pt(sy - 34), pt(60), pt(30), stroke=1, fill=1)
-    if detail:
-        c.setFillColor(black)
-        c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(pt(sx), pt(sy - 22), "START")
-        c.setFont("STSong-Light", 8)
-        c.drawCentredString(pt(sx), pt(sy - 32), "发车区 / 归零点")
 
     # AprilTags + labels.
     for tag_id, tx, ty in TAGS:
@@ -249,47 +253,44 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) 
     p.close()
     c.drawPath(p, stroke=0, fill=1)
 
-    # Scale bar (100 mm, ticked every 10 mm).
-    bx, by, blen = SCALE_BAR
-    c.setStrokeColor(black)
-    c.setLineWidth(pt(1.2))
-    c.line(pt(bx), pt(by), pt(bx + blen), pt(by))
-    for i in range(11):
-        x = bx + i * blen / 10.0
-        h = 4.0 if i % 5 == 0 else 2.0
-        c.line(pt(x), pt(by), pt(x), pt(by - h))
     if detail:
+        # Departure-area labels inside the start box (the 150x150 box holds
+        # no route line, so the labels sit centred).
+        c.setFillColor(black)
+        c.setFont("Helvetica-Bold", 22)
+        c.drawCentredString(pt(sx + sw / 2), pt(sy + sh / 2 + 6), "DEPARTURE AREA")
+        c.setFont("Helvetica-Bold", 11)
+        c.drawCentredString(pt(sx + sw / 2), pt(sy + sh / 2 - 26), "START")
+
+        # Scale cross inside the box: X axis 80 mm (full box width), Y axis
+        # 40 mm vertical, both ticked every 10 mm.
+        cx_ = bx + bw / 2.0
+        cy_ = by + bh / 2.0
+        c.setStrokeColor(black)
+        c.setLineWidth(pt(1.2))
+        # X axis (horizontal, 80 mm).
+        c.line(pt(bx), pt(cy_), pt(bx + bw), pt(cy_))
+        for i in range(9):  # 0..80 mm every 10
+            x = bx + i * bw / 8.0
+            h = 4.0 if i % 2 == 0 else 2.0
+            c.line(pt(x), pt(cy_), pt(x), pt(cy_ - h))
+        # Y axis (vertical, 40 mm).
+        c.line(pt(cx_), pt(cy_ - 20.0), pt(cx_), pt(cy_ + 20.0))
+        for i in range(5):  # 0..40 mm every 10
+            y = cy_ - 20.0 + i * 40.0 / 4.0
+            h = 4.0 if i % 2 == 0 else 2.0
+            c.line(pt(cx_), pt(y), pt(cx_ + h), pt(y))
         c.setFont("Helvetica", 7)
-        c.drawString(pt(bx - 4), pt(by - 8), "0")
-        c.drawString(pt(bx + blen / 2 - 3), pt(by - 8), "50")
-        c.drawString(pt(bx + blen - 6), pt(by - 8), "100 mm")
+        c.drawString(pt(bx - 4), pt(cy_ - 8), "0")
+        c.drawRightString(pt(bx + bw), pt(cy_ - 8), "80 mm")
+        c.drawString(pt(cx_ + 5), pt(cy_ + 20.0 - 2), "40 mm")
         c.setFont("Helvetica-Bold", 7)
-        c.drawCentredString(
-            pt(bx + blen / 2),
-            pt(by + 4),
-            "scale bar \u2014 print at 100% and verify with a ruler",
-        )
+        c.drawCentredString(pt(cx_), pt(cy_ + 24), "scale bar (X 80 / Y 40 mm)")
 
     # Map border.
     c.setStrokeColor(black)
     c.setLineWidth(pt(0.5))
     c.rect(pt(0), pt(0), pt(MAP_W_MM), pt(MAP_H_MM), stroke=1, fill=0)
-
-
-def draw_arrow(c: canvas.Canvas, a, b) -> None:
-    x1, y1 = a
-    x2, y2 = b
-    ang = math.atan2(y2 - y1, x2 - x1)
-    size = 8.0
-    tip = (x2, y2)
-    left = (tip[0] - size * math.cos(ang - 0.5), tip[1] - size * math.sin(ang - 0.5))
-    right = (tip[0] - size * math.cos(ang + 0.5), tip[1] - size * math.sin(ang + 0.5))
-    p = c.beginPath()
-    p.moveTo(pt(tip[0]), pt(tip[1]))
-    p.lineTo(pt(left[0]), pt(left[1]))
-    p.lineTo(pt(right[0]), pt(right[1]))
-    p.close()
-    c.drawPath(p, stroke=0, fill=1)
 
 
 def draw_page_marks(c: canvas.Canvas, tile_no: int, total: int = 8) -> None:
@@ -329,11 +330,11 @@ def draw_overview(c: canvas.Canvas, tag_pngs: dict[int, bytes]) -> None:
     c.setFillColor(black)
     c.setFont("Helvetica-Bold", 15)
     c.drawCentredString(pt(A4_W_MM / 2), pt(A4_H_MM - 14), "Task-1 Map \u2014 Overview")
-    c.setFont("STSong-Light", 10)
+    c.setFont("Helvetica", 10)
     c.drawCentredString(
         pt(A4_W_MM / 2),
         pt(A4_H_MM - 23),
-        "\u603b\u89c8\u7f29\u56fe\uff08\u5bf9\u7167\u62fc\u63a5\uff09",
+        "Full-map overview \u2014 tile layout reference",
     )
 
     # Thumbnail (route + tags + border, no text labels).
@@ -374,12 +375,6 @@ def draw_overview(c: canvas.Canvas, tag_pngs: dict[int, bytes]) -> None:
     ):
         c.drawString(pt(22), pt(y), ln)
         y -= 12
-    c.setFont("STSong-Light", 8.5)
-    c.drawString(
-        pt(22),
-        pt(y),
-        "\u4e0a\u6392\uff08\u5317\uff09\u4e3a\u7b2c1\u20134\u5f20\uff0c\u4e0b\u6392\uff08\u5357\uff09\u4e3a\u7b2c5\u20138\u5f20\uff1b\u5bf9\u9f50\u56db\u89d2\u5341\u5b57\u6807\u8bb0\u62fc\u63a5\u3002",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -390,13 +385,6 @@ def draw_guide(c: canvas.Canvas) -> None:
     y = A4_H_MM - 20
     c.setFont("Helvetica-Bold", 16)
     c.drawString(pt(20), pt(y), "Task-1 Map \u2014 Print & Assemble Guide")
-    y -= 14
-    c.setFont("STSong-Light", 11)
-    c.drawString(
-        pt(20),
-        pt(y),
-        "\u4efb\u52a1\u4e00\u5730\u56fe\uff1a\u6253\u5370\u4e0e\u62fc\u63a5\u8bf4\u660e",
-    )
     y -= 22
 
     def para(title, lines):
@@ -411,11 +399,10 @@ def draw_guide(c: canvas.Canvas) -> None:
         y -= 6
 
     para(
-        "1. Print the 8 map tiles (PDF pages 3\u201310)",
+        "1. Print the 8 map tiles (PDF pages 4\u201311)",
         [
-            "Print PDF pages 3\u201310 on A4 at 100% / Actual Size. Do NOT use \u201cfit to page\u201d.",
-            "Verify the 100 mm scale bar with a ruler before assembling.",
-            "\u6253\u5370 PDF \u7b2c3\u201310\u9875\uff0c\u9009\u201c\u5b9e\u9645\u5927\u5c0f 100%\u201d\uff0c\u4e0d\u8981\u201c\u7f29\u653e\u5230\u9875\u9762\u201d\uff1b\u5148\u7528\u5c3a\u91cf\u6bd4\u4f8b\u5c3a\u3002",
+            "Print PDF pages 4\u201311 on A4 at 100% / Actual Size. Do NOT use \u201cfit to page\u201d.",
+            "Verify the scale bar (X 80 mm / Y 40 mm) with a ruler before assembling.",
         ],
     )
     para(
@@ -423,23 +410,20 @@ def draw_guide(c: canvas.Canvas) -> None:
         [
             "Top row (north) = tiles 1\u20134 left to right; bottom row (south) = tiles 5\u20138 left to right.",
             "Align the corner crosses on adjacent tiles; tape on the back.",
-            "4\u5217 x 2\u884c\uff1a\u4e0a\u6392\uff08\u5317\uff09\u4e3a tile 1\u20134\uff0c\u4e0b\u6392\uff08\u5357\uff09\u4e3a tile 5\u20138\uff1b\u5bf9\u9f50\u56db\u89d2\u5341\u5b57\u6807\u8bb0\u3002",
         ],
     )
     para(
         "3. Orientation",
         [
             "The N arrow points map-north (up). Tags are printed with ID upright facing north.",
-            "\u671d\u5317\u7bad\u5934\u6307\u5411\u5730\u56fe\u5317\uff08\u4e0a\u65b9\uff09\u3002",
         ],
     )
     para(
         "4. AprilTag landmarks (the printed squares)",
         [
-            "16 AprilTags (family 36h11, 20 mm) are printed onto the map as absolute-position landmarks.",
+            "32 AprilTags (family 36h11, 20 mm) are printed onto the map as absolute-position landmarks.",
             "Each is labelled \u201cID n\u201d with an \u201cN \u2191\u201d marker (yaw = 0 = facing map-north).",
             "Web search: \u201cAprilTag\u201d, \u201cAprilTag 36h11\u201d, \u201cAprilTag pose estimation\u201d, \u201cOpenCV aruco AprilTag\u201d.",
-            "AprilTag\uff08\u5bb6\u65cf 36h11\uff0c20 mm\uff09\u662f\u673a\u5668\u89c6\u89c9\u5b9a\u4f4d\u5730\u6807\uff1b\u4e0a\u7f51\u641c\u201cAprilTag\u201d\u5373\u53ef\u627e\u5230\u4f7f\u7528\u8bf4\u660e\u3002",
         ],
     )
     para(
@@ -448,6 +432,59 @@ def draw_guide(c: canvas.Canvas) -> None:
             "Map 840 x 588 mm = original 1000 x 700 mm Task-1 map scaled 0.84.",
             "Route black line 20 mm; AprilTags 20 mm (physical sizes unchanged).",
         ],
+    )
+
+
+# ---------------------------------------------------------------------------
+# AprilTag coordinate table (page 3)
+# ---------------------------------------------------------------------------
+def draw_tag_table(c: canvas.Canvas) -> None:
+    """Page 3: table of every AprilTag's ID and X/Y position in mm."""
+    c.setFillColor(black)
+    y = A4_H_MM - 20
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(pt(20), pt(y), "AprilTag Coordinates")
+    y -= 12
+    c.setFont("Helvetica", 9.5)
+    c.drawString(
+        pt(20),
+        pt(y),
+        "X and Y are in millimetres from the map's SOUTH-WEST corner "
+        "(X east, Y north); NE corner = (840, 588). cm = mm \u00f7 10.",
+    )
+    y -= 16
+
+    col_w = 78.0
+    x0, x1 = 20.0, 20.0 + col_w + 26.0
+    row_h = 4.6
+    rows_per_col = 16
+
+    def header(x):
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(pt(x), pt(y), "ID")
+        c.drawString(pt(x + 20), pt(y), "X (mm)")
+        c.drawString(pt(x + 48), pt(y), "Y (mm)")
+
+    header(x0)
+    header(x1)
+    y -= 8
+
+    c.setFont("Helvetica", 8.5)
+    for i, (tid, tx, ty) in enumerate(TAGS):
+        col = i // rows_per_col
+        row = i % rows_per_col
+        x = x0 if col == 0 else x1
+        yy = y - row * row_h
+        c.drawString(pt(x), pt(yy), f"{tid}")
+        c.drawString(pt(x + 20), pt(yy), f"{tx:.1f}")
+        c.drawString(pt(x + 48), pt(yy), f"{ty:.1f}")
+
+    c.setFont("Helvetica", 8.5)
+    c.drawString(
+        pt(20),
+        pt(y - rows_per_col * row_h - 8),
+        "Same values as scratch/landmarks/task1-tag-map.json "
+        "(metres = mm \u00f7 1000).",
     )
 
 
@@ -466,21 +503,21 @@ def main() -> int:
             print("ERROR:", p)
         return 1
 
-    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
-
     tag_pngs = {tid: make_tag_png(tid) for tid, _, _ in TAGS}
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     pdf = canvas.Canvas(str(args.output), pagesize=A4)
-    pdf.setTitle("Task-1 map (overview + guide + 8 tiles)")
+    pdf.setTitle("Task-1 map (overview + guide + tag table + 8 tiles)")
 
-    # Page 1: overview thumbnail (with the 8-page grid); page 2: guide.
+    # Page 1: overview thumbnail; page 2: guide; page 3: AprilTag coordinates.
     draw_overview(pdf, tag_pngs)
     pdf.showPage()
     draw_guide(pdf)
     pdf.showPage()
+    draw_tag_table(pdf)
+    pdf.showPage()
 
-    # Pages 3..10: map tiles, 4 columns x 2 rows. Tiles 1-4 = top row
+    # Pages 4..11: map tiles, 4 columns x 2 rows. Tiles 1-4 = top row
     # (map north, y 294..588), tiles 5-8 = bottom row (y 0..294).
     for page in range(8):
         col = page % 4
