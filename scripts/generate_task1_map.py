@@ -233,12 +233,16 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) 
             stroke=1,
             fill=0,
         )
-        # ID label + north tick
+        # One-line label "ID n (N ↑)"; flipped below the tag when it would
+        # collide with the tile page number near the top corner.
         if detail:
+            page_top = 289.0 if ty <= 294.0 else 583.0
+            label_dy = -12.5 if abs(ty + 12.5 - page_top) < 6.0 else 12.5
             c.setFont("Helvetica-Bold", 8)
             c.setFillColor(black)
-            c.drawCentredString(pt(tx), pt(ty + TAG_SIZE_MM / 2 + 3.5), f"ID {tag_id}")
-            c.drawCentredString(pt(tx), pt(ty + TAG_SIZE_MM / 2 + 7.5), "N \u2191")
+            c.drawCentredString(
+                pt(tx), pt(ty + label_dy), f"ID {tag_id} (N \u2191)"
+            )
 
     # North arrow.
     nx, ny = NORTH_MM
@@ -296,8 +300,8 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) 
 def draw_page_marks(c: canvas.Canvas, tile_no: int, total: int = 8) -> None:
     """Corner crosses + tile number at all four corners.
 
-    The corners are empty on every tile, so the page number never overlaps
-    the route or a tag (unlike a centred footer).
+    Page numbers sit close to the very corner (5 mm in) so they never
+    overlap the "ID n" / "N ↑" labels of the corner AprilTags.
     """
     c.setStrokeColor(black)
     c.setLineWidth(pt(0.4))
@@ -310,12 +314,12 @@ def draw_page_marks(c: canvas.Canvas, tile_no: int, total: int = 8) -> None:
     for cx, cy in corners:
         c.line(pt(cx - 4), pt(cy), pt(cx + 4), pt(cy))
         c.line(pt(cx), pt(cy - 4), pt(cx), pt(cy + 4))
-    c.setFont("Helvetica-Bold", 9)
+    c.setFont("Helvetica-Bold", 8)
     label = f"tile {tile_no}/{total}"
-    c.drawString(pt(20), pt(9), label)  # bottom-left
-    c.drawRightString(pt(A4_W_MM - 20), pt(9), label)  # bottom-right
-    c.drawString(pt(20), pt(A4_H_MM - 15), label)  # top-left
-    c.drawRightString(pt(A4_W_MM - 20), pt(A4_H_MM - 15), label)  # top-right
+    c.drawString(pt(20), pt(5), label)  # bottom-left
+    c.drawRightString(pt(A4_W_MM - 20), pt(5), label)  # bottom-right
+    c.drawString(pt(20), pt(A4_H_MM - 5), label)  # top-left
+    c.drawRightString(pt(A4_W_MM - 20), pt(A4_H_MM - 5), label)  # top-right
 
 
 def draw_overview(c: canvas.Canvas, tag_pngs: dict[int, bytes]) -> None:
@@ -422,7 +426,9 @@ def draw_guide(c: canvas.Canvas) -> None:
         "4. AprilTag landmarks (the printed squares)",
         [
             "32 AprilTags (family 36h11, 20 mm) are printed onto the map as absolute-position landmarks.",
-            "Each is labelled \u201cID n\u201d with an \u201cN \u2191\u201d marker (yaw = 0 = facing map-north).",
+            "Each is labelled \u201cID n (N \u2191)\u201d (yaw = 0 = facing map-north).",
+            "Source: AprilTag is an open-source project by the University of Michigan APRIL lab.",
+            "Official repository: https://github.com/AprilRobotics/apriltag",
             "Web search: \u201cAprilTag\u201d, \u201cAprilTag 36h11\u201d, \u201cAprilTag pose estimation\u201d, \u201cOpenCV aruco AprilTag\u201d.",
         ],
     )
