@@ -20,12 +20,12 @@ ROI = (48, 326, 0, 640)
 
 def near_t_bar(**kwargs) -> LineReading:
     """A 2 cm crossing low in the ROI — wheels have reached the T."""
-    defaults = dict(
-        error_fraction=0.0,
-        axis="horizontal",
-        line_width=120,
-        centroid_y=280.0,
-    )
+    defaults = {
+        "error_fraction": 0.0,
+        "axis": "horizontal",
+        "line_width": 120,
+        "centroid_y": 280.0,
+    }
     defaults.update(kwargs)
     return line_reading(**defaults)
 
@@ -311,13 +311,30 @@ def test_later_crossbar_does_not_restart_t_turn_after_follow():
 
 
 def test_horizontal_stroke_stops_after_a_right_angle():
+    # Vision-guided spin: the hard ceiling is 2x the nominal 90-degree time
+    # (53.5 deg/s -> 1.68 s, ceiling ~3.36 s). After the ceiling the car
+    # stops spinning even if no vertical line ever confirmed alignment.
     nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5, right_turn_after_s=0.0))
     cmd = None
-    for _ in range(25):
+    for _ in range(40):
         cmd = nav.step(near_t_bar(), dt=0.1)
     assert cmd is not None
     assert cmd.left == cmd.right == 200
     assert "spin" not in cmd.reason
+
+
+def test_turn_completes_early_when_aligned():
+    # The spin finishes as soon as the camera sees the next vertical line
+    # centred and thick (>=0.7 of the nominal spin already elapsed).
+    nav = LineNav(NavPolicy(
+        speed=200, expected_center_fraction=0.5, right_turn_after_s=0.0,
+        spin_deg_per_s_at_200=90.0,
+    ))
+    for _ in range(8):
+        nav.step(near_t_bar(), dt=0.1)  # 0.8 s of spin
+    cmd = nav.step(line_reading(error_fraction=0.0, axis="vertical", line_width=120), dt=0.1)
+    assert "spin" not in cmd.reason
+    assert cmd.left == cmd.right == 200
 
 
 def test_start_box_keeps_straight_until_the_t():

@@ -333,9 +333,18 @@ class LineNav:
                     self.policy.speed,
                     "after T: drive the centred path",
                 )
+            # Not yet aligned with the next line: one short corrective nudge
+            # (up to half the nominal spin), then visual search.
+            self._horiz_spin_s += dt
+            if self._horiz_spin_s >= 0.5 * spin_limit:
+                self._horiz_spin_s = 0.0
+                self._enter(NavState.SEARCH)
+                return self._search_step(reading, dt)
             return self._drive(
-                "follow", 0, 0,
-                "T turn done; hold on a later crossbar",
+                "search",
+                -self.policy.speed,
+                self.policy.speed,
+                "after T: nudge right to align with the line",
             )
         if not self._t_turn_done and finishing_t:
             self._last_centroid = reading.centroid_x
@@ -371,13 +380,19 @@ class LineNav:
                     self.policy.speed,
                     "stem: keep straight to the T",
                 )
-            self._horiz_spin_s += dt
-            return self._drive(
-                "search",
-                -self.policy.speed,
-                self.policy.speed,
-                "horizontal stroke: spin right to align with outer loop",
-            )
+            if self._horiz_spin_s >= spin_limit:
+                # Nominal 90-degree spin reached without visual alignment:
+                # stop spinning; the post-turn handler will search.
+                self._t_turn_done = True
+                self._horiz_spin_s = 0.0
+            else:
+                self._horiz_spin_s += dt
+                return self._drive(
+                    "search",
+                    -self.policy.speed,
+                    self.policy.speed,
+                    "horizontal stroke: spin right to align with outer loop",
+                )
         elif reading.axis == "horizontal" and not self._t_turn_done:
             # Forward tilt: the T is already in view while wheels are on the
             # stem. A thin/high bar is look-ahead — drive straight to point 3.
@@ -523,7 +538,7 @@ class LineNav:
             return self._drive("search", 0, 0, f"search: give up after {self._state_time:.1f}s")
 
         # Step-by-step visual sweep search: oscillate left/right in small steps
-        spin_speed = int(round(self.policy.speed * self.policy.search_spin_speed_ratio))
+        spin_speed = round(self.policy.speed * self.policy.search_spin_speed_ratio)
         spin_rate = self.policy.spin_deg_per_s_at_200 * (spin_speed / 200.0)
 
         step_time = self.policy.search_sweep_deg / spin_rate if spin_rate > 0 else 0.5

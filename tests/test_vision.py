@@ -83,6 +83,43 @@ def test_estimate_square_pose_recovers_synthetic_translation():
     assert error < 1e-6
 
 
+def test_estimate_square_pose_exact_for_rotated_tag():
+    """IPPE_SQUARE's symmetry branch must be refined to the exact pose.
+
+    On noiseless corners of a tag rotated 90 deg in the image, the closed-form
+    IPPE_SQUARE solver returns a ~4 px-residual solution (the square's 4-fold
+    symmetry); the iterative refinement seeded from it must recover the exact
+    pose (verified 2026-08-16, see docs/adr/0003).
+    """
+    calibration = CameraCalibration(
+        2028,
+        1520,
+        np.asarray([[1400.0, 0.0, 1014.0], [0.0, 1400.0, 760.0], [0.0, 0.0, 1.0]]),
+        np.zeros(5),
+    )
+    tag_size = 0.05
+    half = tag_size / 2.0
+    object_points = np.asarray(
+        [[-half, half, 0.0], [half, half, 0.0], [half, -half, 0.0], [-half, -half, 0.0]]
+    )
+    # Camera pitched down 40 deg toward the tag, whose +X is rotated 90 deg.
+    pitch = np.deg2rad(40.0)
+    rotation_cam_from_tag, _ = cv2.Rodrigues(np.asarray([0.0, pitch, np.pi / 2.0]))
+    translation = np.asarray([0.0, 0.0, 0.4])
+    corners, _ = cv2.projectPoints(
+        object_points,
+        rotation_cam_from_tag,
+        translation,
+        calibration.camera_matrix,
+        calibration.distortion_coefficients,
+    )
+    rvec, tvec, error = estimate_square_pose(corners, tag_size, calibration)
+    assert error < 1e-3
+    assert np.allclose(tvec, translation, atol=1e-4)
+    recovered, _ = cv2.Rodrigues(rvec)
+    assert np.allclose(recovered, rotation_cam_from_tag, atol=1e-4)
+
+
 def test_detect_marker_and_undistort_synthetic_image():
     width = height = 1000
     calibration = CameraCalibration(

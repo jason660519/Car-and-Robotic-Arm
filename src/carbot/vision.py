@@ -259,29 +259,48 @@ def estimate_square_pose(
     tag_size_m: float,
     calibration: CameraCalibration,
 ) -> tuple[np.ndarray, np.ndarray, float]:
-    """Estimate a square tag pose and return ``(rvec, tvec, reprojection_error)``."""
+    """Estimate a square tag pose and return ``(rvec, tvec, reprojection_error)``.
+
+    Two solvers are tried and the one with the lower residual wins:
+    ``SOLVEPNP_IPPE_SQUARE`` (closed-form, fast) and ``SOLVEPNP_ITERATIVE``
+    (no seed). The closed-form solver's 4-fold symmetry can land on a wrong
+    branch — verified 2026-08-16: on noiseless corners a tag rotated 90 deg
+    resolves with ~4 px residual, and a tag viewed from the opposite side of
+    the map with ~7 px residual, while plain iterative solves both exactly.
+    Both candidates are validated for positive depth.
+    """
     cv2 = _cv2()
     corners = np.asarray(corners_px, dtype=np.float64).reshape(4, 2)
     object_points = _tag_object_points(tag_size_m)
-    ok, rotation, translation = cv2.solvePnP(
-        object_points,
-        corners,
-        calibration.camera_matrix,
-        calibration.distortion_coefficients,
-        flags=cv2.SOLVEPNP_IPPE_SQUARE,
-    )
-    if not ok or float(translation.reshape(3)[2]) <= 0:
+
+    def _projection_error(rotation, translation) -> float:
+        projected, _ = cv2.projectPoints(
+            object_points,
+            rotation,
+            translation,
+            calibration.camera_matrix,
+            calibration.distortion_coefficients,
+        )
+        residual = projected.reshape(4, 2) - corners
+        return float(np.sqrt(np.mean(np.sum(residual**2, axis=1))))
+
+    candidates = []
+    for flags in (cv2.SOLVEPNP_IPPE_SQUARE, cv2.SOLVEPNP_ITERATIVE):
+        ok, rotation, translation = cv2.solvePnP(
+            object_points,
+            corners,
+            calibration.camera_matrix,
+            calibration.distortion_coefficients,
+            flags=flags,
+        )
+        if ok and float(translation.reshape(3)[2]) > 0:
+            candidates.append(
+                (rotation.reshape(3), translation.reshape(3), _projection_error(rotation, translation))
+            )
+    if not candidates:
         raise ValueError("could not estimate a positive-depth AprilTag pose")
-    projected, _ = cv2.projectPoints(
-        object_points,
-        rotation,
-        translation,
-        calibration.camera_matrix,
-        calibration.distortion_coefficients,
-    )
-    residual = projected.reshape(4, 2) - corners
-    error = float(np.sqrt(np.mean(np.sum(residual**2, axis=1))))
-    return rotation.reshape(3), translation.reshape(3), error
+    rotation, translation, error = min(candidates, key=lambda item: item[2])
+    return rotation, translation, error
 
 
 def _orientation_degrees(rotation_vector: np.ndarray) -> tuple[float, float, float]:

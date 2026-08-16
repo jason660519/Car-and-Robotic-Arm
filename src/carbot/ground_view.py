@@ -275,7 +275,7 @@ def find_target_corners(
     cv2 = _cv2()
     gray = _grayscale(image)
     mask = (gray < dark_threshold).astype(np.uint8) * 255
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         return None
 

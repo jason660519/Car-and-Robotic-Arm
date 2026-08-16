@@ -113,6 +113,7 @@ def main() -> int:
         junction_min_branch_rows_fraction=args.junction_min_branch_rows_fraction,
         expected_center_fraction=args.expected_center,
         enable_roundabout=args.roundabout,
+        blind_creep_s=args.blind_creep_s,
         search_sweep_deg=args.search_sweep_deg,
         search_give_up_s=args.search_give_up_s,
     )
@@ -221,7 +222,7 @@ def main() -> int:
                             if car:
                                 car.stop()
                             break
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001, S110 - camera controls are optional
                     pass
 
             frame = camera.capture_array("main")

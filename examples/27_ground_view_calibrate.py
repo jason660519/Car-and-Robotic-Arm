@@ -123,10 +123,10 @@ def main() -> int:
             print(f"camera failed: {exc}", file=sys.stderr)
             return 1
 
-    window = dict(
-        x_min_m=args.x_min_m, x_max_m=args.x_max_m,
-        y_min_m=args.y_min_m, y_max_m=args.y_max_m,
-    )
+    window = {
+        "x_min_m": args.x_min_m, "x_max_m": args.x_max_m,
+        "y_min_m": args.y_min_m, "y_max_m": args.y_max_m,
+    }
     try:
         if args.charuco:
             view = ground_view_from_charuco(frame, **window)
