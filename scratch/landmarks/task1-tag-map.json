@@ -1,0 +1,134 @@
+{
+  "name": "task1-map-scaled-0.84",
+  "description": "AprilTags printed directly on the 840x588 mm map (original 1000x700 mm scaled 0.84). Map frame: SW origin, x east, y north, metres; NE corner = (0.84, 0.588). Tag size 20 mm. yaw_deg 0 = ID upright facing map-north (N arrow up).",
+  "tags": [
+    {
+      "id": 0,
+      "x_m": 0.045,
+      "y_m": 0.565,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 1,
+      "x_m": 0.135,
+      "y_m": 0.435,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 2,
+      "x_m": 0.4,
+      "y_m": 0.485,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 3,
+      "x_m": 0.655,
+      "y_m": 0.485,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 4,
+      "x_m": 0.8,
+      "y_m": 0.545,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 5,
+      "x_m": 0.818,
+      "y_m": 0.335,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 6,
+      "x_m": 0.815,
+      "y_m": 0.205,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 7,
+      "x_m": 0.79,
+      "y_m": 0.06,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 8,
+      "x_m": 0.05,
+      "y_m": 0.06,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 9,
+      "x_m": 0.08,
+      "y_m": 0.13,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 10,
+      "x_m": 0.12,
+      "y_m": 0.54,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 11,
+      "x_m": 0.66,
+      "y_m": 0.2,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 12,
+      "x_m": 0.66,
+      "y_m": 0.13,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 13,
+      "x_m": 0.5,
+      "y_m": 0.2,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 14,
+      "x_m": 0.76,
+      "y_m": 0.215,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    },
+    {
+      "id": 15,
+      "x_m": 0.45,
+      "y_m": 0.18,
+      "z_m": 0.0,
+      "yaw_deg": 0,
+      "size_m": 0.02
+    }
+  ]
+}

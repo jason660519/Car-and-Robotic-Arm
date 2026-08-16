@@ -17,9 +17,6 @@ dist/
 # 建置輸出
 _site/
 
-# 暫存工作區（見 CONVENTIONS.md §6）
-scratch/
-
 # Keil MDK 編譯產物 — vendor/ 匯入原廠專案時一律剔除，可從原始碼重建
 *.o
 *.crf
