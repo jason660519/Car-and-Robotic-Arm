@@ -72,7 +72,6 @@ class Sonar:
                 return None
         return distance_from_pulse(self._clock() - pulse_start)
 
-
     def measure_nearest(self, trials: int = 3) -> float | None:
         """Nearest of ``trials`` readings, or ``None`` when none return a value.
 

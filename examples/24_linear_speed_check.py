@@ -86,7 +86,8 @@ def _observe(camera, calibration, tag_size_m: float, tag_id: int | None) -> Obse
     if image is None:
         return None
     poses = [
-        p for p in detect_apriltag_poses(image, calibration, tag_size_m)
+        p
+        for p in detect_apriltag_poses(image, calibration, tag_size_m)
         if p.reprojection_error_px <= MAX_REPROJECTION_PX
     ]
     if tag_id is not None:
@@ -112,15 +113,32 @@ def _drive(car, speed: int, seconds: float, direction: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Measure forward and reverse travel distance")
     parser.add_argument("--speed", type=int, default=200, help="drive speed 0-1000")
-    parser.add_argument("--durations", type=float, nargs="+", default=list(DEFAULT_DURATIONS),
-                        help="drive durations to measure (seconds)")
+    parser.add_argument(
+        "--durations",
+        type=float,
+        nargs="+",
+        default=list(DEFAULT_DURATIONS),
+        help="drive durations to measure (seconds)",
+    )
     parser.add_argument("--repeats", type=int, default=1, help="measurements per duration")
-    parser.add_argument("--settle-s", type=float, default=1.0,
-                        help="seconds to let the chassis stop rocking before a frame")
-    parser.add_argument("--min-range-m", type=float, default=0.45,
-                        help="abort before driving if the tag is closer than this")
-    parser.add_argument("--tag-id", type=int, default=None,
-                        help="restrict to one tag id; default accepts whichever single tag is seen")
+    parser.add_argument(
+        "--settle-s",
+        type=float,
+        default=1.0,
+        help="seconds to let the chassis stop rocking before a frame",
+    )
+    parser.add_argument(
+        "--min-range-m",
+        type=float,
+        default=0.45,
+        help="abort before driving if the tag is closer than this",
+    )
+    parser.add_argument(
+        "--tag-id",
+        type=int,
+        default=None,
+        help="restrict to one tag id; default accepts whichever single tag is seen",
+    )
     parser.add_argument("--tag-size-m", type=float, default=DEFAULT_TAG_SIZE_M)
     parser.add_argument("--calibration", type=Path, default=DEFAULT_CALIBRATION)
     args = parser.parse_args()
@@ -165,12 +183,16 @@ def main() -> int:
     try:
         start = _observe(camera, calibration, args.tag_size_m, args.tag_id)
         if start is None:
-            print("No single AprilTag is visible. Point the car squarely at one wall tag "
-                  "and re-run.", file=sys.stderr)
+            print(
+                "No single AprilTag is visible. Point the car squarely at one wall tag and re-run.",
+                file=sys.stderr,
+            )
             return 1
         print(f"Tag at {start.range_m:.3f} m, reprojection {start.reprojection_px:.2f} px")
-        print(f"Measuring {len(args.durations)} durations x {args.repeats} repeats "
-              f"at speed {args.speed}")
+        print(
+            f"Measuring {len(args.durations)} durations x {args.repeats} repeats "
+            f"at speed {args.speed}"
+        )
         print("=" * 72)
 
         for duration in args.durations:
@@ -180,8 +202,10 @@ def main() -> int:
                     print(f"  {duration:.2f}s: lost the tag, stopping")
                     break
                 if before.range_m < args.min_range_m:
-                    print(f"  {duration:.2f}s: tag at {before.range_m:.2f} m is inside the "
-                          f"{args.min_range_m:.2f} m safety margin — stopping")
+                    print(
+                        f"  {duration:.2f}s: tag at {before.range_m:.2f} m is inside the "
+                        f"{args.min_range_m:.2f} m safety margin — stopping"
+                    )
                     break
 
                 lost = False
@@ -203,13 +227,19 @@ def main() -> int:
                         before = after
                     legs.append(leg)
 
-                    moved = (f"{leg.displacement_m:.3f} m" if leg.displacement_m is not None
-                             else "   -   ")
+                    moved = (
+                        f"{leg.displacement_m:.3f} m"
+                        if leg.displacement_m is not None
+                        else "   -   "
+                    )
                     speed = f"{leg.speed_m_s:.3f} m/s" if leg.speed_m_s is not None else "-"
-                    change = (f"{leg.range_change_m:+.3f} m"
-                              if leg.range_change_m is not None else "-")
-                    print(f"  {duration:.2f}s {direction:8s} -> moved {moved} "
-                          f"({speed}), range {change} {leg.note}")
+                    change = (
+                        f"{leg.range_change_m:+.3f} m" if leg.range_change_m is not None else "-"
+                    )
+                    print(
+                        f"  {duration:.2f}s {direction:8s} -> moved {moved} "
+                        f"({speed}), range {change} {leg.note}"
+                    )
                     if lost:
                         break
                 if lost:
@@ -236,8 +266,10 @@ def main() -> int:
     def _summary(name: str, group: list[Leg]) -> float:
         speeds = np.asarray([leg.speed_m_s for leg in group], dtype=np.float64)
         median = float(np.median(speeds))
-        print(f"{name:8s} median {median:.3f} m/s  (range {speeds.min():.3f}-{speeds.max():.3f}, "
-              f"{len(group)} legs)")
+        print(
+            f"{name:8s} median {median:.3f} m/s  (range {speeds.min():.3f}-{speeds.max():.3f}, "
+            f"{len(group)} legs)"
+        )
         return median
 
     forward_speed = _summary("forward", forward)
@@ -246,12 +278,16 @@ def main() -> int:
 
     # The patrol's own numbers, so the answer lands where the question came from.
     net = forward_speed * 1.0 - reverse_speed * 0.6
-    print(f"\nAt the patrol's defaults, one forward step (1.0 s) advances "
-          f"{forward_speed:.2f} m and one avoidance backup (0.6 s) gives back "
-          f"{reverse_speed * 0.6:.2f} m — net {net:+.2f} m per blocked-then-clear pair.")
+    print(
+        f"\nAt the patrol's defaults, one forward step (1.0 s) advances "
+        f"{forward_speed:.2f} m and one avoidance backup (0.6 s) gives back "
+        f"{reverse_speed * 0.6:.2f} m — net {net:+.2f} m per blocked-then-clear pair."
+    )
     if net <= 0.05:
-        print("That is why the last run stayed inside 13 cm: the manoeuvre cancels the step. "
-              "Lengthen --step-s, shorten --backup-s, or block less often.")
+        print(
+            "That is why the last run stayed inside 13 cm: the manoeuvre cancels the step. "
+            "Lengthen --step-s, shorten --backup-s, or block less often."
+        )
     return 0
 
 

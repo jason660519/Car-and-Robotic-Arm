@@ -189,7 +189,9 @@ def assess(
     gray = _grayscale(image)
     height, width = gray.shape[:2]
     if height < tile_rows or width < tile_columns:
-        raise ValueError(f"image {width}x{height} is too small for a {tile_columns}x{tile_rows} grid")
+        raise ValueError(
+            f"image {width}x{height} is too small for a {tile_columns}x{tile_rows} grid"
+        )
 
     orb = cv2.ORB_create(nfeatures=ORB_FEATURES_PER_TILE)
     keypoints: list[tuple[int, ...]] = []

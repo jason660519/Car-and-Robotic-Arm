@@ -100,7 +100,9 @@ def test_centred_line_drives_straight():
 
 
 def test_small_error_inside_deadband_drives_straight():
-    cmd = steer_command(line_reading(error_fraction=0.06), NavPolicy(speed=200, steer_deadband=0.10))
+    cmd = steer_command(
+        line_reading(error_fraction=0.06), NavPolicy(speed=200, steer_deadband=0.10)
+    )
     assert cmd.left == cmd.right == 200
 
 
@@ -228,7 +230,9 @@ def test_junction_without_width_jump_stays_follow():
 
 
 def test_roundabout_stays_until_lap_time_elapsed():
-    nav = LineNav(NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=6.5, enable_roundabout=True))
+    nav = LineNav(
+        NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=6.5, enable_roundabout=True)
+    )
     nav.step(line_reading(error_fraction=0.1), dt=0.1)  # baseline
     for _ in range(5):
         nav.step(line_reading(error_fraction=0.1, junction=True, line_width=50), dt=0.1)
@@ -241,7 +245,9 @@ def test_roundabout_stays_until_lap_time_elapsed():
 
 
 def test_roundabout_exits_after_lap_and_fork():
-    nav = LineNav(NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=2.0, enable_roundabout=True))
+    nav = LineNav(
+        NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=2.0, enable_roundabout=True)
+    )
     nav.step(line_reading(error_fraction=0.1), dt=0.1)  # baseline
     for _ in range(5):
         nav.step(line_reading(error_fraction=0.1, junction=True, line_width=50), dt=0.1)
@@ -256,7 +262,9 @@ def test_roundabout_exits_after_lap_and_fork():
 
 
 def test_roundabout_does_not_exit_before_lap_minimum():
-    nav = LineNav(NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=10.0, enable_roundabout=True))
+    nav = LineNav(
+        NavPolicy(speed=200, junction_min_s=0.1, roundabout_loop_min_s=10.0, enable_roundabout=True)
+    )
     nav.step(line_reading(error_fraction=0.1), dt=0.1)  # baseline
     for _ in range(5):
         nav.step(line_reading(error_fraction=0.1, junction=True, line_width=50), dt=0.1)
@@ -326,10 +334,14 @@ def test_horizontal_stroke_stops_after_a_right_angle():
 def test_turn_completes_early_when_aligned():
     # The spin finishes as soon as the camera sees the next vertical line
     # centred and thick (>=0.7 of the nominal spin already elapsed).
-    nav = LineNav(NavPolicy(
-        speed=200, expected_center_fraction=0.5, right_turn_after_s=0.0,
-        spin_deg_per_s_at_200=90.0,
-    ))
+    nav = LineNav(
+        NavPolicy(
+            speed=200,
+            expected_center_fraction=0.5,
+            right_turn_after_s=0.0,
+            spin_deg_per_s_at_200=90.0,
+        )
+    )
     for _ in range(8):
         nav.step(near_t_bar(), dt=0.1)  # 0.8 s of spin
     cmd = nav.step(line_reading(error_fraction=0.0, axis="vertical", line_width=120), dt=0.1)
@@ -366,7 +378,9 @@ def test_error_jump_stops_then_searches():
 
 
 def test_search_ignores_far_edge_lock():
-    nav = LineNav(NavPolicy(speed=200, search_timeout_s=0.0, reacquire_error=0.40, search_sweep_deg=0.0))
+    nav = LineNav(
+        NavPolicy(speed=200, search_timeout_s=0.0, reacquire_error=0.40, search_sweep_deg=0.0)
+    )
     nav.step(line_reading(visible=False), dt=0.1)
     assert nav.state is NavState.SEARCH
     cmd = nav.step(line_reading(error_fraction=-0.9), dt=0.1)
@@ -416,7 +430,11 @@ def test_fat_junction_does_not_poison_line_width():
 
 
 def test_rightward_junction_jump_is_followed():
-    nav = LineNav(NavPolicy(speed=200, expected_center_fraction=0.5, max_error_jump=0.35, right_turn_after_s=0.0))
+    nav = LineNav(
+        NavPolicy(
+            speed=200, expected_center_fraction=0.5, max_error_jump=0.35, right_turn_after_s=0.0
+        )
+    )
     nav.step(line_reading(error_fraction=0.0), dt=0.1)
     cmd = nav.step(line_reading(error_fraction=0.45, junction=True), dt=0.1)
     assert cmd.left == 200

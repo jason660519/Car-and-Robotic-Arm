@@ -54,29 +54,40 @@ def detect_line(frame, policy, ground_view=None):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Task-1 vision navigation drive")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="camera + plan only; never drive motors")
-    parser.add_argument("--duration", type=float, default=120.0,
-                        help="max seconds to run (0 = until stopped)")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="camera + plan only; never drive motors"
+    )
+    parser.add_argument(
+        "--duration", type=float, default=120.0, help="max seconds to run (0 = until stopped)"
+    )
     parser.add_argument("--threshold", type=int, default=LinePolicy().dark_threshold)
     parser.add_argument("--roi-top", type=float, default=LinePolicy().roi_top)
     parser.add_argument("--roi-bottom", type=float, default=LinePolicy().roi_bottom)
     parser.add_argument("--speed", type=int, default=200)
     parser.add_argument("--turn-gain", type=float, default=2.5)
     parser.add_argument("--blind-creep-s", type=float, default=1.5)
-    parser.add_argument("--right-turn-after-s", type=float, default=0.2,
-                        help="how long a near T bar must persist before the "
-                             "right spin starts (default 0.2s: the bar is only "
-                             "visible briefly before the blind cone)")
+    parser.add_argument(
+        "--right-turn-after-s",
+        type=float,
+        default=0.2,
+        help="how long a near T bar must persist before the "
+        "right spin starts (default 0.2s: the bar is only "
+        "visible briefly before the blind cone)",
+    )
     parser.add_argument("--search-sweep-deg", type=float, default=20.0)
     parser.add_argument("--search-give-up-s", type=float, default=2.5)
     parser.add_argument("--roundabout", action="store_true", default=True)
     parser.add_argument("--exposure-time-us", type=int, default=50_000)
     parser.add_argument("--analogue-gain", type=float, default=4.5)
-    parser.add_argument("--sonar-stop-cm", type=float, default=15.0,
-                        help="HC-SR04 emergency stop distance (0 disables)")
-    parser.add_argument("--ground-view", type=Path, default=None,
-                        help="bird's-eye homography JSON (recommended)")
+    parser.add_argument(
+        "--sonar-stop-cm",
+        type=float,
+        default=15.0,
+        help="HC-SR04 emergency stop distance (0 disables)",
+    )
+    parser.add_argument(
+        "--ground-view", type=Path, default=None, help="bird's-eye homography JSON (recommended)"
+    )
     parser.add_argument("--save-every", type=int, default=0)
     parser.add_argument("--log-dir", type=Path, default=Path("/tmp/route-nav"))
     args = parser.parse_args()
@@ -97,8 +108,10 @@ def main() -> int:
     )
     plan = task1_route()
     tracker = RouteTracker(plan, LineNav(nav_policy))
-    print(f"route: {plan.name} - {len(plan)} steps, total {total_distance_m(plan):.2f} m "
-          f"(advisory; vision drives)")
+    print(
+        f"route: {plan.name} - {len(plan)} steps, total {total_distance_m(plan):.2f} m "
+        f"(advisory; vision drives)"
+    )
 
     from carbot.ground_view import load_optional_ground_view
 
@@ -107,9 +120,7 @@ def main() -> int:
         print("using bird's-eye ground view for line detection")
 
     if not args.dry_run:
-        answer = input(
-            "Operator beside the car, path clear, power ready to cut? (yes/no) "
-        ).strip()
+        answer = input("Operator beside the car, path clear, power ready to cut? (yes/no) ").strip()
         if answer.lower() != "yes":
             print("Re-run when an operator is ready beside the car.")
             return 1
@@ -136,11 +147,13 @@ def main() -> int:
         return 1
 
     try:
-        camera.set_controls({
-            "AeEnable": False,
-            "ExposureTime": args.exposure_time_us,
-            "AnalogueGain": args.analogue_gain,
-        })
+        camera.set_controls(
+            {
+                "AeEnable": False,
+                "ExposureTime": args.exposure_time_us,
+                "AnalogueGain": args.analogue_gain,
+            }
+        )
         time.sleep(0.5)
     except Exception as exc:  # noqa: BLE001 - report control failure
         print(f"exposure controls failed: {exc}", file=sys.stderr)
@@ -166,14 +179,21 @@ def main() -> int:
                 car.drive(cmd.left, cmd.right)
 
             summary = reading.summary if reading is not None else "no reading"
-            print(f"[{now - start:6.1f}s] #{frame_index:4d} step{status.step_index:02d} "
-                  f"[{status.step_label}] {status.message} | {summary}")
+            print(
+                f"[{now - start:6.1f}s] #{frame_index:4d} step{status.step_index:02d} "
+                f"[{status.step_label}] {status.message} | {summary}"
+            )
 
             if args.save_every and frame_index % args.save_every == 0:
                 annotated = frame.copy()
                 cv2.putText(
-                    annotated, f"step{status.step_index} {status.step_label}",
-                    (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3,
+                    annotated,
+                    f"step{status.step_index} {status.step_label}",
+                    (20, 60),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1.2,
+                    (0, 255, 0),
+                    3,
                 )
                 cv2.imwrite(str(args.log_dir / f"frame-{frame_index:05d}.jpg"), annotated)
 

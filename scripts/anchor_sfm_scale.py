@@ -43,11 +43,19 @@ def main() -> int:
     parser.add_argument("model_dir", type=Path, help="sparse model directory (contains images.bin)")
     parser.add_argument("image_dir", type=Path, help="folder holding the source images")
     parser.add_argument("--calibration", type=Path, default=DEFAULT_CALIBRATION)
-    parser.add_argument("--tag-size-m", type=float, default=DEFAULT_TAG_SIZE_M,
-                        help="printed tag's black square edge length in metres")
-    parser.add_argument("--max-reprojection-px", type=float, default=1.0,
-                        help="discard tag detections whose pose fits this badly; on the first "
-                             "real model every outlier ratio came from a 2.02 px detection")
+    parser.add_argument(
+        "--tag-size-m",
+        type=float,
+        default=DEFAULT_TAG_SIZE_M,
+        help="printed tag's black square edge length in metres",
+    )
+    parser.add_argument(
+        "--max-reprojection-px",
+        type=float,
+        default=1.0,
+        help="discard tag detections whose pose fits this badly; on the first "
+        "real model every outlier ratio came from a 2.02 px detection",
+    )
     args = parser.parse_args()
 
     if not args.model_dir.is_dir():
@@ -93,22 +101,31 @@ def main() -> int:
 
     if not tag_positions:
         print("\nNo usable AprilTag was detected in any registered image.", file=sys.stderr)
-        print("The sweep has to actually see the wall tag; re-run the patrol so the "
-              "camera passes it, or lower --max-reprojection-px if poses are being "
-              "discarded.", file=sys.stderr)
+        print(
+            "The sweep has to actually see the wall tag; re-run the patrol so the "
+            "camera passes it, or lower --max-reprojection-px if poses are being "
+            "discarded.",
+            file=sys.stderr,
+        )
         return 1
 
-    print(f"Tags: {len(tag_positions)} images carry a usable detection "
-          f"({discarded} poses discarded above {args.max_reprojection_px:.1f} px)")
+    print(
+        f"Tags: {len(tag_positions)} images carry a usable detection "
+        f"({discarded} poses discarded above {args.max_reprojection_px:.1f} px)"
+    )
     for tag_id, count in sorted(detections_per_tag.items()):
         print(f"  tag {tag_id}: seen in {count} images")
 
     estimate = estimate_scale(centres, tag_positions)
     if estimate is None:
-        print("\nNo image pair shared a tag with a long enough baseline to solve scale.",
-              file=sys.stderr)
-        print("A tag needs to be visible from at least two clearly separated viewpoints.",
-              file=sys.stderr)
+        print(
+            "\nNo image pair shared a tag with a long enough baseline to solve scale.",
+            file=sys.stderr,
+        )
+        print(
+            "A tag needs to be visible from at least two clearly separated viewpoints.",
+            file=sys.stderr,
+        )
         return 1
 
     print(f"\nScale: {estimate.describe()}")
@@ -116,27 +133,34 @@ def main() -> int:
     extent = trajectory_extent_m(metric)
     print(f"Camera trajectory extent: {extent[0]:.2f} x {extent[1]:.2f} x {extent[2]:.2f} m")
     if not estimate.trustworthy:
-        print("\nThe estimate is not trustworthy — treat the extents above as indicative "
-              "only. More viewpoints on the same tag is the fix.", file=sys.stderr)
+        print(
+            "\nThe estimate is not trustworthy — treat the extents above as indicative "
+            "only. More viewpoints on the same tag is the fix.",
+            file=sys.stderr,
+        )
 
     scale_path = args.model_dir / "scale.json"
-    scale_path.write_text(json.dumps({
-        "metres_per_unit": estimate.metres_per_unit,
-        "pair_count": estimate.pair_count,
-        "tag_ids": list(estimate.tag_ids),
-        "relative_spread": estimate.relative_spread,
-        "trustworthy": estimate.trustworthy,
-        "tag_size_m": args.tag_size_m,
-        "registered_images": len(centres),
-        "images_with_tag": len(tag_positions),
-        "trajectory_extent_m": extent.tolist(),
-    }, indent=2) + "\n")
+    scale_path.write_text(
+        json.dumps(
+            {
+                "metres_per_unit": estimate.metres_per_unit,
+                "pair_count": estimate.pair_count,
+                "tag_ids": list(estimate.tag_ids),
+                "relative_spread": estimate.relative_spread,
+                "trustworthy": estimate.trustworthy,
+                "tag_size_m": args.tag_size_m,
+                "registered_images": len(centres),
+                "images_with_tag": len(tag_positions),
+                "trajectory_extent_m": extent.tolist(),
+            },
+            indent=2,
+        )
+        + "\n"
+    )
 
     trajectory_path = args.model_dir / "trajectory-m.csv"
     lines = ["image,x_m,y_m,z_m"]
-    lines += [
-        f"{name},{p[0]:.4f},{p[1]:.4f},{p[2]:.4f}" for name, p in sorted(metric.items())
-    ]
+    lines += [f"{name},{p[0]:.4f},{p[1]:.4f},{p[2]:.4f}" for name, p in sorted(metric.items())]
     trajectory_path.write_text("\n".join(lines) + "\n")
 
     print(f"\nWrote {scale_path}")

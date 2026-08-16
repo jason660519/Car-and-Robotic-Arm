@@ -20,9 +20,9 @@ from dataclasses import dataclass
 class MotionModel:
     """Speed calibration constants for one base speed."""
 
-    speed: int = 200            # motor speed the constants were measured at
+    speed: int = 200  # motor speed the constants were measured at
     forward_mps: float = 0.104  # measured 2026-08-16: 10.4 cm in 1.0 s at speed 200
-    spin_degps: float = 53.5    # in-place yaw rate at ``speed``
+    spin_degps: float = 53.5  # in-place yaw rate at ``speed``
 
     def seconds_for_distance(self, distance_m: float) -> float:
         """Time to drive ``distance_m`` at the calibrated speed."""

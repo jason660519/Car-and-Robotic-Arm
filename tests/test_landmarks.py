@@ -115,7 +115,9 @@ def _map(*entries: TagMapEntry) -> TagMap:
     return TagMap(name="test", entries={entry.tag_id: entry for entry in entries})
 
 
-def _entry(tag_id: int, x: float, y: float, yaw: float = 0.0, size: float = TAG_SIZE) -> TagMapEntry:
+def _entry(
+    tag_id: int, x: float, y: float, yaw: float = 0.0, size: float = TAG_SIZE
+) -> TagMapEntry:
     return TagMapEntry(tag_id=tag_id, x_m=x, y_m=y, yaw_deg=yaw, size_m=size)
 
 
@@ -161,8 +163,10 @@ class TestTagMap:
         assert tag_map.name == "task1"
         assert tag_map.entry(0) is not None
         assert tag_map.entry(0).position_m.shape == (3,)
-        assert np.allclose(tag_map.entry(1).rotation_world_from_tag @ np.array([1.0, 0.0, 0.0]),
-                           np.array([0.0, 1.0, 0.0]))
+        assert np.allclose(
+            tag_map.entry(1).rotation_world_from_tag @ np.array([1.0, 0.0, 0.0]),
+            np.array([0.0, 1.0, 0.0]),
+        )
         assert tag_map.entry(2) is None
 
     @pytest.mark.parametrize(
@@ -173,8 +177,12 @@ class TestTagMap:
             {"tags": [{"id": 0, "x_m": 0.0, "y_m": 0.0, "yaw_deg": 0.0, "size_m": -1.0}]},
             {"tags": [{"id": 0, "x_m": float("nan"), "y_m": 0.0, "yaw_deg": 0.0, "size_m": 0.05}]},
             {"tags": [{"id": 0, "x_m": 0.0, "y_m": 0.0, "yaw_deg": float("inf"), "size_m": 0.05}]},
-            {"tags": [{"id": 0, "x_m": 0.0, "y_m": 0.0, "yaw_deg": 0.0, "size_m": 0.05},
-                      {"id": 0, "x_m": 0.1, "y_m": 0.1, "yaw_deg": 0.0, "size_m": 0.05}]},
+            {
+                "tags": [
+                    {"id": 0, "x_m": 0.0, "y_m": 0.0, "yaw_deg": 0.0, "size_m": 0.05},
+                    {"id": 0, "x_m": 0.1, "y_m": 0.1, "yaw_deg": 0.0, "size_m": 0.05},
+                ]
+            },
         ],
     )
     def test_load_rejects_invalid(self, tmp_path, payload) -> None:
@@ -231,8 +239,9 @@ class TestLocalizeCamera:
         # Camera north of the tag looking south: heading = -90 (0 = east,
         # 90 = north in the SW-origin frame).
         camera_pose = _build_camera_pose((1.0, 1.2, 0.3), (1.0, 1.0, 0.0))
-        result = localize_camera([_tag_pose_in_camera(0, entry, camera_pose)],
-                                 CALIBRATION, _map(entry))
+        result = localize_camera(
+            [_tag_pose_in_camera(0, entry, camera_pose)], CALIBRATION, _map(entry)
+        )
         assert result is not None
         assert result.heading_deg == pytest.approx(-90.0, abs=1.0)
 
@@ -328,8 +337,9 @@ class TestLocalizeCamera:
             roll_deg=noisy.roll_deg,
         )
         # Tight tolerance rejects the noisy observation...
-        assert localize_camera(
-            [noisy], CALIBRATION, _map(entry), max_reprojection_error_px=0.05
-        ) is None
+        assert (
+            localize_camera([noisy], CALIBRATION, _map(entry), max_reprojection_error_px=0.05)
+            is None
+        )
         # ...while the default tolerance still accepts it (as on hardware).
         assert localize_camera([noisy], CALIBRATION, _map(entry)) is not None

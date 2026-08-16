@@ -51,11 +51,13 @@ def _capture(size: tuple[int, int]) -> object:
     camera.configure(camera.create_preview_configuration(main={"size": size}))
     camera.start()
     try:
-        camera.set_controls({
-            "AeEnable": False,
-            "ExposureTime": 50_000,
-            "AnalogueGain": 4.5,
-        })
+        camera.set_controls(
+            {
+                "AeEnable": False,
+                "ExposureTime": 50_000,
+                "AnalogueGain": 4.5,
+            }
+        )
         time.sleep(0.5)
     except Exception:  # noqa: BLE001 - camera controls are optional on some builds
         time.sleep(1.5)
@@ -75,7 +77,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Calibrate bird's-eye ground view")
     parser.add_argument("--image", type=Path, help="use this still instead of capturing")
     parser.add_argument(
-        "--output", type=Path, default=DEFAULT_OUTPUT,
+        "--output",
+        type=Path,
+        default=DEFAULT_OUTPUT,
         help="JSON path for the homography",
     )
     parser.add_argument(
@@ -83,20 +87,25 @@ def main() -> int:
         help="TL,TR,BR,BL pixel corners of a measured floor rectangle",
     )
     parser.add_argument(
-        "--size-m", default="0.20,0.15",
+        "--size-m",
+        default="0.20,0.15",
         help="width,height in metres of that rectangle (x right, y forward)",
     )
     parser.add_argument(
-        "--near-m", type=float, default=0.18,
+        "--near-m",
+        type=float,
+        default=0.18,
         help="ground-forward distance of the rectangle's near edge",
     )
-    parser.add_argument("--charuco", action="store_true",
-                        help="fit from a ChArUco board lying on the paper")
     parser.add_argument(
-        "--auto", action="store_true",
+        "--charuco", action="store_true", help="fit from a ChArUco board lying on the paper"
+    )
+    parser.add_argument(
+        "--auto",
+        action="store_true",
         help="auto-detect the printed calibration target's corners "
-             "(scripts/generate_ground_view_target.py) instead of --corners; "
-             "use with --size-m/--near-m",
+        "(scripts/generate_ground_view_target.py) instead of --corners; "
+        "use with --size-m/--near-m",
     )
     # The BEV world-y window. Defaults here are the 2026-08-16 verified
     # values (`calibrate_ground_view`'s own defaults, y_min_m=0.12/y_max_m=0.72,
@@ -124,8 +133,10 @@ def main() -> int:
             return 1
 
     window = {
-        "x_min_m": args.x_min_m, "x_max_m": args.x_max_m,
-        "y_min_m": args.y_min_m, "y_max_m": args.y_max_m,
+        "x_min_m": args.x_min_m,
+        "x_max_m": args.x_max_m,
+        "y_min_m": args.y_min_m,
+        "y_max_m": args.y_max_m,
     }
     try:
         if args.charuco:
@@ -133,8 +144,11 @@ def main() -> int:
         elif args.auto:
             width_m, height_m = (float(part) for part in args.size_m.split(","))
             view = auto_calibrate_ground_view(
-                frame, target_width_m=width_m, target_height_m=height_m,
-                near_m=args.near_m, **window,
+                frame,
+                target_width_m=width_m,
+                target_height_m=height_m,
+                near_m=args.near_m,
+                **window,
             )
         elif args.corners:
             width_m, height_m = (float(part) for part in args.size_m.split(","))

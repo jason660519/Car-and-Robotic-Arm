@@ -168,16 +168,16 @@ def load_tag_map(path: str | Path) -> TagMap:
     name = raw.get("name", "unnamed")
     raw_entries = raw.get("tags")
     if not isinstance(raw_entries, list):
-        raise TypeError("tag map JSON \"tags\" must be a list")
+        raise TypeError('tag map JSON "tags" must be a list')
     if not raw_entries:
-        raise ValueError("tag map JSON \"tags\" must be non-empty")
+        raise ValueError('tag map JSON "tags" must be non-empty')
     entries: dict[int, TagMapEntry] = {}
     for item in raw_entries:
         if not isinstance(item, dict):
             raise TypeError("each tag map entry must be an object")
         tag_id = item.get("id")
         if not isinstance(tag_id, int) or isinstance(tag_id, bool):
-            raise TypeError("each tag map entry needs an integer \"id\"")
+            raise TypeError('each tag map entry needs an integer "id"')
         if tag_id in entries:
             raise ValueError(f"duplicate tag id in tag map: {tag_id}")
         try:
@@ -191,7 +191,11 @@ def load_tag_map(path: str | Path) -> TagMap:
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(f"invalid tag map entry {tag_id}: {exc}") from exc
-        if not math.isfinite(entry.x_m) or not math.isfinite(entry.y_m) or not math.isfinite(entry.z_m):
+        if (
+            not math.isfinite(entry.x_m)
+            or not math.isfinite(entry.y_m)
+            or not math.isfinite(entry.z_m)
+        ):
             raise ValueError(f"tag {tag_id}: position must be finite")
         if not math.isfinite(entry.yaw_deg):
             raise ValueError(f"tag {tag_id}: yaw_deg must be finite")
@@ -205,9 +209,7 @@ def _solve_pose_with_entry_size(
     pose: AprilTagPose, entry: TagMapEntry, calibration: CameraCalibration
 ) -> AprilTagPose:
     """Re-solve a detected tag with the map's true size for that tag."""
-    rotation, translation, error = estimate_square_pose(
-        pose.corners_px, entry.size_m, calibration
-    )
+    rotation, translation, error = estimate_square_pose(pose.corners_px, entry.size_m, calibration)
     return AprilTagPose(
         tag_id=pose.tag_id,
         corners_px=pose.corners_px,

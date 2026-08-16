@@ -18,7 +18,10 @@ class StubNav:
     def __init__(self, state: NavState = NavState.FOLLOW) -> None:
         self.state = state
         self.command = NavCommand(
-            action="follow", left=200, right=200, reason="stub",
+            action="follow",
+            left=200,
+            right=200,
+            reason="stub",
             state=state,
         )
 
@@ -32,8 +35,13 @@ def make_tracker(state: NavState = NavState.FOLLOW) -> RouteTracker:
 
 def reading(err=0.0) -> LineReading:
     return LineReading(
-        visible=True, error_px=0.0, error_fraction=err, centroid_x=0.5,
-        line_width_px=10.0, dark_fraction=0.2, tracked_rows=10,
+        visible=True,
+        error_px=0.0,
+        error_fraction=err,
+        centroid_x=0.5,
+        line_width_px=10.0,
+        dark_fraction=0.2,
+        tracked_rows=10,
         roi=(0, 100, 200, 300),
     )
 

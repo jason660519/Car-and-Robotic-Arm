@@ -49,7 +49,9 @@ def main() -> int:
         board.led("head", True)
         board.led("head", False)
 
-    print("\n✓ Probe finished successfully. Next: `examples/02_motor_check.py` with the car lifted.")
+    print(
+        "\n✓ Probe finished successfully. Next: `examples/02_motor_check.py` with the car lifted."
+    )
     return 0
 
 

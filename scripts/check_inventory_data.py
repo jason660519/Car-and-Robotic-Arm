@@ -83,7 +83,9 @@ def main() -> int:
 
     print(f"Modules: {len(modules)}, referenced images: {len(used)}")
     if orphans:
-        print(f"\nUnreferenced inventory photos: {len(orphans)} (not an error, but worth reviewing):")
+        print(
+            f"\nUnreferenced inventory photos: {len(orphans)} (not an error, but worth reviewing):"
+        )
         for name in orphans:
             print(f"  - {name}")
 

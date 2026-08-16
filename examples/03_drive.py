@@ -27,7 +27,10 @@ HOLD_S = 1.0
 
 
 def main() -> int:
-    if input("Is the car lifted with all four wheels off the ground? (yes/no) ").strip().lower() != "yes":
+    if (
+        input("Is the car lifted with all four wheels off the ground? (yes/no) ").strip().lower()
+        != "yes"
+    ):
         print("Lift the car before running this test.")
         return 1
 

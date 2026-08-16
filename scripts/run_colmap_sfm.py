@@ -27,8 +27,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run COLMAP SfM via pycolmap")
     parser.add_argument("image_dir", type=Path, help="folder of input images")
     parser.add_argument("work_dir", type=Path, help="output working directory")
-    parser.add_argument("--camera-model", default="SIMPLE_RADIAL",
-                        help="COLMAP camera model for self-calibration")
+    parser.add_argument(
+        "--camera-model", default="SIMPLE_RADIAL", help="COLMAP camera model for self-calibration"
+    )
     args = parser.parse_args()
 
     if not args.image_dir.is_dir():
@@ -47,8 +48,9 @@ def main() -> int:
     reader.camera_model = args.camera_model
 
     print(f"== feature extraction ({len(images)} images, {args.camera_model}) ==")
-    pycolmap.extract_features(db, args.image_dir, camera_mode=pycolmap.CameraMode.SINGLE,
-                              reader_options=reader)
+    pycolmap.extract_features(
+        db, args.image_dir, camera_mode=pycolmap.CameraMode.SINGLE, reader_options=reader
+    )
 
     print("== exhaustive matching ==")
     pycolmap.match_exhaustive(db)
@@ -70,8 +72,10 @@ def main() -> int:
             "points3D": rec.num_points3D(),
         }
         summary.append(entry)
-        print(f"  model {rec_id}: {entry['registered_images']}/{entry['total_images']} "
-              f"images registered, {entry['points3D']} points")
+        print(
+            f"  model {rec_id}: {entry['registered_images']}/{entry['total_images']} "
+            f"images registered, {entry['points3D']} points"
+        )
     (args.work_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(f"Sparse model: {output_dir}")
     print(f"Summary: {args.work_dir / 'summary.json'}")

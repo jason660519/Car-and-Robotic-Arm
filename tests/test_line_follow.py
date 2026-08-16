@@ -65,9 +65,7 @@ def test_line_to_the_right_reports_positive_error():
     assert reading.visible
     assert reading.error_px is not None
     assert reading.error_px > 0
-    assert reading.error_fraction == pytest.approx(
-        reading.error_px / (WIDTH / 2), abs=1e-9
-    )
+    assert reading.error_fraction == pytest.approx(reading.error_px / (WIDTH / 2), abs=1e-9)
 
 
 def test_error_fraction_is_normalised_to_unit_range():

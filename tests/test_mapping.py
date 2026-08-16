@@ -90,9 +90,7 @@ def test_occupancy_grid_update_and_bounds():
 
 def test_load_polar_scan_roundtrip(tmp_path):
     csv_path = tmp_path / "scan.csv"
-    csv_path.write_text("elapsed_s,distance_cm,spin360_s\n"
-                        "0.00,100.0,8.0\n"
-                        "2.00,200.0,8.0\n")
+    csv_path.write_text("elapsed_s,distance_cm,spin360_s\n0.00,100.0,8.0\n2.00,200.0,8.0\n")
     scan = load_polar_scan(csv_path)
     assert scan.shape == (2, 2)
     assert np.allclose(scan[:, 1], [100.0, 200.0])

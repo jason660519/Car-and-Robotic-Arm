@@ -58,14 +58,18 @@ def measure_once(timeout_s: float = 0.5) -> float | None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Closed-loop obstacle avoidance demo")
     parser.add_argument("--dry-run", action="store_true", help="sensor only — never drive motors")
-    parser.add_argument("--ground", action="store_true", help="car is on the floor (real avoidance run)")
+    parser.add_argument(
+        "--ground", action="store_true", help="car is on the floor (real avoidance run)"
+    )
     parser.add_argument("--duration", type=float, default=30.0, help="run duration in seconds")
     parser.add_argument("--threshold", type=float, default=25.0, help="obstacle distance in cm")
     parser.add_argument("--speed", type=int, default=200, help="drive speed (0-255)")
     args = parser.parse_args()
 
     if not args.dry_run and not args.ground:
-        answer = input("Is the car LIFTED with all wheels off the ground? (yes/no) ").strip().lower()
+        answer = (
+            input("Is the car LIFTED with all wheels off the ground? (yes/no) ").strip().lower()
+        )
         if answer != "yes":
             print("Lift the car (or pass --ground) before running this test.")
             return 1
@@ -88,8 +92,10 @@ def main() -> int:
     GPIO.setup(ECHO_PIN, GPIO.IN)
 
     mode = "DRY-RUN (sensor only)" if args.dry_run else ("GROUND" if args.ground else "LIFTED")
-    print(f"Obstacle avoidance — mode: {mode}, threshold {args.threshold:.0f} cm, "
-          f"duration {args.duration:.0f} s")
+    print(
+        f"Obstacle avoidance — mode: {mode}, threshold {args.threshold:.0f} cm, "
+        f"duration {args.duration:.0f} s"
+    )
     print("=" * 60)
 
     start = time.time()
@@ -127,8 +133,10 @@ def main() -> int:
             car.close()
 
     print("-" * 60)
-    print(f"Finished {loop} loop(s). "
-          f"{'Dry-run OK — sensor loop responded.' if args.dry_run else 'Stop confirmed.'}")
+    print(
+        f"Finished {loop} loop(s). "
+        f"{'Dry-run OK — sensor loop responded.' if args.dry_run else 'Stop confirmed.'}"
+    )
     return 0
 
 

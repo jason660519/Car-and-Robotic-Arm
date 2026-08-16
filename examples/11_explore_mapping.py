@@ -110,16 +110,25 @@ def gap_anchor_heading(scan_gaps, ref_gaps):
 def main() -> int:
     parser = argparse.ArgumentParser(description="M3 autonomous room-mapping loop")
     parser.add_argument("--steps", type=int, default=20, help="max exploration steps")
-    parser.add_argument("--spin360", type=float, default=SPIN_360_S,
-                        help=f"seconds per full spin at --spin-speed (verified "
-                             f"{SPIN_360_S} at speed {SPIN_SPEED})")
-    parser.add_argument("--spin-speed", type=int, default=SPIN_SPEED,
-                        help="spin speed 0-255 (revolution time must be "
-                             "re-measured if changed from the default)")
+    parser.add_argument(
+        "--spin360",
+        type=float,
+        default=SPIN_360_S,
+        help=f"seconds per full spin at --spin-speed (verified {SPIN_360_S} at speed {SPIN_SPEED})",
+    )
+    parser.add_argument(
+        "--spin-speed",
+        type=int,
+        default=SPIN_SPEED,
+        help="spin speed 0-255 (revolution time must be re-measured if changed from the default)",
+    )
     parser.add_argument("--step-s", type=float, default=STEP_S, help="forward seconds per step")
-    parser.add_argument("--drive-speed", type=int, default=DRIVE_SPEED,
-                        help="forward drive speed 0-255 (FWD_CM_PER_S estimate "
-                             "was measured at this default)")
+    parser.add_argument(
+        "--drive-speed",
+        type=int,
+        default=DRIVE_SPEED,
+        help="forward drive speed 0-255 (FWD_CM_PER_S estimate was measured at this default)",
+    )
     args = parser.parse_args()
 
     GPIO.setmode(GPIO.BCM)
@@ -163,8 +172,7 @@ def main() -> int:
             gaps = detect_gaps(np.asarray(rows, dtype=np.float64))
             if ref_gaps is None and gaps:
                 ref_gaps = [g["center_deg"] for g in gaps]
-                print(f"[{step}] reference gaps (world): "
-                      f"{[round(g) for g in ref_gaps]}")
+                print(f"[{step}] reference gaps (world): {[round(g) for g in ref_gaps]}")
 
             if map_pts is None:
                 r, t = np.eye(2), np.zeros(2)
@@ -182,12 +190,22 @@ def main() -> int:
                 if heading_gap is not None:
                     delta = (heading_gap - heading_icp + 180.0) % 360.0 - 180.0
                     if abs(delta) > 15.0:
-                        print(f"    heading drift: ICP {heading_icp:.0f} vs gap anchor "
-                              f"{heading_gap:.0f} (delta {delta:.0f}) — correcting")
-                        r = np.array([[math.cos(math.radians(heading_gap)),
-                                       -math.sin(math.radians(heading_gap))],
-                                      [math.sin(math.radians(heading_gap)),
-                                       math.cos(math.radians(heading_gap))]])
+                        print(
+                            f"    heading drift: ICP {heading_icp:.0f} vs gap anchor "
+                            f"{heading_gap:.0f} (delta {delta:.0f}) — correcting"
+                        )
+                        r = np.array(
+                            [
+                                [
+                                    math.cos(math.radians(heading_gap)),
+                                    -math.sin(math.radians(heading_gap)),
+                                ],
+                                [
+                                    math.sin(math.radians(heading_gap)),
+                                    math.cos(math.radians(heading_gap)),
+                                ],
+                            ]
+                        )
                 aligned = scan @ r.T + t
                 d = np.sqrt(((aligned[:, None, :] - map_pts[None, :, :]) ** 2).sum(-1).min(1))
                 inl = int((d < 25.0).sum())
@@ -201,16 +219,20 @@ def main() -> int:
                 jump = float(np.linalg.norm(t - prev_pos))
                 expect = FWD_CM_PER_S * args.step_s
                 if jump > max(30.0, 3 * expect):
-                    print(f"    CRASH DETECTED: pos jumped {jump:.0f} cm "
-                          f"(expected ~{expect:.0f}) — stopping")
+                    print(
+                        f"    CRASH DETECTED: pos jumped {jump:.0f} cm "
+                        f"(expected ~{expect:.0f}) — stopping"
+                    )
                     crash = True
             if inl / max(len(scan), 1) < 0.55:
                 print(f"    LOW INLIERS ({inl}/{len(scan)}) — stopping before wrong lock-in")
                 crash = True
             prev_pos = t.copy()
 
-            print(f"[{step}] ICP inliers {inl}/{len(scan)}, pos ({t[0]:5.0f}, {t[1]:5.0f}) cm, "
-                  f"gaps: {[(round(g['center_deg']), round(g['dist_cm'])) for g in gaps]}")
+            print(
+                f"[{step}] ICP inliers {inl}/{len(scan)}, pos ({t[0]:5.0f}, {t[1]:5.0f}) cm, "
+                f"gaps: {[(round(g['center_deg']), round(g['dist_cm'])) for g in gaps]}"
+            )
 
             if crash or step >= args.steps:
                 break

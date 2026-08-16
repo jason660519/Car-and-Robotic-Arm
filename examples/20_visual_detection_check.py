@@ -39,16 +39,29 @@ def main() -> int:
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--frames", type=int, default=30, help="frames to analyse")
     parser.add_argument("--interval", type=float, default=1.0, help="seconds between reads")
-    parser.add_argument("--threshold", type=float, default=0.30,
-                        help="detection confidence threshold")
+    parser.add_argument(
+        "--threshold", type=float, default=0.30, help="detection confidence threshold"
+    )
     parser.add_argument("--iou", type=float, default=0.65)
     parser.add_argument("--max-detections", type=int, default=10)
-    parser.add_argument("--center-x", type=float, default=0.35,
-                        help="obstacle if the box centre x is within this fraction of frame centre")
-    parser.add_argument("--min-height-frac", type=float, default=0.45,
-                        help="obstacle if the box bottom is below this fraction of frame height")
-    parser.add_argument("--min-area-frac", type=float, default=0.06,
-                        help="obstacle only if the box covers at least this fraction of the frame")
+    parser.add_argument(
+        "--center-x",
+        type=float,
+        default=0.35,
+        help="obstacle if the box centre x is within this fraction of frame centre",
+    )
+    parser.add_argument(
+        "--min-height-frac",
+        type=float,
+        default=0.45,
+        help="obstacle if the box bottom is below this fraction of frame height",
+    )
+    parser.add_argument(
+        "--min-area-frac",
+        type=float,
+        default=0.06,
+        help="obstacle only if the box covers at least this fraction of the frame",
+    )
     args = parser.parse_args()
 
     from picamera2 import Picamera2
@@ -87,17 +100,24 @@ def main() -> int:
         for i in range(args.frames):
             metadata = picam2.capture_metadata()
             detections = detections_from_metadata(
-                metadata, imx500, intrinsics, picam2, policy,
-                iou=args.iou, max_detections=args.max_detections,
+                metadata,
+                imx500,
+                intrinsics,
+                picam2,
+                policy,
+                iou=args.iou,
+                max_detections=args.max_detections,
             )
             blocking = blocking_detections(detections, frame_width, frame_height, policy)
             for detection in detections:
                 area = detection.area_fraction(frame_width, frame_height)
                 mark = "*" if detection in blocking else " "
-                print(f" {mark}{detection.label():14s} conf={detection.confidence:.2f} "
-                      f"box=({detection.x},{detection.y},{detection.width},{detection.height}) "
-                      f"centre_x={detection.center_x:.0f} bottom={detection.bottom} "
-                      f"area={area:.3f}")
+                print(
+                    f" {mark}{detection.label():14s} conf={detection.confidence:.2f} "
+                    f"box=({detection.x},{detection.y},{detection.width},{detection.height}) "
+                    f"centre_x={detection.center_x:.0f} bottom={detection.bottom} "
+                    f"area={area:.3f}"
+                )
             print(f"[{i + 1}] -> {'OBSTACLE AHEAD' if blocking else 'clear'}")
             time.sleep(args.interval)
     except KeyboardInterrupt:

@@ -55,20 +55,42 @@ def main() -> int:
     parser.add_argument("--frames", type=int, default=150, help="number of stills to capture")
     parser.add_argument("--speed", type=int, default=200, help="drive speed 0-255")
     parser.add_argument("--step-s", type=float, default=0.6, help="seconds per forward step")
-    parser.add_argument("--target-cm", type=float, default=25.0,
-                        help="perpendicular distance to hold from the wall")
-    parser.add_argument("--approach-angle-deg", type=float, default=45.0,
-                        help="nose angle toward the wall while following")
-    parser.add_argument("--corner-cm", type=float, default=80.0,
-                        help="slant distance above which a corner is assumed")
-    parser.add_argument("--find-cm", type=float, default=40.0,
-                        help="slant distance at which the car has reached a wall")
-    parser.add_argument("--deadband-cm", type=float, default=8.0,
-                        help="perpendicular error deadband before steering")
-    parser.add_argument("--turn-ratio", type=float, default=0.5,
-                        help="inside-wheel ratio for arc steering (0..1)")
-    parser.add_argument("--spin-deg-per-s", type=float, default=VERIFIED_SPIN_DEG_PER_S,
-                        help="spin rate (deg/s) at --speed")
+    parser.add_argument(
+        "--target-cm", type=float, default=25.0, help="perpendicular distance to hold from the wall"
+    )
+    parser.add_argument(
+        "--approach-angle-deg",
+        type=float,
+        default=45.0,
+        help="nose angle toward the wall while following",
+    )
+    parser.add_argument(
+        "--corner-cm",
+        type=float,
+        default=80.0,
+        help="slant distance above which a corner is assumed",
+    )
+    parser.add_argument(
+        "--find-cm",
+        type=float,
+        default=40.0,
+        help="slant distance at which the car has reached a wall",
+    )
+    parser.add_argument(
+        "--deadband-cm",
+        type=float,
+        default=8.0,
+        help="perpendicular error deadband before steering",
+    )
+    parser.add_argument(
+        "--turn-ratio", type=float, default=0.5, help="inside-wheel ratio for arc steering (0..1)"
+    )
+    parser.add_argument(
+        "--spin-deg-per-s",
+        type=float,
+        default=VERIFIED_SPIN_DEG_PER_S,
+        help="spin rate (deg/s) at --speed",
+    )
     parser.add_argument("--size", default="2028x1520", help="capture size WxH")
     parser.add_argument("--out-dir", type=Path, default=Path("/tmp/room-sfm"))
     args = parser.parse_args()
@@ -81,9 +103,7 @@ def main() -> int:
     GPIO.setup(ECHO_PIN, GPIO.IN)
     sonar = Sonar(TRIG_PIN, ECHO_PIN, GPIO)
 
-    answer = input(
-        "Operator beside the car, path clear, power ready to cut? (yes/no) "
-    ).strip()
+    answer = input("Operator beside the car, path clear, power ready to cut? (yes/no) ").strip()
     if answer.lower() != "yes":
         print("Re-run when an operator is ready beside the car.")
         GPIO.cleanup()
@@ -120,9 +140,11 @@ def main() -> int:
         raise
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Wall following: {args.frames} frames, target {args.target_cm:.0f} cm, "
-          f"nose angle {args.approach_angle_deg:.0f} deg, corner > {args.corner_cm:.0f} cm. "
-          f"Ctrl-C to stop.")
+    print(
+        f"Wall following: {args.frames} frames, target {args.target_cm:.0f} cm, "
+        f"nose angle {args.approach_angle_deg:.0f} deg, corner > {args.corner_cm:.0f} cm. "
+        f"Ctrl-C to stop."
+    )
 
     n = 0
     try:
@@ -183,7 +205,7 @@ def main() -> int:
             if error > args.deadband_cm:
                 car.turn_right(args.speed, ratio=args.turn_ratio)  # too far -> steer toward wall
             elif error < -args.deadband_cm:
-                car.turn_left(args.speed, ratio=args.turn_ratio)   # too close -> steer away
+                car.turn_left(args.speed, ratio=args.turn_ratio)  # too close -> steer away
             else:
                 car.forward(args.speed)
             time.sleep(args.step_s)

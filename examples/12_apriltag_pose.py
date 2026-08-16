@@ -138,9 +138,7 @@ def main() -> int:
             f"reprojection={pose.reprojection_error_px:.2f} px"
         )
     if args.world_anchor_id is not None:
-        anchor_pose = next(
-            (pose for pose in poses if pose.tag_id == args.world_anchor_id), None
-        )
+        anchor_pose = next((pose for pose in poses if pose.tag_id == args.world_anchor_id), None)
         if anchor_pose is None:
             print(f"World anchor ID {args.world_anchor_id} was not detected")
         else:

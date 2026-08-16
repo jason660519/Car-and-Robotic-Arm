@@ -102,9 +102,7 @@ def main() -> int:
     parser.add_argument("--interval-ms", type=float, default=250.0)
     parser.add_argument("--anchor-id", type=int, default=0)
     parser.add_argument("--anchor-height-cm", type=float, required=True)
-    parser.add_argument(
-        "--tag-size-mm", type=float, default=DEFAULT_TAG_SIZE_M * 1000.0
-    )
+    parser.add_argument("--tag-size-mm", type=float, default=DEFAULT_TAG_SIZE_M * 1000.0)
     parser.add_argument("--board-clockwise-deg", type=float, default=0.0)
     parser.add_argument("--max-reprojection-px", type=float, default=3.0)
     parser.add_argument("--max-position-deviation-cm", type=float, default=3.0)
@@ -137,7 +135,9 @@ def main() -> int:
         if missing:
             parser.error(f"input image does not exist: {', '.join(missing)}")
     else:
-        image_paths = [Path(f"/tmp/room-pose-capture-{index:02d}.jpg") for index in range(1, args.samples + 1)]
+        image_paths = [
+            Path(f"/tmp/room-pose-capture-{index:02d}.jpg") for index in range(1, args.samples + 1)
+        ]
         print(f"Capturing {len(image_paths)} static frames; motors are not accessed...")
         capture_images(
             image_paths,
@@ -158,7 +158,9 @@ def main() -> int:
     for sample_index, image_path in enumerate(image_paths, start=1):
         image = cv2.imread(str(image_path))
         if image is None:
-            records.append({"sample": sample_index, "path": str(image_path), "status": "unreadable"})
+            records.append(
+                {"sample": sample_index, "path": str(image_path), "status": "unreadable"}
+            )
             continue
         tags = detect_apriltag_poses(image, calibration, tag_size_m)
         anchor_list = anchor_tags(tags, args.anchor_id)

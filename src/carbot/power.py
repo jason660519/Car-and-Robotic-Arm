@@ -77,9 +77,7 @@ def decode_throttled(raw: int) -> ThrottleStatus:
     if raw < 0:
         raise ValueError("get_throttled word must be non-negative")
     live = tuple(name for mask, name in LIVE_FLAGS if raw & mask)
-    since_boot = tuple(
-        name for mask, name in LIVE_FLAGS if raw & (mask << SINCE_BOOT_SHIFT)
-    )
+    since_boot = tuple(name for mask, name in LIVE_FLAGS if raw & (mask << SINCE_BOOT_SHIFT))
     return ThrottleStatus(raw=raw, live=live, since_boot=since_boot)
 
 

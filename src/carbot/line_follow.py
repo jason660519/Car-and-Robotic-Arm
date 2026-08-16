@@ -254,12 +254,18 @@ def _track_segments(
     line_rows = [len(line) for line in lines]
     line_mean_y = [float(np.mean(ys)) for ys in line_ys]
     return (
-        segment_centroids, segment_widths, line_centroids, line_rows,
-        line_mean_y, rows_with_segments,
+        segment_centroids,
+        segment_widths,
+        line_centroids,
+        line_rows,
+        line_mean_y,
+        rows_with_segments,
     )
 
 
-def _row_segments(row: np.ndarray, threshold: int, min_pixels: int, gap: float) -> list[tuple[float, int, int, int]]:
+def _row_segments(
+    row: np.ndarray, threshold: int, min_pixels: int, gap: float
+) -> list[tuple[float, int, int, int]]:
     """Dark segments on one scan row as (centroid, width, x0, x1)."""
     indices = np.flatnonzero(row < threshold)
     if indices.size < min_pixels:
@@ -353,8 +359,7 @@ def _lookahead_target(
         if not segs:
             continue
         vert = [
-            s for s in segs
-            if min_width <= s[1] <= max_width and abs(s[0] - expected_x) <= max_off
+            s for s in segs if min_width <= s[1] <= max_width and abs(s[0] - expected_x) <= max_off
         ]
         horiz = [s for s in segs if s[1] >= min_horiz]
         for s in vert:
@@ -365,9 +370,7 @@ def _lookahead_target(
                 hits_2cm.append(hit)
         if horiz:
             for picked in horiz:
-                thickness = _bar_thickness(
-                    gray, y, picked[2], picked[3] + 1, policy.dark_threshold
-                )
+                thickness = _bar_thickness(gray, y, picked[2], picked[3] + 1, policy.dark_threshold)
                 if not (min_thick <= thickness <= max_thick):
                     continue
                 x0, x1 = picked[2], picked[3]
@@ -381,14 +384,8 @@ def _lookahead_target(
 
     best_vert = _cluster_vertical_hits(hits_2cm or hits_any, cluster_gap, expected_x)
     junction_xs: tuple[float, ...] = ()
-    near_vert = (
-        best_vert is not None
-        and abs(best_vert[1] - expected_x) <= 0.22 * width
-    )
-    center_horiz = (
-        best_horiz is not None
-        and abs(best_horiz[1] - expected_x) <= 0.12 * width
-    )
+    near_vert = best_vert is not None and abs(best_vert[1] - expected_x) <= 0.22 * width
+    center_horiz = best_horiz is not None and abs(best_horiz[1] - expected_x) <= 0.12 * width
     # The right end of a crossing bar looks like a 2 cm vertical blob. Only
     # a stroke near the red centre line is the path; otherwise lock the bar.
     if near_vert:
@@ -499,9 +496,14 @@ def detect_line(
     min_row_pixels = policy.min_row_dark_fraction * width
     branch_gap = policy.branch_gap_fraction * width
 
-    segment_centroids, segment_widths, line_centroids, line_rows, line_mean_y, rows_with_segments = (
-        _track_segments(dark, min_row_pixels, branch_gap)
-    )
+    (
+        segment_centroids,
+        segment_widths,
+        line_centroids,
+        line_rows,
+        line_mean_y,
+        rows_with_segments,
+    ) = _track_segments(dark, min_row_pixels, branch_gap)
     branch_min_rows = policy.min_branch_rows_fraction * (y_bottom - y_top)
     min_width = policy.min_line_width_fraction * width
     max_width = policy.max_line_width_fraction * width
@@ -514,13 +516,14 @@ def detect_line(
             for centroid in line_centroids
         ]
         in_band = [
-            i for i, line_width in enumerate(widths)
-            if min_width <= line_width <= max_width
-            and line_rows[i] >= policy.min_tracked_rows
+            i
+            for i, line_width in enumerate(widths)
+            if min_width <= line_width <= max_width and line_rows[i] >= policy.min_tracked_rows
         ]
         # Do not fall back to over-wide blobs (printed text, chassis). If
         # nothing is 2 cm-scale, report no line.
         if in_band:
+
             def _score(i: int) -> float:
                 width_score = line_rows[i] / (
                     1.0 + abs(widths[i] - expected_width) / expected_width
@@ -529,6 +532,7 @@ def detect_line(
                 # what sits in front of the wheels on this forward mount.
                 y_frac = line_mean_y[i] / roi_height
                 return width_score * (0.25 + 0.75 * y_frac)
+
             main_i = max(in_band, key=_score)
             main_centroid = line_centroids[main_i]
             main_rows = line_rows[main_i]
@@ -536,8 +540,7 @@ def detect_line(
             branches = tuple(
                 line_centroids[i]
                 for i in in_band
-                if i != main_i
-                and line_rows[i] >= branch_min_rows
+                if i != main_i and line_rows[i] >= branch_min_rows
             )
         else:
             main_centroid, main_rows, branches = None, 0, ()
@@ -545,9 +548,8 @@ def detect_line(
         main_centroid, main_rows, branches = None, 0, ()
 
     candidates = tuple(
-        line_centroids[i] for i in sorted(
-            range(len(line_centroids)), key=lambda i: line_rows[i], reverse=True
-        )
+        line_centroids[i]
+        for i in sorted(range(len(line_centroids)), key=lambda i: line_rows[i], reverse=True)
     )
 
     look = _lookahead_target(gray, policy)
@@ -563,10 +565,7 @@ def detect_line(
             candidates = look_cands + tuple(
                 c for c in candidates if all(abs(c - k) > 8 for k in look_cands)
             )
-        nearby_fork = tuple(
-            b for b in branches
-            if branch_gap < abs(b - look_x) <= 0.28 * width
-        )
+        nearby_fork = tuple(b for b in branches if branch_gap < abs(b - look_x) <= 0.28 * width)
         if look_junction:
             branches = look_junction
         elif nearby_fork:
@@ -589,8 +588,8 @@ def detect_line(
             candidate_centroids=candidates,
         )
 
-    junction = (len(look_junction) >= 2) if look is not None and look_junction else (
-        len(branches) >= 1
+    junction = (
+        (len(look_junction) >= 2) if look is not None and look_junction else (len(branches) >= 1)
     )
     if look is not None:
         main_width = look_width
@@ -619,9 +618,7 @@ def _line_width(
     segment_centroids: list[float], segment_widths: list[int], centroid: float, gap: float
 ) -> float:
     """Median width of segments belonging to the line at ``centroid``."""
-    widths = [
-        w for w, c in zip(segment_widths, segment_centroids) if abs(c - centroid) <= gap
-    ]
+    widths = [w for w, c in zip(segment_widths, segment_centroids) if abs(c - centroid) <= gap]
     return float(np.median(widths)) if widths else 0.0
 
 

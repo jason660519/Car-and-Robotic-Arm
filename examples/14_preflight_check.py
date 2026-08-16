@@ -95,7 +95,9 @@ def _check_sonar() -> tuple[bool, str]:
 
 
 def _vcgencmd(*args: str) -> str:
-    out = subprocess.run(["vcgencmd", *args], capture_output=True, text=True, timeout=10, check=False)
+    out = subprocess.run(
+        ["vcgencmd", *args], capture_output=True, text=True, timeout=10, check=False
+    )
     return out.stdout.strip()
 
 

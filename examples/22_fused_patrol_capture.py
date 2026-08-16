@@ -115,52 +115,115 @@ def _exposure_controls(preset: str) -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Vision + sonar fused patrol with SfM capture")
     parser.add_argument("--frames", type=int, default=150, help="number of stills to capture")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="read sensors and fuse, but never drive the motors")
-    parser.add_argument("--step-s", type=float, default=3.0,
-                        help="seconds of forward travel per station, driven in segments")
-    parser.add_argument("--sense-interval-s", type=float, default=0.5,
-                        help="re-check sonar and detections after this much forward travel")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="read sensors and fuse, but never drive the motors"
+    )
+    parser.add_argument(
+        "--step-s",
+        type=float,
+        default=3.0,
+        help="seconds of forward travel per station, driven in segments",
+    )
+    parser.add_argument(
+        "--sense-interval-s",
+        type=float,
+        default=0.5,
+        help="re-check sonar and detections after this much forward travel",
+    )
     parser.add_argument("--speed", type=int, default=400, help="drive speed 0-1000")
-    parser.add_argument("--spin-speed", type=int, default=VERIFIED_AT_SPEED,
-                        help=f"speed used for turns; {VERIFIED_SPIN_DEG_PER_S} deg/s was "
-                             f"calibrated at {VERIFIED_AT_SPEED}, so raising it invalidates "
-                             f"--spin-deg-per-s")
-    parser.add_argument("--backup-s", type=float, default=0.3,
-                        help="seconds to reverse before turning (frees the car from a corner)")
-    parser.add_argument("--obstacle-cm", type=float, default=30.0,
-                        help="sonar distance below which the car turns away")
+    parser.add_argument(
+        "--spin-speed",
+        type=int,
+        default=VERIFIED_AT_SPEED,
+        help=f"speed used for turns; {VERIFIED_SPIN_DEG_PER_S} deg/s was "
+        f"calibrated at {VERIFIED_AT_SPEED}, so raising it invalidates "
+        f"--spin-deg-per-s",
+    )
+    parser.add_argument(
+        "--backup-s",
+        type=float,
+        default=0.3,
+        help="seconds to reverse before turning (frees the car from a corner)",
+    )
+    parser.add_argument(
+        "--obstacle-cm",
+        type=float,
+        default=30.0,
+        help="sonar distance below which the car turns away",
+    )
     parser.add_argument("--turn-min-deg", type=float, default=30.0)
     parser.add_argument("--turn-max-deg", type=float, default=150.0)
-    parser.add_argument("--spin-deg-per-s", type=float, default=VERIFIED_SPIN_DEG_PER_S,
-                        help=f"spin rate (deg/s); measured {VERIFIED_SPIN_DEG_PER_S} at speed "
-                             f"{VERIFIED_AT_SPEED}, re-measure with examples/23 for other speeds")
-    parser.add_argument("--burst-frames", type=int, default=5,
-                        help="overlapping frames to capture per station (1 = no burst)")
-    parser.add_argument("--burst-step-deg", type=float, default=15.0,
-                        help="rotation between frames; 15 deg keeps ~77%% of the 66 deg "
-                             "field of view in common, the upper end COLMAP wants indoors")
-    parser.add_argument("--min-overlap-matches", type=int, default=200,
-                        help="insert a bridging frame when a capture shares fewer matches "
-                             "with the previous one; 0 disables the check")
-    parser.add_argument("--settle-s", type=float, default=1.0,
-                        help="seconds to let the chassis stop rocking before a capture")
-    parser.add_argument("--threshold", type=float, default=0.30,
-                        help="detection confidence threshold")
-    parser.add_argument("--exposure", choices=EXPOSURE_PRESETS, default="auto",
-                        help="auto-exposure preset (see examples/21)")
-    parser.add_argument("--min-standoff-cm", type=float, default=30.0,
-                        help="do not photograph when the nearest surface is closer than this; "
-                             "keep at or below --obstacle-cm to avoid a no-capture dead band")
-    parser.add_argument("--min-textured-tiles", type=int, default=6,
-                        help="reject a capture with fewer textured tiles (of 12)")
-    parser.add_argument("--max-steps", type=int, default=0,
-                        help="stop after this many steps even if --frames is unmet "
-                             "(default: 4x --frames)")
-    parser.add_argument("--keep-rejected", action="store_true",
-                        help="save rejected captures under <out-dir>/rejected for calibration")
-    parser.add_argument("--frame-report", action="store_true",
-                        help="print the SfM quality of every accepted capture")
+    parser.add_argument(
+        "--spin-deg-per-s",
+        type=float,
+        default=VERIFIED_SPIN_DEG_PER_S,
+        help=f"spin rate (deg/s); measured {VERIFIED_SPIN_DEG_PER_S} at speed "
+        f"{VERIFIED_AT_SPEED}, re-measure with examples/23 for other speeds",
+    )
+    parser.add_argument(
+        "--burst-frames",
+        type=int,
+        default=5,
+        help="overlapping frames to capture per station (1 = no burst)",
+    )
+    parser.add_argument(
+        "--burst-step-deg",
+        type=float,
+        default=15.0,
+        help="rotation between frames; 15 deg keeps ~77%% of the 66 deg "
+        "field of view in common, the upper end COLMAP wants indoors",
+    )
+    parser.add_argument(
+        "--min-overlap-matches",
+        type=int,
+        default=200,
+        help="insert a bridging frame when a capture shares fewer matches "
+        "with the previous one; 0 disables the check",
+    )
+    parser.add_argument(
+        "--settle-s",
+        type=float,
+        default=1.0,
+        help="seconds to let the chassis stop rocking before a capture",
+    )
+    parser.add_argument(
+        "--threshold", type=float, default=0.30, help="detection confidence threshold"
+    )
+    parser.add_argument(
+        "--exposure",
+        choices=EXPOSURE_PRESETS,
+        default="auto",
+        help="auto-exposure preset (see examples/21)",
+    )
+    parser.add_argument(
+        "--min-standoff-cm",
+        type=float,
+        default=30.0,
+        help="do not photograph when the nearest surface is closer than this; "
+        "keep at or below --obstacle-cm to avoid a no-capture dead band",
+    )
+    parser.add_argument(
+        "--min-textured-tiles",
+        type=int,
+        default=6,
+        help="reject a capture with fewer textured tiles (of 12)",
+    )
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=0,
+        help="stop after this many steps even if --frames is unmet (default: 4x --frames)",
+    )
+    parser.add_argument(
+        "--keep-rejected",
+        action="store_true",
+        help="save rejected captures under <out-dir>/rejected for calibration",
+    )
+    parser.add_argument(
+        "--frame-report",
+        action="store_true",
+        help="print the SfM quality of every accepted capture",
+    )
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--out-dir", type=Path, default=Path("/tmp/room-sfm"))
     args = parser.parse_args()
@@ -169,9 +232,7 @@ def main() -> int:
         print("--turn-min-deg must not exceed --turn-max-deg", file=sys.stderr)
         return 1
 
-    policy = ObstaclePolicy(
-        confidence_threshold=args.threshold, sonar_stop_cm=args.obstacle_cm
-    )
+    policy = ObstaclePolicy(confidence_threshold=args.threshold, sonar_stop_cm=args.obstacle_cm)
 
     from RPi import GPIO
 
@@ -181,9 +242,7 @@ def main() -> int:
     sonar = Sonar(TRIG_PIN, ECHO_PIN, GPIO)
 
     if not args.dry_run:
-        answer = input(
-            "Operator beside the car, path clear, power ready to cut? (yes/no) "
-        ).strip()
+        answer = input("Operator beside the car, path clear, power ready to cut? (yes/no) ").strip()
         if answer.lower() != "yes":
             print("Re-run when an operator is ready beside the car.")
             GPIO.cleanup()
@@ -223,11 +282,13 @@ def main() -> int:
     try:
         # Mode 'single': inference and the 2028x1520 still come from one
         # configuration, so there is nothing to switch between captures.
-        camera.configure(camera.create_preview_configuration(
-            main={"size": STILL_SIZE},
-            controls={"FrameRate": intrinsics.inference_rate},
-            buffer_count=4,
-        ))
+        camera.configure(
+            camera.create_preview_configuration(
+                main={"size": STILL_SIZE},
+                controls={"FrameRate": intrinsics.inference_rate},
+                buffer_count=4,
+            )
+        )
         camera.start()
         controls = _exposure_controls(args.exposure)
         if controls:
@@ -244,12 +305,16 @@ def main() -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     mode = "DRY RUN (no motors)" if args.dry_run else f"driving at speed {args.speed}"
     print(f"Fused patrol: {args.frames} frames, {mode}, exposure={args.exposure}")
-    print(f"stop below {args.obstacle_cm:.0f} cm or on a central-low detection "
-          f">={args.threshold:.2f}; turn {args.turn_min_deg:.0f}-{args.turn_max_deg:.0f} deg "
-          f"after backing up {args.backup_s:.1f}s. Ctrl-C to stop.")
-    print(f"forward {args.step_s:.1f}s per station, re-sensing every "
-          f"{args.sense_interval_s:.1f}s; turns at speed {args.spin_speed} "
-          f"({args.spin_deg_per_s:.1f} deg/s)")
+    print(
+        f"stop below {args.obstacle_cm:.0f} cm or on a central-low detection "
+        f">={args.threshold:.2f}; turn {args.turn_min_deg:.0f}-{args.turn_max_deg:.0f} deg "
+        f"after backing up {args.backup_s:.1f}s. Ctrl-C to stop."
+    )
+    print(
+        f"forward {args.step_s:.1f}s per station, re-sensing every "
+        f"{args.sense_interval_s:.1f}s; turns at speed {args.spin_speed} "
+        f"({args.spin_deg_per_s:.1f} deg/s)"
+    )
     print("=" * 72)
 
     max_steps = args.max_steps if args.max_steps > 0 else args.frames * 4
@@ -259,9 +324,15 @@ def main() -> int:
     pending = args.out_dir / "pending.jpg"
 
     ctx = PatrolContext(
-        args=args, car=car, camera=camera, sonar=sonar,
-        pending=pending, rejected_dir=rejected_dir,
-        imx500=imx500, intrinsics=intrinsics, policy=policy,
+        args=args,
+        car=car,
+        camera=camera,
+        sonar=sonar,
+        pending=pending,
+        rejected_dir=rejected_dir,
+        imx500=imx500,
+        intrinsics=intrinsics,
+        policy=policy,
         frame_size=(frame_width, frame_height),
     )
 
@@ -273,9 +344,7 @@ def main() -> int:
             step += 1
             distance = sonar.measure_nearest()
             metadata = camera.capture_metadata()
-            detections = detections_from_metadata(
-                metadata, imx500, intrinsics, camera, policy
-            )
+            detections = detections_from_metadata(metadata, imx500, intrinsics, camera, policy)
             verdict = fuse(distance, detections, (frame_width, frame_height), policy)
 
             if verdict.blocked:
@@ -298,8 +367,10 @@ def main() -> int:
             else:
                 driven, stopped_early = _advance(ctx)
                 if stopped_early:
-                    print(f"[{step}] clear   {verdict.reason} -> forward {driven:.1f}s of "
-                          f"{args.step_s:.1f}s, stopped: {stopped_early}")
+                    print(
+                        f"[{step}] clear   {verdict.reason} -> forward {driven:.1f}s of "
+                        f"{args.step_s:.1f}s, stopped: {stopped_early}"
+                    )
                 else:
                     print(f"[{step}] clear   {verdict.reason} -> forward {driven:.1f}s")
                 if car:
@@ -328,21 +399,27 @@ def main() -> int:
         pending.unlink(missing_ok=True)
 
     print("-" * 72)
-    print(f"Kept {ctx.kept} frames -> {args.out_dir} in {step} stations "
-          f"({blocked_count} blocked, {step - blocked_count} forward, "
-          f"{ctx.rejected} captures rejected, {empty_sweeps} empty sweeps)")
+    print(
+        f"Kept {ctx.kept} frames -> {args.out_dir} in {step} stations "
+        f"({blocked_count} blocked, {step - blocked_count} forward, "
+        f"{ctx.rejected} captures rejected, {empty_sweeps} empty sweeps)"
+    )
     for key, count in sorted(ctx.reject_reasons.items(), key=lambda kv: -kv[1]):
         print(f"  rejected {count}x: {key}")
     if ctx.overlaps:
         weak = sum(1 for v in ctx.overlaps if v < args.min_overlap_matches)
-        print(f"Overlap with the previous kept frame: min {min(ctx.overlaps)}, "
-              f"median {sorted(ctx.overlaps)[len(ctx.overlaps) // 2]}, "
-              f"max {max(ctx.overlaps)} — {weak} below {args.min_overlap_matches}, "
-              f"{ctx.bridges} bridge frames inserted")
+        print(
+            f"Overlap with the previous kept frame: min {min(ctx.overlaps)}, "
+            f"median {sorted(ctx.overlaps)[len(ctx.overlaps) // 2]}, "
+            f"max {max(ctx.overlaps)} — {weak} below {args.min_overlap_matches}, "
+            f"{ctx.bridges} bridge frames inserted"
+        )
     if ctx.kept < args.frames:
-        print(f"Stopped at the {max_steps}-step cap with {ctx.kept}/{args.frames} frames — the "
-              f"room is rejecting most poses. Check the reject reasons before raising "
-              f"--max-steps.")
+        print(
+            f"Stopped at the {max_steps}-step cap with {ctx.kept}/{args.frames} frames — the "
+            f"room is rejecting most poses. Check the reject reasons before raising "
+            f"--max-steps."
+        )
     if args.dry_run:
         print("Dry run: no motor commands were sent.")
     return 0

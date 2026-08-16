@@ -74,7 +74,9 @@ def main() -> int:
     GPIO.setup(ECHO_PIN, GPIO.IN)
     sonar = Sonar(TRIG_PIN, ECHO_PIN, GPIO)
 
-    answer = input("Board in front of the car (20-60 cm), car lifted or clear floor? (yes/no) ").strip()
+    answer = input(
+        "Board in front of the car (20-60 cm), car lifted or clear floor? (yes/no) "
+    ).strip()
     if answer.lower() != "yes":
         print("Place a flat board in front of the car and re-run.")
         GPIO.cleanup()
@@ -142,8 +144,7 @@ def main() -> int:
     print(f"forward speed @ {args.speed}: {fwd:.1f} cm/s")
     print(f"backward speed @ {args.speed}: {vb:.1f} cm/s")
     print(f"spin360 @ {args.spin_speed}: {args.spin_seconds:.1f} s (as configured)")
-    print("To use in code: MOVEMENT_CM_PER_S = "
-          f"{{{args.speed}: {fwd:.1f}}}  # from calibration")
+    print(f"To use in code: MOVEMENT_CM_PER_S = {{{args.speed}: {fwd:.1f}}}  # from calibration")
     return 0
 
 

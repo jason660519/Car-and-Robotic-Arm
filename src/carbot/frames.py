@@ -99,7 +99,9 @@ class Pose2D:
     @property
     def heading_deg(self) -> float:
         """World heading of the local +y axis (forward), degrees."""
-        return math.degrees(math.atan2(float(self.rotation[1, 1]), float(self.rotation[0, 1]))) % 360.0
+        return (
+            math.degrees(math.atan2(float(self.rotation[1, 1]), float(self.rotation[0, 1]))) % 360.0
+        )
 
     def transform_points(self, points: np.ndarray) -> np.ndarray:
         """Map local-frame points into the parent frame."""
@@ -158,9 +160,7 @@ class SensorExtrinsics:
         """Map sensor-frame points into the chassis frame (offset + yaw)."""
         return self.sensor_to_chassis.transform_points(points)
 
-    def sensor_points_to_world(
-        self, points: np.ndarray, chassis_in_world: Pose2D
-    ) -> np.ndarray:
+    def sensor_points_to_world(self, points: np.ndarray, chassis_in_world: Pose2D) -> np.ndarray:
         """Map sensor-frame points into the world frame.
 
         ``chassis_in_world`` is the chassis rotation-center pose in the room

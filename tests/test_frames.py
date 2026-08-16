@@ -60,10 +60,10 @@ def test_scan_angle_rejects_invalid_inputs():
 
 
 def test_polar_to_points_axis_signs():
-    pts = polar_to_points(np.asarray([[0.0, 100.0], [math.pi / 2, 100.0],
-                                      [math.pi, 100.0], [-math.pi / 2, 100.0]]))
-    expected = np.asarray([[0.0, 100.0], [100.0, 0.0],
-                           [0.0, -100.0], [-100.0, 0.0]])
+    pts = polar_to_points(
+        np.asarray([[0.0, 100.0], [math.pi / 2, 100.0], [math.pi, 100.0], [-math.pi / 2, 100.0]])
+    )
+    expected = np.asarray([[0.0, 100.0], [100.0, 0.0], [0.0, -100.0], [-100.0, 0.0]])
     assert np.allclose(pts, expected, atol=1e-9)
 
 
@@ -80,12 +80,10 @@ def test_polar_to_points_roundtrip():
 def test_load_polar_scan_uses_recorded_spin360(tmp_path):
     """CSV rows carry their own spin360; angle conversion must honour it."""
     csv_path = tmp_path / "scan.csv"
-    csv_path.write_text("elapsed_s,distance_cm,spin360_s\n"
-                        "2.00,100.0,8.0\n"
-                        "2.00,100.0,4.0\n")
+    csv_path.write_text("elapsed_s,distance_cm,spin360_s\n2.00,100.0,8.0\n2.00,100.0,4.0\n")
     scan = load_polar_scan(csv_path)
-    assert scan[0, 0] == pytest.approx(math.pi / 2)   # 2/8 turn -> 90 deg
-    assert scan[1, 0] == pytest.approx(math.pi)       # 2/4 turn -> 180 deg
+    assert scan[0, 0] == pytest.approx(math.pi / 2)  # 2/8 turn -> 90 deg
+    assert scan[1, 0] == pytest.approx(math.pi)  # 2/4 turn -> 180 deg
 
 
 # --------------------------------------------------------------------------
@@ -102,8 +100,12 @@ def test_pose_heading_roundtrip():
 
 def test_pose_forward_axis_points_along_heading():
     """Local +y (forward) must map to world direction `heading`."""
-    for heading, world in ((0.0, [1.0, 0.0]), (90.0, [0.0, 1.0]),
-                           (180.0, [-1.0, 0.0]), (270.0, [0.0, -1.0])):
+    for heading, world in (
+        (0.0, [1.0, 0.0]),
+        (90.0, [0.0, 1.0]),
+        (180.0, [-1.0, 0.0]),
+        (270.0, [0.0, -1.0]),
+    ):
         pose = Pose2D.from_xy_heading(10.0, 20.0, heading)
         forward_world = pose.transform_points(np.asarray([[0.0, 1.0]]))[0] - pose.translation
         assert np.allclose(forward_world, world, atol=1e-9)
@@ -112,8 +114,9 @@ def test_pose_forward_axis_points_along_heading():
 def test_pose_transform_known_point():
     """Car at (10,20) heading 0 (faces +X): point 100 cm ahead -> (110, 20)."""
     pose = Pose2D.from_xy_heading(10.0, 20.0, 0.0)
-    assert np.allclose(pose.transform_points(np.asarray([[0.0, 100.0]])),
-                       [[110.0, 20.0]], atol=1e-9)
+    assert np.allclose(
+        pose.transform_points(np.asarray([[0.0, 100.0]])), [[110.0, 20.0]], atol=1e-9
+    )
 
 
 def test_pose_transform_roundtrip_inverse():

@@ -31,8 +31,8 @@ from carbot.line_follow import LineReading
 class NavState(Enum):
     """Where the car is in the navigation plan."""
 
-    FOLLOW = "follow"          # steering on the line
-    SEARCH = "search"          # line lost; hold until a centred line returns
+    FOLLOW = "follow"  # steering on the line
+    SEARCH = "search"  # line lost; hold until a centred line returns
     RIGHT_TURN = "right_turn"  # first intersection: timed in-place right spin
     ROUNDABOUT = "roundabout"  # inside a fork; lap is time-confirmed before exit
 
@@ -305,7 +305,9 @@ class LineNav:
             self._blind_creep_elapsed += dt
             if self._blind_creep_elapsed <= self.policy.blind_creep_s:
                 return self._drive(
-                    "follow", self.policy.speed, self.policy.speed,
+                    "follow",
+                    self.policy.speed,
+                    self.policy.speed,
                     f"line lost: blind creep {self._blind_creep_elapsed:.1f}"
                     f"/{self.policy.blind_creep_s:.1f}s (camera FOV gap, not off-track)",
                 )
@@ -415,11 +417,7 @@ class LineNav:
             self._roundabout_pending = False
             return self._drive("follow", 0, 0, "line too thin; hold")
 
-        if (
-            self.policy.enable_roundabout
-            and reading.junction
-            and self._width_jumped(reading)
-        ):
+        if self.policy.enable_roundabout and reading.junction and self._width_jumped(reading):
             self._junction_elapsed += dt
             if self._junction_elapsed >= self.policy.junction_min_s:
                 # A persistent fork with a widened line is treated as a
@@ -435,15 +433,11 @@ class LineNav:
         if (
             self._prev_error_fraction is not None
             and reading.error_fraction is not None
-            and abs(reading.error_fraction - self._prev_error_fraction)
-            > self.policy.max_error_jump
+            and abs(reading.error_fraction - self._prev_error_fraction) > self.policy.max_error_jump
             and not self._right_turn_jump(reading)
         ):
             self._jump_elapsed += dt
-            if (
-                self._jump_elapsed - dt > 0
-                and self._jump_elapsed >= self.policy.jump_search_s
-            ):
+            if self._jump_elapsed - dt > 0 and self._jump_elapsed >= self.policy.jump_search_s:
                 self._enter(NavState.SEARCH)
                 return self._search_step(reading, dt)
             return self._drive("follow", 0, 0, "jump: stop")
@@ -611,10 +605,7 @@ class LineNav:
             or self._prev_error_fraction is None
         ):
             return False
-        return (
-            reading.error_fraction > self._prev_error_fraction
-            and reading.error_fraction <= 0.55
-        )
+        return reading.error_fraction > self._prev_error_fraction and reading.error_fraction <= 0.55
 
     def _too_thin(self, reading: LineReading) -> bool:
         if not reading.visible or not self._baseline_widths:
@@ -647,17 +638,13 @@ class LineNav:
             # Second fork after a full lap: this is the exit. Pick the branch
             # away from the line we came in on, i.e. the main centroid we are
             # still following is fine — exiting means keeping the line.
-            reason = (
-                f"roundabout exit: lap {self._roundabout_elapsed:.1f}s "
-                ">= min and fork seen"
-            )
+            reason = f"roundabout exit: lap {self._roundabout_elapsed:.1f}s >= min and fork seen"
             self._enter(NavState.FOLLOW)
             return steer_command(reading, self.policy, self._prev_error_fraction, reason)
 
         reason = (
             f"roundabout: lap {self._roundabout_elapsed:.1f}s / "
-            f"{self.policy.roundabout_loop_min_s:.1f}s"
-            + (" (fork)" if reading.junction else "")
+            f"{self.policy.roundabout_loop_min_s:.1f}s" + (" (fork)" if reading.junction else "")
         )
         return steer_command(reading, self.policy, self._prev_error_fraction, reason)
 
@@ -669,8 +656,7 @@ class LineNav:
         self._blind_creep_elapsed = 0.0
 
     def _drive(self, action: str, left: int, right: int, reason: str) -> NavCommand:
-        return NavCommand(action=action, left=left, right=right,
-                          reason=reason, state=self.state)
+        return NavCommand(action=action, left=left, right=right, reason=reason, state=self.state)
 
 
 def steer_command(

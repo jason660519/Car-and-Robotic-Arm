@@ -50,11 +50,14 @@ def main() -> int:
         type=float,
         default=VERIFIED_SPIN_360_S,
         help=f"estimated seconds per full spin at --speed (verified "
-             f"{VERIFIED_SPIN_360_S} at speed {VERIFIED_SPIN_SPEED})",
+        f"{VERIFIED_SPIN_360_S} at speed {VERIFIED_SPIN_SPEED})",
     )
-    parser.add_argument("--speed", type=int, default=VERIFIED_SPIN_SPEED,
-                        help="spin speed 0-255 (revolution time must be "
-                             "re-measured if changed from the default)")
+    parser.add_argument(
+        "--speed",
+        type=int,
+        default=VERIFIED_SPIN_SPEED,
+        help="spin speed 0-255 (revolution time must be re-measured if changed from the default)",
+    )
     parser.add_argument("--out", default="/tmp/room_scan.csv", help="output CSV path")
     args = parser.parse_args()
 
@@ -108,8 +111,10 @@ def main() -> int:
     print(f"Saved {len(rows)} readings -> {args.out}")
     if rows:
         dists = [d for _, d in rows]
-        print(f"min {min(dists):.1f} cm, max {max(dists):.1f} cm, "
-              f"avg {sum(dists) / len(dists):.1f} cm")
+        print(
+            f"min {min(dists):.1f} cm, max {max(dists):.1f} cm, "
+            f"avg {sum(dists) / len(dists):.1f} cm"
+        )
     return 0
 
 

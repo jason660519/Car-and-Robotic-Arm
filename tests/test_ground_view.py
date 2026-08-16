@@ -178,7 +178,10 @@ def test_exclude_world_box_keeps_a_marked_region_out_of_detection():
 def test_auto_calibrate_ground_view_sets_the_target_exclusion_box():
     image = _target_image()
     view = auto_calibrate_ground_view(
-        image, target_width_m=0.10, target_height_m=0.05, near_m=0.18,
+        image,
+        target_width_m=0.10,
+        target_height_m=0.05,
+        near_m=0.18,
     )
     assert view.exclude_world_box_m is not None
     x_lo, x_hi, y_lo, y_hi = view.exclude_world_box_m
@@ -216,7 +219,10 @@ def test_calibrate_rejects_fewer_than_four_points():
 
 
 def _target_image(
-    tl=(200, 150), br=(600, 450), thickness=10, size=(800, 600),
+    tl=(200, 150),
+    br=(600, 450),
+    thickness=10,
+    size=(800, 600),
 ):
     import cv2
 
@@ -247,7 +253,10 @@ def test_find_target_corners_returns_none_without_a_target():
 def test_auto_calibrate_ground_view_fits_from_the_target():
     image = _target_image()
     view = auto_calibrate_ground_view(
-        image, target_width_m=0.10, target_height_m=0.05, near_m=0.18,
+        image,
+        target_width_m=0.10,
+        target_height_m=0.05,
+        near_m=0.18,
     )
     assert view.bev_width > 32
     assert view.exclude_world_box_m is not None
@@ -271,5 +280,8 @@ def test_auto_calibrate_ground_view_raises_without_a_target():
     image = np.full((600, 800), PAPER, dtype=np.uint8)
     with pytest.raises(ValueError):
         auto_calibrate_ground_view(
-            image, target_width_m=0.10, target_height_m=0.05, near_m=0.18,
+            image,
+            target_width_m=0.10,
+            target_height_m=0.05,
+            near_m=0.18,
         )

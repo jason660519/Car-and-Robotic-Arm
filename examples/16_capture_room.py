@@ -28,15 +28,19 @@ from pathlib import Path
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Capture a room sweep for SfM")
-    parser.add_argument("--interval", type=float, default=3.0,
-                        help="seconds between captures")
-    parser.add_argument("--duration", type=float, default=90.0,
-                        help="total capture duration in seconds")
-    parser.add_argument("--count", type=int, default=0,
-                        help="stop after this many frames (0 = use --duration)")
-    parser.add_argument("--size", default="2028x1520",
-                        help="capture size WxH (default 2028x1520 = half-scale 4:3, "
-                             "~1080p class; use 4056x3040 for full resolution)")
+    parser.add_argument("--interval", type=float, default=3.0, help="seconds between captures")
+    parser.add_argument(
+        "--duration", type=float, default=90.0, help="total capture duration in seconds"
+    )
+    parser.add_argument(
+        "--count", type=int, default=0, help="stop after this many frames (0 = use --duration)"
+    )
+    parser.add_argument(
+        "--size",
+        default="2028x1520",
+        help="capture size WxH (default 2028x1520 = half-scale 4:3, "
+        "~1080p class; use 4056x3040 for full resolution)",
+    )
     parser.add_argument("--out-dir", type=Path, default=Path("/tmp/room-sfm"))
     args = parser.parse_args()
 
@@ -58,8 +62,10 @@ def main() -> int:
         raise
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Capturing every {args.interval}s into {args.out_dir} ("
-          f"duration {args.duration}s, size {width}x{height})...")
+    print(
+        f"Capturing every {args.interval}s into {args.out_dir} ("
+        f"duration {args.duration}s, size {width}x{height})..."
+    )
     print("Walk slowly; pause a beat at each capture so frames stay sharp. Ctrl-C to stop early.")
     n = 0
     t0 = time.monotonic()

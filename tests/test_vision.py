@@ -30,8 +30,7 @@ from carbot.vision import (
 
 ROOT = Path(__file__).resolve().parents[1]
 CALIBRATION_PATH = (
-    ROOT
-    / "assets/reference/camera-calibration/2026-08-14-imx500-4056x3040/calibration.json"
+    ROOT / "assets/reference/camera-calibration/2026-08-14-imx500-4056x3040/calibration.json"
 )
 
 
@@ -164,9 +163,7 @@ def test_detect_complete_charuco_board_pose():
 
 def test_camera_world_pose_inverts_known_tag_observation():
     world_from_tag = wall_tag_rotation_world_from_tag(180.0)
-    expected_world_from_camera = np.asarray(
-        [[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]]
-    )
+    expected_world_from_camera = np.asarray([[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]])
     expected_camera_position = np.asarray([0.6, 0.08, 0.11])
     tag_position = np.asarray([0.0, 0.0, 0.132])
     camera_from_tag = expected_world_from_camera.T @ world_from_tag
@@ -211,20 +208,14 @@ def test_camera_world_pose_rejects_reflection():
 
 
 def test_hybrid_pose_uses_board_rotation_and_tag_translation():
-    expected_world_from_camera = np.asarray(
-        [[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]]
-    )
+    expected_world_from_camera = np.asarray([[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]])
     expected_camera_position = np.asarray([0.62, -0.01, 0.105])
     tag_position = np.asarray([0.0, 0.0, 0.147])
     world_from_board = wall_board_rotation_world_from_board()
     camera_from_board = expected_world_from_camera.T @ world_from_board
     board_rotation, _ = cv2.Rodrigues(camera_from_board)
-    tag_translation = expected_world_from_camera.T @ (
-        tag_position - expected_camera_position
-    )
-    tag = AprilTagPose(
-        0, np.zeros((4, 2)), np.ones(3), tag_translation, 0.5, 0.0, 0.0, 0.0
-    )
+    tag_translation = expected_world_from_camera.T @ (tag_position - expected_camera_position)
+    tag = AprilTagPose(0, np.zeros((4, 2)), np.ones(3), tag_translation, 0.5, 0.0, 0.0, 0.0)
     board = CharucoBoardPose(
         np.zeros((24, 2)),
         np.arange(24),
@@ -233,9 +224,7 @@ def test_hybrid_pose_uses_board_rotation_and_tag_translation():
         0.5,
     )
 
-    actual = camera_world_pose_from_wall_board_and_tag(
-        tag, board, tag_position, world_from_board
-    )
+    actual = camera_world_pose_from_wall_board_and_tag(tag, board, tag_position, world_from_board)
 
     assert np.allclose(actual.position_m, expected_camera_position)
     assert np.allclose(actual.rotation_world_from_camera, expected_world_from_camera)

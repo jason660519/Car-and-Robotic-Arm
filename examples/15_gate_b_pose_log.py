@@ -70,8 +70,7 @@ def _cv2():
     return cv2
 
 
-def capture_frames(count: int, size: tuple[int, int], interval_s: float,
-                   prefix: str) -> list[Path]:
+def capture_frames(count: int, size: tuple[int, int], interval_s: float, prefix: str) -> list[Path]:
     try:
         from picamera2 import Picamera2
     except ImportError as exc:
@@ -118,21 +117,39 @@ def process_location(
         anchor_list = anchor_tags(tags, args.anchor_id)
         board = detect_charuco_board_pose(image, calibration, geometry)
         if len(anchor_list) > 1:
-            records.append({"path": str(image_path), "status": "duplicate-anchor",
-                            "anchor_detections": len(anchor_list)})
+            records.append(
+                {
+                    "path": str(image_path),
+                    "status": "duplicate-anchor",
+                    "anchor_detections": len(anchor_list),
+                }
+            )
             continue
         if not anchor_list or board is None:
             missing = "anchor" if not anchor_list else "charuco-board"
             records.append({"path": str(image_path), "status": f"missing-{missing}"})
             continue
-        if max(anchor_list[0].reprojection_error_px, board.reprojection_error_px) > args.max_reprojection_px:
-            records.append({"path": str(image_path), "status": "reprojection-rejected",
-                            "tag_reprojection_error_px": anchor_list[0].reprojection_error_px,
-                            "board_reprojection_error_px": board.reprojection_error_px})
+        if (
+            max(anchor_list[0].reprojection_error_px, board.reprojection_error_px)
+            > args.max_reprojection_px
+        ):
+            records.append(
+                {
+                    "path": str(image_path),
+                    "status": "reprojection-rejected",
+                    "tag_reprojection_error_px": anchor_list[0].reprojection_error_px,
+                    "board_reprojection_error_px": board.reprojection_error_px,
+                }
+            )
             continue
-        valid_poses.append(camera_world_pose_from_wall_board_and_tag(
-            anchor_list[0], board, tag_position, world_from_board,
-        ))
+        valid_poses.append(
+            camera_world_pose_from_wall_board_and_tag(
+                anchor_list[0],
+                board,
+                tag_position,
+                world_from_board,
+            )
+        )
         records.append({"path": str(image_path), "status": "candidate"})
 
     record: dict[str, object] = {
@@ -150,16 +167,18 @@ def process_location(
     )
     inlier_positions = np.asarray([valid_poses[index].position_m for index in inlier_indices])
     spread_cm = np.ptp(inlier_positions, axis=0) * 100.0
-    record.update({
-        "status": "ok",
-        "inliers": len(inlier_indices),
-        "spread_cm": spread_cm.tolist(),
-        "wall_distance_cm": aggregate.wall_distance_m * 100.0,
-        "wall_right_cm": aggregate.wall_right_m * 100.0,
-        "height_cm": aggregate.height_m * 100.0,
-        "heading_deg": aggregate.heading_deg,
-        "elevation_deg": aggregate.elevation_deg,
-    })
+    record.update(
+        {
+            "status": "ok",
+            "inliers": len(inlier_indices),
+            "spread_cm": spread_cm.tolist(),
+            "wall_distance_cm": aggregate.wall_distance_m * 100.0,
+            "wall_right_cm": aggregate.wall_right_m * 100.0,
+            "height_cm": aggregate.height_m * 100.0,
+            "heading_deg": aggregate.heading_deg,
+            "elevation_deg": aggregate.elevation_deg,
+        }
+    )
     return record
 
 
@@ -167,8 +186,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Gate B manual-reposition pose log")
     parser.add_argument("--positions", type=int, default=5, help="number of marked floor locations")
     parser.add_argument("--frames-per-position", type=int, default=5)
-    parser.add_argument("--input-dir", type=Path, default=None,
-                        help="existing images: one subdirectory per location")
+    parser.add_argument(
+        "--input-dir",
+        type=Path,
+        default=None,
+        help="existing images: one subdirectory per location",
+    )
     parser.add_argument("--calibration", type=Path, default=DEFAULT_CALIBRATION)
     parser.add_argument("--min-valid", type=int, default=3)
     parser.add_argument("--interval-ms", type=float, default=250.0)
@@ -218,29 +241,36 @@ def main() -> int:
             location_paths.append(frames)
     else:
         for position in range(1, args.positions + 1):
-            print(f"\nLocation {position}/{args.positions}: place the car (powered off / "
-                  f"stopped) at marked spot {position}, facing the anchor wall, then press "
-                  f"Enter to capture {args.frames_per_position} frames...")
+            print(
+                f"\nLocation {position}/{args.positions}: place the car (powered off / "
+                f"stopped) at marked spot {position}, facing the anchor wall, then press "
+                f"Enter to capture {args.frames_per_position} frames..."
+            )
             input()
-            location_paths.append(capture_frames(
-                args.frames_per_position,
-                (calibration.width, calibration.height),
-                args.interval_ms / 1000.0,
-                f"pos{position}",
-            ))
+            location_paths.append(
+                capture_frames(
+                    args.frames_per_position,
+                    (calibration.width, calibration.height),
+                    args.interval_ms / 1000.0,
+                    f"pos{position}",
+                )
+            )
 
     locations: list[dict[str, object]] = []
     for position, paths in enumerate(location_paths, start=1):
         print(f"\nProcessing location {position}/{len(location_paths)} ({len(paths)} frames)...")
-        record = process_location(paths, args, calibration, geometry,
-                                  tag_size_m, tag_position, world_from_board)
+        record = process_location(
+            paths, args, calibration, geometry, tag_size_m, tag_position, world_from_board
+        )
         locations.append({"position": position, **record})
         if record["status"] == "ok":
-            print(f"  {record['inliers']}/{record['frames']} inliers, "
-                  f"spread X={record['spread_cm'][0]:.2f} Y={record['spread_cm'][1]:.2f} "
-                  f"Z={record['spread_cm'][2]:.2f} cm, "
-                  f"wall_distance={record['wall_distance_cm']:.2f} cm, "
-                  f"heading={record['heading_deg']:+.2f} deg")
+            print(
+                f"  {record['inliers']}/{record['frames']} inliers, "
+                f"spread X={record['spread_cm'][0]:.2f} Y={record['spread_cm'][1]:.2f} "
+                f"Z={record['spread_cm'][2]:.2f} cm, "
+                f"wall_distance={record['wall_distance_cm']:.2f} cm, "
+                f"heading={record['heading_deg']:+.2f} deg"
+            )
         else:
             print(f"  {record['status']} ({record['candidates']}/{record['frames']} candidates)")
 
@@ -252,30 +282,42 @@ def main() -> int:
         dx = loc2["wall_distance_cm"] - loc1["wall_distance_cm"]
         dy = loc2["wall_right_cm"] - loc1["wall_right_cm"]
         dist = math.hypot(dx, dy)
-        displacement_rows.append({"from": p1, "to": p2, "dX_cm": round(dx, 2),
-                                  "dY_cm": round(dy, 2), "distance_cm": round(dist, 2)})
-        print(f"  pos{p1} -> pos{p2}: dX={dx:+6.2f} cm  dY={dy:+6.2f} cm  "
-              f"distance={dist:5.2f} cm")
+        displacement_rows.append(
+            {
+                "from": p1,
+                "to": p2,
+                "dX_cm": round(dx, 2),
+                "dY_cm": round(dy, 2),
+                "distance_cm": round(dist, 2),
+            }
+        )
+        print(f"  pos{p1} -> pos{p2}: dX={dx:+6.2f} cm  dY={dy:+6.2f} cm  distance={dist:5.2f} cm")
     if len(ok_poses) >= 2:
-        print("\nCompare each dX/dY against your tape measurement between the marked "
-              "floor spots (direction must match the axis signs printed above).")
+        print(
+            "\nCompare each dX/dY against your tape measurement between the marked "
+            "floor spots (direction must match the axis signs printed above)."
+        )
 
     result = {
         "schema_version": 1,
         "created_at": datetime.now(UTC).isoformat(),
-        "coordinate_frame": {"handedness": "right-handed",
-                             "x": "away from anchor wall", "y": "along wall right",
-                             "z": "up from floor"},
-        "parameters": {"anchor_height_cm": args.anchor_height_cm,
-                       "tag_size_mm": args.tag_size_mm},
+        "coordinate_frame": {
+            "handedness": "right-handed",
+            "x": "away from anchor wall",
+            "y": "along wall right",
+            "z": "up from floor",
+        },
+        "parameters": {"anchor_height_cm": args.anchor_height_cm, "tag_size_mm": args.tag_size_mm},
         "locations": locations,
         "displacements": displacement_rows,
     }
     args.json_out.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(f"\nFull JSON: {args.json_out}")
     if len(ok_poses) < 2:
-        print("Note: fewer than 2 valid locations — the car moved, so any earlier "
-              "/tmp/room-pose*.json is stale; do not reuse it as current pose.")
+        print(
+            "Note: fewer than 2 valid locations — the car moved, so any earlier "
+            "/tmp/room-pose*.json is stale; do not reuse it as current pose."
+        )
         return 1
     return 0
 

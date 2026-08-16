@@ -316,8 +316,9 @@ def _exposure_settings(metering, constraint) -> tuple[ExposureResult, ...]:
         ExposureResult("ev+1.0", {"ExposureValue": 1.0}),
         ExposureResult("ev+1.5", {"ExposureValue": 1.5}),
         ExposureResult("shadows", {"AeConstraintMode": constraint.Shadows}),
-        ExposureResult("shadows+ev1.0",
-                       {"AeConstraintMode": constraint.Shadows, "ExposureValue": 1.0}),
+        ExposureResult(
+            "shadows+ev1.0", {"AeConstraintMode": constraint.Shadows, "ExposureValue": 1.0}
+        ),
         ExposureResult("centre-metered", {"AeMeteringMode": metering.CentreWeighted}),
         ExposureResult("spot-metered", {"AeMeteringMode": metering.Spot}),
         # Every setting above settles on the same shutter because FrameRate caps
@@ -325,9 +326,10 @@ def _exposure_settings(metering, constraint) -> tuple[ExposureResult, ...]:
         # the noise that inflates raw keypoint counts. Lifting the cap lets it
         # spend time instead, which is free for a car that stops before shooting.
         ExposureResult("long-shutter", {"FrameDurationLimits": (100_000, 100_000)}),
-        ExposureResult("long-shutter+spot",
-                       {"FrameDurationLimits": (100_000, 100_000),
-                        "AeMeteringMode": metering.Spot}),
+        ExposureResult(
+            "long-shutter+spot",
+            {"FrameDurationLimits": (100_000, 100_000), "AeMeteringMode": metering.Spot},
+        ),
         ExposureResult(CONTROL_NAME, {}),
     )
 
@@ -411,8 +413,10 @@ def _run_exposure_sweep(picam2, imx500, intrinsics, args, out_dir) -> list[Expos
             continue
         q = result.quality
         if q:
-            print(f" bright={q.mean_brightness:.0f} keypoints={q.keypoints} "
-                  f"repeatable={result.repeatable}")
+            print(
+                f" bright={q.mean_brightness:.0f} keypoints={q.keypoints} "
+                f"repeatable={result.repeatable}"
+            )
         else:
             print(" done (no quality report)")
     return list(settings)
@@ -456,17 +460,23 @@ def _print_exposure_table(results: list[ExposureResult], blur_limit_ms: float) -
     shutters = {r.shutter_ms for r in results if r.shutter_ms}
     if len(shutters) == 1:
         pinned = shutters.pop()
-        print(f"\nEvery setting settled on the same {pinned:.1f} ms shutter, so auto-exposure "
-              f"is frame-duration limited and buys brightness with gain, not time. The shutter "
-              f"is a property of the FrameRate control here, not of these settings — it cannot "
-              f"rank them.")
+        print(
+            f"\nEvery setting settled on the same {pinned:.1f} ms shutter, so auto-exposure "
+            f"is frame-duration limited and buys brightness with gain, not time. The shutter "
+            f"is a property of the FrameRate control here, not of these settings — it cannot "
+            f"rank them."
+        )
         if pinned > blur_limit_ms:
-            print(f"That {pinned:.1f} ms exceeds --blur-limit-ms={blur_limit_ms:.0f}; whether it "
-                  f"actually blurs depends on how well the chassis settles, which only a moving "
-                  f"test can answer.")
+            print(
+                f"That {pinned:.1f} ms exceeds --blur-limit-ms={blur_limit_ms:.0f}; whether it "
+                f"actually blurs depends on how well the chassis settles, which only a moving "
+                f"test can answer."
+            )
     elif any(r.shutter_ms and r.shutter_ms > blur_limit_ms for r in results):
-        print(f"\nSettings above {blur_limit_ms:.0f} ms shutter carry a blur risk once the car "
-              f"is only briefly settled.")
+        print(
+            f"\nSettings above {blur_limit_ms:.0f} ms shutter carry a blur risk once the car "
+            f"is only briefly settled."
+        )
 
 
 def _recommend_exposure(results: list[ExposureResult], blur_limit_ms: float) -> str:
@@ -486,12 +496,13 @@ def _recommend_exposure(results: list[ExposureResult], blur_limit_ms: float) -> 
     control = next((r for r in measured if r.name == CONTROL_NAME), None)
     candidates = [r for r in measured if r.name != CONTROL_NAME]
     viable = [
-        r for r in candidates
-        if r.quality.clipped_fraction <= r.quality.policy.max_clipped_fraction
+        r for r in candidates if r.quality.clipped_fraction <= r.quality.policy.max_clipped_fraction
     ]
     if not viable:
-        return ("No exposure setting stayed within the clipping limit. Inspect the table "
-                "before writing the sweep.")
+        return (
+            "No exposure setting stayed within the clipping limit. Inspect the table "
+            "before writing the sweep."
+        )
 
     spread = max(r.repeatable for r in viable) - min(r.repeatable for r in viable)
     lines: list[str] = []
@@ -558,19 +569,40 @@ def _append_noise_note(lines: list[str], viable: list[ExposureResult]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="IMX500 inference + high-res still mode check")
     parser.add_argument("--model", default=DEFAULT_MODEL)
-    parser.add_argument("--check", choices=("modes", "exposure", "all"), default="all",
-                        help="which experiment to run")
-    parser.add_argument("--mode", choices=(*MODES, "all"), default="all",
-                        help="which capture modes the 'modes' check compares")
+    parser.add_argument(
+        "--check",
+        choices=("modes", "exposure", "all"),
+        default="all",
+        help="which experiment to run",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=(*MODES, "all"),
+        default="all",
+        help="which capture modes the 'modes' check compares",
+    )
     parser.add_argument("--frames", type=int, default=5, help="inference reads per mode")
-    parser.add_argument("--settle", type=float, default=1.0,
-                        help="seconds to let exposure settle before a capture")
-    parser.add_argument("--ae-settle", type=float, default=2.0,
-                        help="seconds to let auto-exposure converge after changing controls")
-    parser.add_argument("--blur-limit-ms", type=float, default=33.0,
-                        help="shutter longer than this is flagged as a blur risk")
-    parser.add_argument("--resume-timeout", type=float, default=10.0,
-                        help="seconds to wait for the CNN tensor after a mode change")
+    parser.add_argument(
+        "--settle", type=float, default=1.0, help="seconds to let exposure settle before a capture"
+    )
+    parser.add_argument(
+        "--ae-settle",
+        type=float,
+        default=2.0,
+        help="seconds to let auto-exposure converge after changing controls",
+    )
+    parser.add_argument(
+        "--blur-limit-ms",
+        type=float,
+        default=33.0,
+        help="shutter longer than this is flagged as a blur risk",
+    )
+    parser.add_argument(
+        "--resume-timeout",
+        type=float,
+        default=10.0,
+        help="seconds to wait for the CNN tensor after a mode change",
+    )
     parser.add_argument("--threshold", type=float, default=0.30)
     parser.add_argument("--out-dir", type=Path, default=Path("/tmp/dual-mode-check"))
     args = parser.parse_args()
@@ -600,8 +632,10 @@ def main() -> int:
     if run_modes:
         print(f"Mode check: {', '.join(modes)}, {args.frames} inference reads each")
         if args.mode == "all":
-            print("Modes run cheapest-first; a later mode failing after an earlier one "
-                  "passed may mean the mode change itself is destructive.")
+            print(
+                "Modes run cheapest-first; a later mode failing after an earlier one "
+                "passed may mean the mode change itself is destructive."
+            )
     if run_exposure:
         print(f"Exposure sweep: 8 settings in mode 'single', {args.ae_settle:.0f}s AE settle each")
     print("=" * 78)
@@ -622,8 +656,10 @@ def main() -> int:
                     result = ModeResult(name, error=f"{type(exc).__name__}: {exc}")
                     print(f"   failed: {result.error}")
                 else:
-                    print(f"   tensor {result.frames_with_tensor}/{result.frames_read} frames, "
-                          f"{result.detections} detections, verdict: {result.verdict}")
+                    print(
+                        f"   tensor {result.frames_with_tensor}/{result.frames_read} frames, "
+                        f"{result.detections} detections, verdict: {result.verdict}"
+                    )
                 results.append(result)
         if run_exposure:
             print("\n-- exposure sweep --")

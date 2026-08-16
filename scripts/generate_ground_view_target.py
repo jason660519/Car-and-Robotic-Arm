@@ -142,13 +142,19 @@ def draw_target(c: canvas.Canvas, width_mm: float, height_mm: float) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--width-mm", type=float, default=200.0, help="rectangle width (default 200mm = 20cm)")
-    parser.add_argument("--height-mm", type=float, default=150.0, help="rectangle height (default 150mm = 15cm)")
+    parser.add_argument(
+        "--width-mm", type=float, default=200.0, help="rectangle width (default 200mm = 20cm)"
+    )
+    parser.add_argument(
+        "--height-mm", type=float, default=150.0, help="rectangle height (default 150mm = 15cm)"
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
     if args.width_mm > 200 or args.height_mm > 220:
-        print("rectangle too large for the A4 layout margins used here", file=__import__("sys").stderr)
+        print(
+            "rectangle too large for the A4 layout margins used here", file=__import__("sys").stderr
+        )
         return 1
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

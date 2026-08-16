@@ -30,7 +30,9 @@ TEMP_MAX = 80.0  # °C; soft limit is around 85°C on Pi 5
 
 
 def vcgencmd(*args: str) -> str:
-    out = subprocess.run(["vcgencmd", *args], capture_output=True, text=True, timeout=10, check=False)
+    out = subprocess.run(
+        ["vcgencmd", *args], capture_output=True, text=True, timeout=10, check=False
+    )
     return out.stdout.strip()
 
 

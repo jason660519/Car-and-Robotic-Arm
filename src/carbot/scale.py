@@ -52,7 +52,9 @@ class ScaleEstimate:
         the tag was seen from too few viewpoints or its pose was poorly
         conditioned — report it rather than publishing a confident wrong size.
         """
-        return self.pair_count >= MIN_PAIRS_FOR_TRUST and self.relative_spread <= MAX_RELATIVE_SPREAD
+        return (
+            self.pair_count >= MIN_PAIRS_FOR_TRUST and self.relative_spread <= MAX_RELATIVE_SPREAD
+        )
 
     def describe(self) -> str:
         tags = ", ".join(str(t) for t in self.tag_ids)
@@ -63,7 +65,9 @@ class ScaleEstimate:
         )
 
 
-def camera_position_in_tag_frame(rotation_vector: np.ndarray, translation_m: np.ndarray) -> np.ndarray:
+def camera_position_in_tag_frame(
+    rotation_vector: np.ndarray, translation_m: np.ndarray
+) -> np.ndarray:
     """Where the camera sits in the tag's own frame, in metres.
 
     ``detect_apriltag_poses`` returns the tag's pose in the camera frame:

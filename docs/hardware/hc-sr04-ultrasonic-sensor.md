@@ -148,26 +148,27 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(TRIG_PIN, GPIO.OUT)
 GPIO.setup(ECHO_PIN, GPIO.IN)
 
+
 def measure_distance():
     # Send trigger pulse
     GPIO.output(TRIG_PIN, GPIO.LOW)
     time.sleep(0.000002)  # 2µs
     GPIO.output(TRIG_PIN, GPIO.HIGH)
-    time.sleep(0.00001)   # 10µs
+    time.sleep(0.00001)  # 10µs
     GPIO.output(TRIG_PIN, GPIO.LOW)
-    
+
     # Wait for echo start
     while GPIO.input(ECHO_PIN) == GPIO.LOW:
         pulse_start = time.time()
-    
+
     # Measure echo duration
     while GPIO.input(ECHO_PIN) == GPIO.HIGH:
         pulse_end = time.time()
-    
+
     # Calculate distance
     pulse_duration = pulse_end - pulse_start
     distance_cm = pulse_duration * 34000 / 2  # Speed of sound ≈ 340 m/s
-    
+
     return distance_cm
 ```
 

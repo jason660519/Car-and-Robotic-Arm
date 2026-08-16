@@ -145,8 +145,10 @@ def check_inference() -> None:
         return (score, name)
 
     pp_file = max(json_files, key=_prefer)
-    print(f"[INFO] running an inference pass ({IMX500_PP_LIB.name}): {tool} "
-          f"--post-process-file {pp_file}")
+    print(
+        f"[INFO] running an inference pass ({IMX500_PP_LIB.name}): {tool} "
+        f"--post-process-file {pp_file}"
+    )
     print("       First run uploads the network firmware to the IMX500 and can take a few minutes.")
     try:
         result = subprocess.run(
@@ -181,7 +183,9 @@ def capture_still(picamera2_cls: type) -> None:
         check(
             "still capture",
             ok,
-            f"wrote {PHOTO_PATH} ({PHOTO_PATH.stat().st_size} bytes)" if ok else "capture produced no file",
+            f"wrote {PHOTO_PATH} ({PHOTO_PATH.stat().st_size} bytes)"
+            if ok
+            else "capture produced no file",
         )
     except Exception as exc:  # noqa: BLE001 - report any backend error
         check("still capture", False, str(exc))

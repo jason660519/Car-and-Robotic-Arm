@@ -25,21 +25,20 @@ TRUE_SCALE = 0.42  # metres per reconstruction unit
 def metric_positions(count: int = 6, seed: int = 3) -> dict[str, np.ndarray]:
     """Camera centres in a tag's frame, in metres, spread over a few metres."""
     rng = np.random.default_rng(seed)
-    return {
-        f"frame-{i:03d}.jpg": rng.uniform(-2.0, 2.0, size=3)
-        for i in range(count)
-    }
+    return {f"frame-{i:03d}.jpg": rng.uniform(-2.0, 2.0, size=3) for i in range(count)}
 
 
 def arbitrary_rotation() -> np.ndarray:
     angle = 0.7
     axis = np.asarray([0.3, 0.8, 0.5])
     axis = axis / np.linalg.norm(axis)
-    cross = np.asarray([
-        [0.0, -axis[2], axis[1]],
-        [axis[2], 0.0, -axis[0]],
-        [-axis[1], axis[0], 0.0],
-    ])
+    cross = np.asarray(
+        [
+            [0.0, -axis[2], axis[1]],
+            [axis[2], 0.0, -axis[0]],
+            [-axis[1], axis[0], 0.0],
+        ]
+    )
     return np.eye(3) + np.sin(angle) * cross + (1 - np.cos(angle)) * (cross @ cross)
 
 

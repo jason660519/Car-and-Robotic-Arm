@@ -49,54 +49,125 @@ def _open_camera():
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Camera line-following drive")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="run detection and the state machine but never drive")
-    parser.add_argument("--duration", type=float, default=60.0,
-                        help="seconds to run (0 = until Ctrl-C)")
-    parser.add_argument("--threshold", type=int, default=LinePolicy().dark_threshold,
-                        help="gray value below which a pixel counts as line")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="run detection and the state machine but never drive"
+    )
+    parser.add_argument(
+        "--duration", type=float, default=60.0, help="seconds to run (0 = until Ctrl-C)"
+    )
+    parser.add_argument(
+        "--threshold",
+        type=int,
+        default=LinePolicy().dark_threshold,
+        help="gray value below which a pixel counts as line",
+    )
     parser.add_argument("--roi-top", type=float, default=LinePolicy().roi_top)
     parser.add_argument("--roi-bottom", type=float, default=LinePolicy().roi_bottom)
-    parser.add_argument("--speed", type=int, default=200,
-                        help="base drive speed 0-1000; 200 is the calibrated spin rate")
-    parser.add_argument("--search-sweep-deg", type=float, default=20.0,
-                        help="sweep angle in degrees per step during visual search (default: 20.0 deg)")
-    parser.add_argument("--search-give-up-s", type=float, default=2.5,
-                        help="stop search after this many seconds if no line found (default: 2.5s)")
-    parser.add_argument("--blind-creep-s", type=float, default=1.5,
-                        help="creep straight for this many seconds when line is lost "
-                             "(clears forward camera blind cone) before search (default: 1.5s)")
-    parser.add_argument("--turn-gain", type=float, default=2.5,
-                        help="steering sensitivity; 2.5 = strong (188-200 speed spread for small error)")
-    parser.add_argument("--roundabout-loop-min-s", type=float, default=6.5,
-                        help="minimum seconds inside a roundabout before an exit fork counts")
-    parser.add_argument("--junction-width-factor", type=float, default=2.0,
-                        help="line must widen by this factor to count as junction; "
-                             "2.0 = stricter (rejects scattered dark structures)")
-    parser.add_argument("--junction-min-branch-rows-fraction", type=float, default=0.10,
-                        help="branch must span this fraction of ROI height to count as fork; "
-                             "0.10 = stricter (needs 88+ rows on 1763-row ROI)")
-    parser.add_argument("--expected-center", type=float, default=0.46,
-                        help="frame-width fraction treated as on heading; 0.46 "
-                             "because the camera sits right of the axle")
-    parser.add_argument("--roundabout", action="store_true", default=True,
-                        help="enable roundabout entry/exit (default: enabled)")
-    parser.add_argument("--start-turn-s", type=float, default=0.0,
-                        help="optional right turn at launch before line-following; "
-                             "0 (default) because the start-zone line already bends right")
-    parser.add_argument("--exposure-time-us", type=int, default=50_000,
-                        help="fixed shutter in us; fixed exposure stops the auto-exposure "
-                             "drift that broke detection while the car moved")
-    parser.add_argument("--analogue-gain", type=float, default=4.5,
-                        help="fixed analogue gain with --exposure-time-us")
-    parser.add_argument("--sonar-stop-cm", type=float, default=15.0,
-                        help="stop immediately if HC-SR04 sonar detects wall/obstacle closer than this (default: 15.0 cm; 0 to disable)")
-    parser.add_argument("--log-dir", type=Path, default=Path("/tmp/line-follow"),
-                        help="save every Nth annotated frame here (--save-every)")
-    parser.add_argument("--save-every", type=int, default=0,
-                        help="save an annotated frame every N frames (0 = never)")
-    parser.add_argument("--ground-view", type=Path, default=None,
-                        help="bird's-eye homography JSON from examples/27")
+    parser.add_argument(
+        "--speed",
+        type=int,
+        default=200,
+        help="base drive speed 0-1000; 200 is the calibrated spin rate",
+    )
+    parser.add_argument(
+        "--search-sweep-deg",
+        type=float,
+        default=20.0,
+        help="sweep angle in degrees per step during visual search (default: 20.0 deg)",
+    )
+    parser.add_argument(
+        "--search-give-up-s",
+        type=float,
+        default=2.5,
+        help="stop search after this many seconds if no line found (default: 2.5s)",
+    )
+    parser.add_argument(
+        "--blind-creep-s",
+        type=float,
+        default=1.5,
+        help="creep straight for this many seconds when line is lost "
+        "(clears forward camera blind cone) before search (default: 1.5s)",
+    )
+    parser.add_argument(
+        "--turn-gain",
+        type=float,
+        default=2.5,
+        help="steering sensitivity; 2.5 = strong (188-200 speed spread for small error)",
+    )
+    parser.add_argument(
+        "--roundabout-loop-min-s",
+        type=float,
+        default=6.5,
+        help="minimum seconds inside a roundabout before an exit fork counts",
+    )
+    parser.add_argument(
+        "--junction-width-factor",
+        type=float,
+        default=2.0,
+        help="line must widen by this factor to count as junction; "
+        "2.0 = stricter (rejects scattered dark structures)",
+    )
+    parser.add_argument(
+        "--junction-min-branch-rows-fraction",
+        type=float,
+        default=0.10,
+        help="branch must span this fraction of ROI height to count as fork; "
+        "0.10 = stricter (needs 88+ rows on 1763-row ROI)",
+    )
+    parser.add_argument(
+        "--expected-center",
+        type=float,
+        default=0.46,
+        help="frame-width fraction treated as on heading; 0.46 "
+        "because the camera sits right of the axle",
+    )
+    parser.add_argument(
+        "--roundabout",
+        action="store_true",
+        default=True,
+        help="enable roundabout entry/exit (default: enabled)",
+    )
+    parser.add_argument(
+        "--start-turn-s",
+        type=float,
+        default=0.0,
+        help="optional right turn at launch before line-following; "
+        "0 (default) because the start-zone line already bends right",
+    )
+    parser.add_argument(
+        "--exposure-time-us",
+        type=int,
+        default=50_000,
+        help="fixed shutter in us; fixed exposure stops the auto-exposure "
+        "drift that broke detection while the car moved",
+    )
+    parser.add_argument(
+        "--analogue-gain",
+        type=float,
+        default=4.5,
+        help="fixed analogue gain with --exposure-time-us",
+    )
+    parser.add_argument(
+        "--sonar-stop-cm",
+        type=float,
+        default=15.0,
+        help="stop immediately if HC-SR04 sonar detects wall/obstacle closer than this (default: 15.0 cm; 0 to disable)",
+    )
+    parser.add_argument(
+        "--log-dir",
+        type=Path,
+        default=Path("/tmp/line-follow"),
+        help="save every Nth annotated frame here (--save-every)",
+    )
+    parser.add_argument(
+        "--save-every",
+        type=int,
+        default=0,
+        help="save an annotated frame every N frames (0 = never)",
+    )
+    parser.add_argument(
+        "--ground-view", type=Path, default=None, help="bird's-eye homography JSON from examples/27"
+    )
     args = parser.parse_args()
 
     line_policy = LinePolicy(
@@ -123,9 +194,7 @@ def main() -> int:
         print("using bird's-eye ground view for line detection")
 
     if not args.dry_run:
-        answer = input(
-            "Operator beside the car, path clear, power ready to cut? (yes/no) "
-        ).strip()
+        answer = input("Operator beside the car, path clear, power ready to cut? (yes/no) ").strip()
         if answer.lower() != "yes":
             print("Re-run when an operator is ready beside the car.")
             return 1
@@ -154,11 +223,13 @@ def main() -> int:
     # Fixed exposure: auto-exposure drifted the frame darker while the car
     # moved, pushing the map background under the line threshold.
     try:
-        camera.set_controls({
-            "AeEnable": False,
-            "ExposureTime": args.exposure_time_us,
-            "AnalogueGain": args.analogue_gain,
-        })
+        camera.set_controls(
+            {
+                "AeEnable": False,
+                "ExposureTime": args.exposure_time_us,
+                "AnalogueGain": args.analogue_gain,
+            }
+        )
         time.sleep(0.5)
     except Exception as exc:  # noqa: BLE001 - report control failure
         print(f"exposure controls failed: {exc}", file=sys.stderr)
@@ -175,11 +246,14 @@ def main() -> int:
     if car and args.sonar_stop_cm > 0:
         try:
             from RPi import GPIO
+
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(17, GPIO.OUT)
             GPIO.setup(27, GPIO.IN)
             sonar_enabled = True
-            print(f"HC-SR04 ultrasonic sonar active: emergency stop if obstacle < {args.sonar_stop_cm:.1f} cm")
+            print(
+                f"HC-SR04 ultrasonic sonar active: emergency stop if obstacle < {args.sonar_stop_cm:.1f} cm"
+            )
         except Exception as exc:  # noqa: BLE001
             print(f"sonar setup skipped: {exc}")
 
@@ -200,6 +274,7 @@ def main() -> int:
             if sonar_enabled:
                 try:
                     from RPi import GPIO
+
                     GPIO.output(17, GPIO.LOW)
                     time.sleep(0.001)
                     GPIO.output(17, GPIO.HIGH)
@@ -218,7 +293,9 @@ def main() -> int:
                                 break
                         dist_cm = (time.time() - p_start) * 34300.0 / 2.0
                         if 0.5 < dist_cm < args.sonar_stop_cm:
-                            print(f"\n[EMERGENCY STOP] Sonar detected obstacle/wall at {dist_cm:.1f} cm! Stopping motors.")
+                            print(
+                                f"\n[EMERGENCY STOP] Sonar detected obstacle/wall at {dist_cm:.1f} cm! Stopping motors."
+                            )
                             if car:
                                 car.stop()
                             break
@@ -231,15 +308,22 @@ def main() -> int:
             if car:
                 car.drive(command.left, command.right)
 
-            print(f"[{now - start:6.1f}s] #{frame_index:4d} {reading.summary} -> "
-                  f"{command.state.value}:{command.action} L{command.left} "
-                  f"R{command.right} | {command.reason}")
+            print(
+                f"[{now - start:6.1f}s] #{frame_index:4d} {reading.summary} -> "
+                f"{command.state.value}:{command.action} L{command.left} "
+                f"R{command.right} | {command.reason}"
+            )
 
             if args.save_every and frame_index % args.save_every == 0:
                 annotated = frame.copy()
                 cv2.putText(
-                    annotated, f"{command.state.value} {command.action}",
-                    (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3,
+                    annotated,
+                    f"{command.state.value} {command.action}",
+                    (20, 60),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1.5,
+                    (0, 255, 0),
+                    3,
                 )
                 cv2.imwrite(str(args.log_dir / f"frame-{frame_index:05d}.jpg"), annotated)
 

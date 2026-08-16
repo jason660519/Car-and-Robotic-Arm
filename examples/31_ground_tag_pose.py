@@ -65,11 +65,13 @@ def _capture(
     camera.configure(camera.create_preview_configuration(main={"size": size}))
     camera.start()
     try:
-        camera.set_controls({
-            "AeEnable": False,
-            "ExposureTime": exposure_time_us,
-            "AnalogueGain": analogue_gain,
-        })
+        camera.set_controls(
+            {
+                "AeEnable": False,
+                "ExposureTime": exposure_time_us,
+                "AnalogueGain": analogue_gain,
+            }
+        )
         time.sleep(0.5)
     except Exception:  # noqa: BLE001 - controls are optional on some builds
         time.sleep(1.5)
@@ -93,13 +95,19 @@ def _localization_json(localization: LandmarkLocalization | None) -> dict | None
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=None,
-                        help="existing image instead of the Pi camera")
+    parser.add_argument(
+        "--input", type=Path, default=None, help="existing image instead of the Pi camera"
+    )
     parser.add_argument("--calibration", type=Path, default=DEFAULT_CALIBRATION)
-    parser.add_argument("--tag-map", type=Path, default=None,
-                        help="tag map JSON; enables map-frame localization")
-    parser.add_argument("--tag-size-mm", type=float, default=DEFAULT_TAG_SIZE_M * 1000.0,
-                        help="detection size when no tag map is given")
+    parser.add_argument(
+        "--tag-map", type=Path, default=None, help="tag map JSON; enables map-frame localization"
+    )
+    parser.add_argument(
+        "--tag-size-mm",
+        type=float,
+        default=DEFAULT_TAG_SIZE_M * 1000.0,
+        help="detection size when no tag map is given",
+    )
     parser.add_argument("--annotated-out", type=Path, default=Path("/tmp/ground-tag-pose.jpg"))
     parser.add_argument("--json-out", type=Path, default=Path("/tmp/ground-tag-pose.json"))
     args = parser.parse_args()
@@ -110,9 +118,11 @@ def main() -> int:
         parser.error(f"input image does not exist: {args.input}")
 
     tag_map = load_tag_map(args.tag_map) if args.tag_map is not None else None
-    detection_size = (tag_map.entries[0].size_m
-                      if tag_map is not None and tag_map.entries
-                      else args.tag_size_mm / 1000.0)
+    detection_size = (
+        tag_map.entries[0].size_m
+        if tag_map is not None and tag_map.entries
+        else args.tag_size_mm / 1000.0
+    )
 
     calibration = load_calibration(args.calibration)
     if args.input is None:
@@ -131,7 +141,8 @@ def main() -> int:
             return 1
     height, width = image.shape[:2]
     scaled_calibration = (
-        calibration.scaled_to(width, height) if (width, height) != (calibration.width, calibration.height)
+        calibration.scaled_to(width, height)
+        if (width, height) != (calibration.width, calibration.height)
         else calibration
     )
 

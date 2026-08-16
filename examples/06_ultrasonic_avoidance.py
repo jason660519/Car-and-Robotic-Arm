@@ -61,7 +61,9 @@ def measure_once(timeout_s: float = 0.5) -> float | None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="HC-SR04 distance check and obstacle warning")
     parser.add_argument("--trials", type=int, default=5, help="number of readings (default 5)")
-    parser.add_argument("--threshold", type=float, default=30.0, help="obstacle warning distance in cm")
+    parser.add_argument(
+        "--threshold", type=float, default=30.0, help="obstacle warning distance in cm"
+    )
     parser.add_argument("--timeout", type=float, default=0.5, help="echo timeout in seconds")
     args = parser.parse_args()
 
@@ -73,7 +75,9 @@ def main() -> int:
 
     readings: list[float] = []
     failures = 0
-    print(f"HC-SR04 distance check — {args.trials} trials, obstacle threshold {args.threshold:.0f} cm")
+    print(
+        f"HC-SR04 distance check — {args.trials} trials, obstacle threshold {args.threshold:.0f} cm"
+    )
     print("=" * 60)
 
     try:
@@ -91,8 +95,10 @@ def main() -> int:
         GPIO.cleanup()
 
     if failures == args.trials:
-        print("\n✗ Sensor never responded. Re-check wiring: VCC->Pin 2, GND->Pin 9, "
-              "TRIG->Pin 11 (GPIO17), ECHO->Pin 13 (GPIO27) with the 2.2k/1k divider.")
+        print(
+            "\n✗ Sensor never responded. Re-check wiring: VCC->Pin 2, GND->Pin 9, "
+            "TRIG->Pin 11 (GPIO17), ECHO->Pin 13 (GPIO27) with the 2.2k/1k divider."
+        )
         return 1
 
     avg = statistics.mean(readings)

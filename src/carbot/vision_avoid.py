@@ -149,9 +149,7 @@ def blocking_detections(
 ) -> tuple[Detection, ...]:
     """Every detection that blocks the path, in input order."""
     policy = policy or ObstaclePolicy()
-    return tuple(
-        d for d in detections if is_blocking(d, frame_width, frame_height, policy)
-    )
+    return tuple(d for d in detections if is_blocking(d, frame_width, frame_height, policy))
 
 
 def fuse(
@@ -185,8 +183,10 @@ def fuse(
 
     if blocking:
         return ObstacleVerdict(
-            True, f"vision: {_describe(blocking, frame_size)} (sonar {sonar_cm:.0f} cm)",
-            sonar_cm, blocking
+            True,
+            f"vision: {_describe(blocking, frame_size)} (sonar {sonar_cm:.0f} cm)",
+            sonar_cm,
+            blocking,
         )
 
     return ObstacleVerdict(False, f"clear (sonar {sonar_cm:.0f} cm)", sonar_cm, ())

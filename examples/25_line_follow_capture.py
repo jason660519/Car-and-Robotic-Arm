@@ -44,11 +44,13 @@ def _capture(
     camera.start()
     # Match the drive script: auto-exposure made start-zone locks unrepeatable.
     try:
-        camera.set_controls({
-            "AeEnable": False,
-            "ExposureTime": exposure_time_us,
-            "AnalogueGain": analogue_gain,
-        })
+        camera.set_controls(
+            {
+                "AeEnable": False,
+                "ExposureTime": exposure_time_us,
+                "AnalogueGain": analogue_gain,
+            }
+        )
         time.sleep(0.5)
     except Exception:  # noqa: BLE001 - camera controls are optional on some builds
         time.sleep(1.5)
@@ -78,54 +80,103 @@ def _overlay(frame, reading: object, cv2) -> object:
 
     for candidate_x in reading.candidate_centroids:
         cv2.drawMarker(
-            image, (int(candidate_x), mark_y),
-            (255, 255, 0), cv2.MARKER_CROSS, 28, 3,
+            image,
+            (int(candidate_x), mark_y),
+            (255, 255, 0),
+            cv2.MARKER_CROSS,
+            28,
+            3,
         )
 
     if reading.centroid_x is not None and reading.centroid_y is not None:
         cv2.drawMarker(
-            image, (int(reading.centroid_x), int(reading.centroid_y)),
-            (0, 255, 0), cv2.MARKER_CROSS, 40, 6,
+            image,
+            (int(reading.centroid_x), int(reading.centroid_y)),
+            (0, 255, 0),
+            cv2.MARKER_CROSS,
+            40,
+            6,
         )
     elif reading.centroid_x is not None:
         cv2.drawMarker(
-            image, (int(reading.centroid_x), mark_y),
-            (0, 255, 0), cv2.MARKER_CROSS, 40, 6,
+            image,
+            (int(reading.centroid_x), mark_y),
+            (0, 255, 0),
+            cv2.MARKER_CROSS,
+            40,
+            6,
         )
     if reading.visible:
         cv2.putText(
-            image, f"err={reading.error_px:+.0f}px ({reading.error_fraction:+.2f})",
-            (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 4,
+            image,
+            f"err={reading.error_px:+.0f}px ({reading.error_fraction:+.2f})",
+            (20, 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            2.0,
+            (0, 255, 0),
+            4,
         )
         cv2.putText(
-            image, f"width={reading.line_width_px:.0f}px rows={reading.tracked_rows}",
-            (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3,
+            image,
+            f"width={reading.line_width_px:.0f}px rows={reading.tracked_rows}",
+            (20, 120),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.5,
+            (0, 255, 0),
+            3,
         )
         candidates = ",".join(f"{x:.0f}" for x in reading.candidate_centroids[:6])
         cv2.putText(
-            image, f"candidates x=[{candidates}]",
-            (20, 180), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 0), 3,
+            image,
+            f"candidates x=[{candidates}]",
+            (20, 180),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.2,
+            (255, 255, 0),
+            3,
         )
     else:
         cv2.putText(
-            image, "NO LINE", (20, 60),
-            cv2.FONT_HERSHEY_SIMPLEX, 2.5, (0, 0, 255), 5,
+            image,
+            "NO LINE",
+            (20, 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            2.5,
+            (0, 0, 255),
+            5,
         )
     return image
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Capture one downward frame and detect the line")
-    parser.add_argument("--threshold", type=int, default=LinePolicy().dark_threshold,
-                        help="gray value below which a pixel counts as line")
-    parser.add_argument("--roi-top", type=float, default=LinePolicy().roi_top,
-                        help="ROI top as a fraction of frame height")
-    parser.add_argument("--roi-bottom", type=float, default=LinePolicy().roi_bottom,
-                        help="ROI bottom as a fraction of frame height")
-    parser.add_argument("--output", type=Path, default=Path("/tmp/line-follow"),
-                        help="directory for raw and overlay images")
-    parser.add_argument("--ground-view", type=Path, default=None,
-                        help="bird's-eye homography JSON from examples/27")
+    parser.add_argument(
+        "--threshold",
+        type=int,
+        default=LinePolicy().dark_threshold,
+        help="gray value below which a pixel counts as line",
+    )
+    parser.add_argument(
+        "--roi-top",
+        type=float,
+        default=LinePolicy().roi_top,
+        help="ROI top as a fraction of frame height",
+    )
+    parser.add_argument(
+        "--roi-bottom",
+        type=float,
+        default=LinePolicy().roi_bottom,
+        help="ROI bottom as a fraction of frame height",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("/tmp/line-follow"),
+        help="directory for raw and overlay images",
+    )
+    parser.add_argument(
+        "--ground-view", type=Path, default=None, help="bird's-eye homography JSON from examples/27"
+    )
     args = parser.parse_args()
 
     try:
@@ -152,8 +203,10 @@ def main() -> int:
     cv2.imwrite(str(raw_path), frame)
     cv2.imwrite(str(overlay_path), _overlay(frame, reading, cv2))
 
-    print(f"frame {frame.shape[1]}x{frame.shape[0]}  roi=({policy.roi_top}-{policy.roi_bottom}) "
-          f"threshold={policy.dark_threshold}")
+    print(
+        f"frame {frame.shape[1]}x{frame.shape[0]}  roi=({policy.roi_top}-{policy.roi_bottom}) "
+        f"threshold={policy.dark_threshold}"
+    )
     print(f"detection: {reading.summary}")
     print(f"main x={reading.centroid_x}  candidates={reading.candidate_centroids[:8]}")
     if ground_view is not None:

@@ -94,7 +94,9 @@ class GroundView:
         # T cross-bar in the 2026-08-16 capture. Pad with paper-white (255)
         # instead so out-of-frame regions read as background, never as line.
         return cv2.warpPerspective(
-            image, self.homography, (self.bev_width, self.bev_height),
+            image,
+            self.homography,
+            (self.bev_width, self.bev_height),
             borderValue=255,
         )
 
@@ -222,8 +224,12 @@ def ground_view_from_charuco(
     # Board +Y is farther from the car; shift so the board sits in the BEV
     # ahead of the origin rather than straddling x=0 only.
     world_points = np.array(
-        [[-width_m / 2, y_min_m + 0.02], [width_m / 2, y_min_m + 0.02],
-         [width_m / 2, y_min_m + 0.02 + length_m], [-width_m / 2, y_min_m + 0.02 + length_m]],
+        [
+            [-width_m / 2, y_min_m + 0.02],
+            [width_m / 2, y_min_m + 0.02],
+            [width_m / 2, y_min_m + 0.02 + length_m],
+            [-width_m / 2, y_min_m + 0.02 + length_m],
+        ],
         dtype=np.float64,
     )
     return calibrate_ground_view(
@@ -369,8 +375,10 @@ def auto_calibrate_ground_view(
     # target's own ink for the track line.
     margin_m = 0.05
     exclude_box = (
-        -target_width_m / 2 - margin_m, target_width_m / 2 + margin_m,
-        near_m - margin_m, far_m + margin_m,
+        -target_width_m / 2 - margin_m,
+        target_width_m / 2 + margin_m,
+        near_m - margin_m,
+        far_m + margin_m,
     )
     return replace(view, exclude_world_box_m=exclude_box)
 
@@ -388,8 +396,7 @@ def load_optional_ground_view(path: str | Path | None = None) -> GroundView | No
         candidates.append(Path(path))
     candidates.append(Path("/tmp/line-follow/ground-view.json"))
     candidates.append(
-        Path(__file__).resolve().parents[2]
-        / "assets/reference/ground-view/imx500-2028x1520.json"
+        Path(__file__).resolve().parents[2] / "assets/reference/ground-view/imx500-2028x1520.json"
     )
     for candidate in candidates:
         if candidate.is_file():
@@ -410,15 +417,12 @@ def load_ground_view(path: str | Path) -> GroundView:
             x_max_m=float(data["x_max_m"]),
             y_min_m=float(data["y_min_m"]),
             y_max_m=float(data["y_max_m"]),
-            image_points_px=tuple(
-                (float(x), float(y)) for x, y in data["image_points_px"]
-            ),
-            world_points_m=tuple(
-                (float(x), float(y)) for x, y in data["world_points_m"]
-            ),
+            image_points_px=tuple((float(x), float(y)) for x, y in data["image_points_px"]),
+            world_points_m=tuple((float(x), float(y)) for x, y in data["world_points_m"]),
             exclude_world_box_m=(
                 tuple(float(v) for v in data["exclude_world_box_m"])
-                if data.get("exclude_world_box_m") else None
+                if data.get("exclude_world_box_m")
+                else None
             ),
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -575,19 +579,13 @@ def detect_line_on_ground(
     # scanned band when the near field alone does not carry enough hits.
     near_y_lo = y_lo + int((y_hi - y_lo) * 0.6)
     near_hits = [h for h in hits if h[1] >= near_y_lo]
-    near_2cm = [
-        h for h in near_hits
-        if abs(h[2] - expected_w) / expected_w <= 0.6
-    ]
+    near_2cm = [h for h in near_hits if abs(h[2] - expected_w) / expected_w <= 0.6]
     if len(near_2cm) >= 4:
         pool = near_2cm
     elif len(near_hits) >= 4:
         pool = near_hits
     else:
-        near_2cm_all = [
-            h for h in hits
-            if abs(h[2] - expected_w) / expected_w <= 0.6
-        ]
+        near_2cm_all = [h for h in hits if abs(h[2] - expected_w) / expected_w <= 0.6]
         pool = near_2cm_all or hits
     # Stay on the line the car was already tracking, rather than re-deciding
     # from scratch by BEV-centre proximity every frame. Prefer near-field

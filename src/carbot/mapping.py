@@ -39,6 +39,7 @@ DEFAULT_CELL_CM = 10.0
 # Scan loading and conversion
 # --------------------------------------------------------------------------
 
+
 def load_polar_scan(path: str | Path, max_range_cm: float = DEFAULT_MAX_RANGE_CM) -> np.ndarray:
     """Read a spin-scan CSV (elapsed_s, distance_cm, spin360_s) into (angle, dist) rows.
 
@@ -77,6 +78,7 @@ def points_to_scan(points: np.ndarray) -> np.ndarray:
 # --------------------------------------------------------------------------
 # 2D point-to-point ICP
 # --------------------------------------------------------------------------
+
 
 def best_rigid(src: np.ndarray, tgt: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Least-squares 2D rigid transform (R, t) mapping ``src`` onto ``tgt``."""
@@ -164,6 +166,7 @@ def transform(points: np.ndarray, r: np.ndarray, t: np.ndarray) -> np.ndarray:
 # Door / wall-gap features
 # --------------------------------------------------------------------------
 
+
 def detect_gaps(
     scan: np.ndarray,
     min_gap_cm: float = 100.0,
@@ -190,8 +193,9 @@ def detect_gaps(
             a0, a1 = ang[start], ang[i - 1]
             span = (a1 - a0) * 180.0 / math.pi
             center = math.degrees(a0 + (a1 - a0) / 2.0) % 360.0
-            gaps.append({"center_deg": center, "span_deg": span,
-                         "dist_cm": float(dist[start:i].mean())})
+            gaps.append(
+                {"center_deg": center, "span_deg": span, "dist_cm": float(dist[start:i].mean())}
+            )
             start = None
     return gaps
 
@@ -199,6 +203,7 @@ def detect_gaps(
 # --------------------------------------------------------------------------
 # Occupancy grid
 # --------------------------------------------------------------------------
+
 
 class OccupancyGrid:
     """Fixed 10 cm occupancy grid with a simple inverse-sensor model.

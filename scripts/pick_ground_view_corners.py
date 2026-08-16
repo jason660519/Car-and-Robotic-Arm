@@ -51,8 +51,15 @@ def _pick(image: np.ndarray) -> list[tuple[float, float]] | None:
         for i, (x, y) in enumerate(clicks):
             point = (round(x * scale), round(y * scale))
             cv2.circle(frame, point, 6, (0, 255, 0), -1)
-            cv2.putText(frame, CORNER_LABELS[i], (point[0] + 8, point[1] - 8),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(
+                frame,
+                CORNER_LABELS[i],
+                (point[0] + 8, point[1] - 8),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2,
+            )
         cv2.imshow(window, frame)
         key = cv2.waitKey(20) & 0xFF
         if key in (ord("q"), 27):

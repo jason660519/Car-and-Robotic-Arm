@@ -58,16 +58,30 @@ def main() -> int:
     parser.add_argument("--frames", type=int, default=150, help="number of stills to capture")
     parser.add_argument("--step-s", type=float, default=1.0, help="seconds of forward per step")
     parser.add_argument("--speed", type=int, default=200, help="drive speed 0-255 (low)")
-    parser.add_argument("--backup-s", type=float, default=0.6,
-                        help="seconds to reverse before turning (frees the car from a corner)")
-    parser.add_argument("--obstacle-cm", type=float, default=30.0,
-                        help="turn away when the sonar reads closer than this")
-    parser.add_argument("--turn-min-deg", type=float, default=30.0,
-                        help="minimum random turn angle (deg)")
-    parser.add_argument("--turn-max-deg", type=float, default=150.0,
-                        help="maximum random turn angle (deg)")
-    parser.add_argument("--spin-deg-per-s", type=float, default=VERIFIED_SPIN_DEG_PER_S,
-                        help="spin rate (deg/s) at --speed")
+    parser.add_argument(
+        "--backup-s",
+        type=float,
+        default=0.6,
+        help="seconds to reverse before turning (frees the car from a corner)",
+    )
+    parser.add_argument(
+        "--obstacle-cm",
+        type=float,
+        default=30.0,
+        help="turn away when the sonar reads closer than this",
+    )
+    parser.add_argument(
+        "--turn-min-deg", type=float, default=30.0, help="minimum random turn angle (deg)"
+    )
+    parser.add_argument(
+        "--turn-max-deg", type=float, default=150.0, help="maximum random turn angle (deg)"
+    )
+    parser.add_argument(
+        "--spin-deg-per-s",
+        type=float,
+        default=VERIFIED_SPIN_DEG_PER_S,
+        help="spin rate (deg/s) at --speed",
+    )
     parser.add_argument("--size", default="2028x1520", help="capture size WxH")
     parser.add_argument("--out-dir", type=Path, default=Path("/tmp/room-sfm"))
     args = parser.parse_args()
@@ -79,9 +93,7 @@ def main() -> int:
     GPIO.setup(ECHO_PIN, GPIO.IN)
     sonar = Sonar(TRIG_PIN, ECHO_PIN, GPIO)
 
-    answer = input(
-        "Operator beside the car, path clear, power ready to cut? (yes/no) "
-    ).strip()
+    answer = input("Operator beside the car, path clear, power ready to cut? (yes/no) ").strip()
     if answer.lower() != "yes":
         print("Re-run when an operator is ready beside the car.")
         GPIO.cleanup()
@@ -118,9 +130,11 @@ def main() -> int:
         raise
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Roomba patrol: {args.frames} frames, step {args.step_s}s at speed {args.speed}, "
-          f"turn below {args.obstacle_cm:.0f} cm by {args.turn_min_deg:.0f}-"
-          f"{args.turn_max_deg:.0f} deg random angle. Ctrl-C to stop.")
+    print(
+        f"Roomba patrol: {args.frames} frames, step {args.step_s}s at speed {args.speed}, "
+        f"turn below {args.obstacle_cm:.0f} cm by {args.turn_min_deg:.0f}-"
+        f"{args.turn_max_deg:.0f} deg random angle. Ctrl-C to stop."
+    )
     n = 0
     try:
         while n < args.frames:

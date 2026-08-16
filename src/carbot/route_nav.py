@@ -115,7 +115,9 @@ class RouteTracker:
             travelled = self._integrator.distance_delta(self._step_elapsed_s)
             remaining = max(0.0, step.distance_m - travelled)
         elif step.kind == StepKind.ROUNDABOUT:
-            remaining = max(0.0, step.distance_m - self._integrator.distance_delta(self._step_elapsed_s))
+            remaining = max(
+                0.0, step.distance_m - self._integrator.distance_delta(self._step_elapsed_s)
+            )
 
         planned = {
             StepKind.STRAIGHT: f"straight {remaining:.2f} m left (plan)",

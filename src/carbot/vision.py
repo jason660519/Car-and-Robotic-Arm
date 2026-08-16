@@ -295,7 +295,11 @@ def estimate_square_pose(
         )
         if ok and float(translation.reshape(3)[2]) > 0:
             candidates.append(
-                (rotation.reshape(3), translation.reshape(3), _projection_error(rotation, translation))
+                (
+                    rotation.reshape(3),
+                    translation.reshape(3),
+                    _projection_error(rotation, translation),
+                )
             )
     if not candidates:
         raise ValueError("could not estimate a positive-depth AprilTag pose")
@@ -508,8 +512,7 @@ def aggregate_camera_world_poses(
         index
         for index, (position, rotation) in enumerate(zip(positions, rotations, strict=True))
         if float(np.linalg.norm(position - center_position)) <= max_position_deviation_m
-        and _rotation_distance_degrees(rotation, center_rotation)
-        <= max_rotation_deviation_deg
+        and _rotation_distance_degrees(rotation, center_rotation) <= max_rotation_deviation_deg
     ]
     if not inliers:
         raise ValueError("all camera poses were rejected as outliers")

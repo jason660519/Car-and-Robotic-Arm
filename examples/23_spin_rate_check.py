@@ -102,14 +102,25 @@ def _fit_rate_and_dead_time(samples: list[SpinSample]) -> tuple[float, float] | 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Measure spin rate and startup dead time")
     parser.add_argument("--speed", type=int, default=200, help="drive speed 0-1000")
-    parser.add_argument("--repeats", type=int, default=2,
-                        help="measurements per duration; directions alternate")
-    parser.add_argument("--durations", type=float, nargs="+", default=list(DEFAULT_DURATIONS),
-                        help="spin durations to measure (seconds)")
-    parser.add_argument("--target-deg", type=float, default=20.0,
-                        help="step angle to report a duration for")
-    parser.add_argument("--settle-s", type=float, default=1.0,
-                        help="seconds to let the chassis stop rocking before a frame")
+    parser.add_argument(
+        "--repeats", type=int, default=2, help="measurements per duration; directions alternate"
+    )
+    parser.add_argument(
+        "--durations",
+        type=float,
+        nargs="+",
+        default=list(DEFAULT_DURATIONS),
+        help="spin durations to measure (seconds)",
+    )
+    parser.add_argument(
+        "--target-deg", type=float, default=20.0, help="step angle to report a duration for"
+    )
+    parser.add_argument(
+        "--settle-s",
+        type=float,
+        default=1.0,
+        help="seconds to let the chassis stop rocking before a frame",
+    )
     parser.add_argument("--calibration", type=Path, default=DEFAULT_CALIBRATION)
     parser.add_argument("--out-dir", type=Path, default=Path("/tmp/spin-rate"))
     args = parser.parse_args()
@@ -128,8 +139,9 @@ def main() -> int:
         return 1
     focal_x = float(calibration.camera_matrix[0, 0])
     principal_x = float(calibration.camera_matrix[0, 2])
-    print(f"Calibration: fx={focal_x:.1f}px cx={principal_x:.1f}px at "
-          f"{STILL_SIZE[0]}x{STILL_SIZE[1]}")
+    print(
+        f"Calibration: fx={focal_x:.1f}px cx={principal_x:.1f}px at {STILL_SIZE[0]}x{STILL_SIZE[1]}"
+    )
 
     from RPi import GPIO  # noqa: F401 — imported for parity with the other motor scripts
 
@@ -167,13 +179,17 @@ def main() -> int:
         quality = assess_file(str(scene))
         print(f"Scene: {quality.summary()}")
         if quality.textured_tiles < 4:
-            print("The camera is facing a nearly featureless surface — point the car at a "
-                  "textured part of the room and re-run, or the measurements will be rejected.",
-                  file=sys.stderr)
+            print(
+                "The camera is facing a nearly featureless surface — point the car at a "
+                "textured part of the room and re-run, or the measurements will be rejected.",
+                file=sys.stderr,
+            )
             return 1
 
-        print(f"\nMeasuring {len(args.durations)} durations x {args.repeats} repeats "
-              f"at speed {args.speed}")
+        print(
+            f"\nMeasuring {len(args.durations)} durations x {args.repeats} repeats "
+            f"at speed {args.speed}"
+        )
         print("=" * 72)
         for index, duration in enumerate(args.durations):
             for repeat in range(args.repeats):
@@ -193,9 +209,7 @@ def main() -> int:
                 time.sleep(args.settle_s)
                 camera.capture_file(str(after))
 
-                estimate = estimate_yaw_between_files(
-                    str(before), str(after), focal_x, principal_x
-                )
+                estimate = estimate_yaw_between_files(str(before), str(after), focal_x, principal_x)
                 if estimate is None:
                     sample.note = "no usable matches (too little overlap?)"
                 else:
@@ -204,17 +218,24 @@ def main() -> int:
                     sample.spread_deg = estimate.spread_deg
                     sample.trustworthy = estimate.trustworthy
                     if not estimate.trustworthy:
-                        sample.note = (f"weak: {estimate.matches} matches, spread "
-                                       f"{estimate.spread_deg:.1f} deg")
+                        sample.note = (
+                            f"weak: {estimate.matches} matches, spread "
+                            f"{estimate.spread_deg:.1f} deg"
+                        )
                     elif not sample.direction_agrees:
                         sample.note = f"spin_{direction} rotated the other way"
                 samples.append(sample)
 
-                measured = (f"{sample.measured_deg:+6.1f} deg"
-                            if sample.measured_deg is not None else "      -   ")
-                print(f"  {duration:.2f}s {direction:5s} -> {measured} "
-                      f"({sample.matches:4d} matches, spread {sample.spread_deg:.1f}) "
-                      f"{sample.note}")
+                measured = (
+                    f"{sample.measured_deg:+6.1f} deg"
+                    if sample.measured_deg is not None
+                    else "      -   "
+                )
+                print(
+                    f"  {duration:.2f}s {direction:5s} -> {measured} "
+                    f"({sample.matches:4d} matches, spread {sample.spread_deg:.1f}) "
+                    f"{sample.note}"
+                )
     except KeyboardInterrupt:
         print("\nInterrupted.")
     finally:
@@ -227,29 +248,39 @@ def main() -> int:
     print(f"{'duration':>9s} {'commanded':>10s} {'measured':>10s} {'deg/s':>8s} {'matches':>8s}")
     for sample in samples:
         if sample.measured_deg is None:
-            print(f"{sample.duration_s:8.2f}s {sample.direction:>10s} {'-':>10s} "
-                  f"{'-':>8s} {sample.matches:8d}")
+            print(
+                f"{sample.duration_s:8.2f}s {sample.direction:>10s} {'-':>10s} "
+                f"{'-':>8s} {sample.matches:8d}"
+            )
             continue
         naive = PREVIOUS_ASSUMPTION_DEG_PER_S * sample.duration_s
         rate = abs(sample.measured_deg) / sample.duration_s
         flag = "" if sample.trustworthy else "  (rejected)"
-        print(f"{sample.duration_s:8.2f}s {naive:9.1f}d {sample.measured_deg:+9.1f}d "
-              f"{rate:8.1f} {sample.matches:8d}{flag}")
+        print(
+            f"{sample.duration_s:8.2f}s {naive:9.1f}d {sample.measured_deg:+9.1f}d "
+            f"{rate:8.1f} {sample.matches:8d}{flag}"
+        )
 
     print("-" * 72)
     checked = [s for s in samples if s.trustworthy and s.direction_agrees is not None]
     if checked:
         agreeing = sum(1 for s in checked if s.direction_agrees)
         if agreeing == len(checked):
-            print(f"Direction: spin_left/spin_right match the chassis on all {len(checked)} "
-                  f"trusted measurements — the config.py wheel mapping is correct.")
+            print(
+                f"Direction: spin_left/spin_right match the chassis on all {len(checked)} "
+                f"trusted measurements — the config.py wheel mapping is correct."
+            )
         elif agreeing == 0:
-            print(f"Direction: spin_left/spin_right are INVERTED on all {len(checked)} trusted "
-                  f"measurements — spin_right rotates the car left. Check "
-                  f"config.INVERTED_MOTORS against examples/02_motor_check.py.")
+            print(
+                f"Direction: spin_left/spin_right are INVERTED on all {len(checked)} trusted "
+                f"measurements — spin_right rotates the car left. Check "
+                f"config.INVERTED_MOTORS against examples/02_motor_check.py."
+            )
         else:
-            print(f"Direction: inconsistent — {agreeing}/{len(checked)} measurements agreed with "
-                  f"the command. Do not trust either direction until this is resolved.")
+            print(
+                f"Direction: inconsistent — {agreeing}/{len(checked)} measurements agreed with "
+                f"the command. Do not trust either direction until this is resolved."
+            )
 
     fit = _fit_rate_and_dead_time(samples)
     if fit is None:
@@ -257,19 +288,24 @@ def main() -> int:
         print("Point the car at more texture, raise --repeats, or check that it is spinning.")
         return 1
     rate, dead_time = fit
-    print(f"Fitted: angle = {rate:.1f} deg/s x (duration - {dead_time:.3f}s) at speed "
-          f"{args.speed}")
-    print(f"Previously assumed {PREVIOUS_ASSUMPTION_DEG_PER_S:.1f} deg/s with no dead time "
-          f"(measured at speed 150).")
+    print(f"Fitted: angle = {rate:.1f} deg/s x (duration - {dead_time:.3f}s) at speed {args.speed}")
+    print(
+        f"Previously assumed {PREVIOUS_ASSUMPTION_DEG_PER_S:.1f} deg/s with no dead time "
+        f"(measured at speed 150)."
+    )
     if dead_time > 0:
         needed = args.target_deg / rate + dead_time
-        print(f"A {args.target_deg:.0f} deg step needs {needed:.3f}s of spin; ignoring the "
-              f"dead time would command {args.target_deg / rate:.3f}s and undershoot by "
-              f"about {rate * dead_time:.1f} deg.")
+        print(
+            f"A {args.target_deg:.0f} deg step needs {needed:.3f}s of spin; ignoring the "
+            f"dead time would command {args.target_deg / rate:.3f}s and undershoot by "
+            f"about {rate * dead_time:.1f} deg."
+        )
     else:
         needed = args.target_deg / rate
-        print(f"No positive dead time was measured; a {args.target_deg:.0f} deg step needs "
-              f"{needed:.3f}s.")
+        print(
+            f"No positive dead time was measured; a {args.target_deg:.0f} deg step needs "
+            f"{needed:.3f}s."
+        )
     print(f"Frames under {args.out_dir}")
     return 0
 

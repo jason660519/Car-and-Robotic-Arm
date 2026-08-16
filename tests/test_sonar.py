@@ -35,8 +35,9 @@ class TickClock:
 class EchoGpio:
     """Echo goes high at ``high_at`` and low again at ``low_at``."""
 
-    def __init__(self, clock: TickClock, high_at: float = float("inf"),
-                 low_at: float = float("inf")) -> None:
+    def __init__(
+        self, clock: TickClock, high_at: float = float("inf"), low_at: float = float("inf")
+    ) -> None:
         self._clock = clock
         self.high_at = high_at
         self.low_at = low_at
@@ -55,8 +56,7 @@ class EchoGpio:
 
 
 def _sonar(gpio: EchoGpio, clock: TickClock, timeout_s: float = 0.5) -> Sonar:
-    return Sonar(TRIG, ECHO, gpio, timeout_s=timeout_s,
-                 sleep=clock.sleep, clock=clock)
+    return Sonar(TRIG, ECHO, gpio, timeout_s=timeout_s, sleep=clock.sleep, clock=clock)
 
 
 def test_distance_from_pulse():
@@ -72,7 +72,9 @@ def test_measure_returns_distance_for_normal_echo():
     dist = sonar.measure()
     assert dist is not None
     # Pulse ~1 ms -> ~17.15 cm; timing quantisation is at most 2 ticks.
-    assert dist == pytest.approx(distance_from_pulse(0.001), abs=2 * clock.tick * SPEED_OF_SOUND_CM_S / 2 + 1e-6)
+    assert dist == pytest.approx(
+        distance_from_pulse(0.001), abs=2 * clock.tick * SPEED_OF_SOUND_CM_S / 2 + 1e-6
+    )
 
 
 def test_measure_returns_none_when_echo_never_heard():

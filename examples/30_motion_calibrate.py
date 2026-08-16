@@ -32,29 +32,30 @@ from carbot import Car, NeZhaError
 def main() -> int:
     parser = argparse.ArgumentParser(description="Calibrate motion model speeds")
     parser.add_argument("--mode", choices=("forward", "spin"), default="forward")
-    parser.add_argument("--seconds", type=float, default=1.0,
-                        help="drive duration for the measurement")
-    parser.add_argument("--speed", type=int, default=200,
-                        help="motor speed for the measurement")
-    parser.add_argument("--direction", choices=("left", "right"), default="right",
-                        help="spin direction (spin mode)")
+    parser.add_argument(
+        "--seconds", type=float, default=1.0, help="drive duration for the measurement"
+    )
+    parser.add_argument("--speed", type=int, default=200, help="motor speed for the measurement")
+    parser.add_argument(
+        "--direction", choices=("left", "right"), default="right", help="spin direction (spin mode)"
+    )
     args = parser.parse_args()
 
     if not args.seconds or args.seconds <= 0:
         print("--seconds must be positive")
         return 1
 
-    answer = input(
-        "Operator beside the car, clear floor, power ready to cut? (yes/no) "
-    ).strip()
+    answer = input("Operator beside the car, clear floor, power ready to cut? (yes/no) ").strip()
     if answer.lower() != "yes":
         print("Re-run when an operator is ready beside the car.")
         return 1
 
     try:
         with Car() as car:
-            print(f"\nDriving {args.mode} at speed {args.speed} for "
-                  f"{args.seconds:.2f}s — measure now...")
+            print(
+                f"\nDriving {args.mode} at speed {args.speed} for "
+                f"{args.seconds:.2f}s — measure now..."
+            )
             if args.mode == "forward":
                 car.forward(args.speed)
             elif args.direction == "left":
@@ -73,8 +74,10 @@ def main() -> int:
         print(f"  distance travelled (cm) -> forward_mps = distance_cm / 100 / {args.seconds:.2f}")
     else:
         print(f"  heading change (deg) -> spin_degps = angle_deg / {args.seconds:.2f}")
-    print("Update the constants in src/carbot/motion.py or pass the values to "
-          "examples/29_route_nav_drive.py with --forward-mps / --spin-degps.")
+    print(
+        "Update the constants in src/carbot/motion.py or pass the values to "
+        "examples/29_route_nav_drive.py with --forward-mps / --spin-degps."
+    )
     return 0
 
 
