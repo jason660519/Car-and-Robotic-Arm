@@ -1,6 +1,0 @@
-px_per_cm=13.500
-total_cm=258.9
-stem_cm=9.8
-outer_cm=126.3
-roundabout_cm=93.0
-return_cm=29.8

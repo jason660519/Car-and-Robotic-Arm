@@ -1503,10 +1503,26 @@
           "title": "樹莓派 5 GPIO 排針圖",
           "image": "assets/reference/raspberry-pi-5/gpio-pinout-diagram.png",
           "wiringTable": [
-            { "pin": "Pin 2", "gpio": "5V Power", "use": "HC-SR04 VCC" },
-            { "pin": "Pin 6", "gpio": "Ground (GND)", "use": "HC-SR04 GND" },
-            { "pin": "Pin 11", "gpio": "GPIO 17", "use": "HC-SR04 Trig" },
-            { "pin": "Pin 13", "gpio": "GPIO 27", "use": "HC-SR04 Echo（需分壓）" }
+            {
+              "pin": "Pin 2",
+              "gpio": "5V Power",
+              "use": "HC-SR04 VCC"
+            },
+            {
+              "pin": "Pin 6",
+              "gpio": "Ground (GND)",
+              "use": "HC-SR04 GND"
+            },
+            {
+              "pin": "Pin 11",
+              "gpio": "GPIO 17",
+              "use": "HC-SR04 Trig"
+            },
+            {
+              "pin": "Pin 13",
+              "gpio": "GPIO 27",
+              "use": "HC-SR04 Echo（需分壓）"
+            }
           ]
         },
         "raspberryPiWiring": [
@@ -1582,10 +1598,26 @@
           "title": "Raspberry Pi 5 GPIO Pinout",
           "image": "assets/reference/raspberry-pi-5/gpio-pinout-diagram.png",
           "wiringTable": [
-            { "pin": "Pin 2", "gpio": "5V Power", "use": "HC-SR04 VCC" },
-            { "pin": "Pin 6", "gpio": "Ground (GND)", "use": "HC-SR04 GND" },
-            { "pin": "Pin 11", "gpio": "GPIO 17", "use": "HC-SR04 Trig" },
-            { "pin": "Pin 13", "gpio": "GPIO 27", "use": "HC-SR04 Echo (needs divider)" }
+            {
+              "pin": "Pin 2",
+              "gpio": "5V Power",
+              "use": "HC-SR04 VCC"
+            },
+            {
+              "pin": "Pin 6",
+              "gpio": "Ground (GND)",
+              "use": "HC-SR04 GND"
+            },
+            {
+              "pin": "Pin 11",
+              "gpio": "GPIO 17",
+              "use": "HC-SR04 Trig"
+            },
+            {
+              "pin": "Pin 13",
+              "gpio": "GPIO 27",
+              "use": "HC-SR04 Echo (needs divider)"
+            }
           ]
         },
         "raspberryPiWiring": [
@@ -4178,6 +4210,179 @@
           }
         ],
         "codeSnippet": "# Raspberry Pi Pico W - MicroPython WiFi scan\nimport network\nwlan = network.WLAN(network.STA_IF)\nwlan.active(True)\nprint(wlan.scan())  # scan nearby WiFi"
+      }
+    }
+  },
+  {
+    "id": "mod-103",
+    "number": "103",
+    "name": "YourFun NeZha Motor & Servo Controller Board",
+    "category": "motion",
+    "tags": [
+      "NeZha",
+      "STM32",
+      "I2C",
+      "MotorDriver",
+      "ServoDriver",
+      "PWM"
+    ],
+    "images": [
+      "assets/inventory/103_YourFun_NeZha_Breakout_Driver_Board.jpg"
+    ],
+    "i18n": {
+      "zh": {
+        "title": "有方機器人 NeZha（哪吒）總線驅動板",
+        "desc": "專為智慧小車與機械臂設計的 I2C 總線馬達與舵機驅動板，板載微控制器、4 路直流馬達介面（M1-M4）、4 路舵機介面（S1-S4）與 4 個 RGB LED，透過 I2C 通訊（預設位址 0x40）。",
+        "specs": [
+          {
+            "label": "主控 / 通訊介面",
+            "val": "I2C 匯流排（預設 Linux 7-bit 位址 0x40）"
+          },
+          {
+            "label": "馬達驅動輸出",
+            "val": "4 路 DC 直流馬達（M1, M2, M3, M4）"
+          },
+          {
+            "label": "舵機驅動輸出",
+            "val": "4 路 PWM 舵機介面（S1, S2, S3, S4）"
+          },
+          {
+            "label": "板載燈效",
+            "val": "4 個全彩 RGB LED (LED1-LED4)"
+          },
+          {
+            "label": "工作電壓",
+            "val": "DC 6V ~ 12V 接線柱獨立供電"
+          }
+        ],
+        "codeSnippet": "# Python 範例：存取 NeZha 驅動板 (I2C 0x40)\nfrom carbot.nezha import NeZhaBoard\n\nnezha = NeZhaBoard(bus=1, address=0x40)\nnezha.set_motor(1, 50)   # 控制 M1 直流馬達 50% 轉速\nnezha.set_servo(1, 90)   # 控制 S1 舵機旋轉至 90°",
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC / 電源輸入",
+            "conn": "藍色接線柱連接 11.1V 鋰電池（DC 6V-12V）"
+          },
+          {
+            "pin": "G (GND)",
+            "conn": "Raspberry Pi 5 Pin 6 (GND) —— 共地"
+          },
+          {
+            "pin": "SDA",
+            "conn": "Raspberry Pi 5 Pin 3 (GPIO 2 / SDA)"
+          },
+          {
+            "pin": "SCL",
+            "conn": "Raspberry Pi 5 Pin 5 (GPIO 3 / SCL)"
+          },
+          {
+            "pin": "5V",
+            "conn": "⚠️ 驅動板若已接外部電池供電，請勿連接 5V 到 Pi 的 GPIO 5V 針腳（避免雙電源對灌）"
+          }
+        ],
+        "arduinoWiring": [
+          {
+            "pin": "SDA",
+            "conn": "Arduino A4 / SDA"
+          },
+          {
+            "pin": "SCL",
+            "conn": "Arduino A5 / SCL"
+          },
+          {
+            "pin": "GND",
+            "conn": "Arduino GND"
+          }
+        ],
+        "stm32Wiring": [
+          {
+            "pin": "SDA",
+            "conn": "STM32 PB7 (I2C1_SDA)"
+          },
+          {
+            "pin": "SCL",
+            "conn": "STM32 PB6 (I2C1_SCL)"
+          },
+          {
+            "pin": "GND",
+            "conn": "STM32 GND"
+          }
+        ]
+      },
+      "en": {
+        "title": "YourFun NeZha Motor & Servo Controller Board",
+        "desc": "I2C bus motor and servo driver board designed for smart cars and robotic arms. Features on-board MCU, 4 DC motor channels (M1-M4), 4 servo PWM ports (S1-S4), and 4 RGB LEDs controlled over I2C (default address 0x40).",
+        "specs": [
+          {
+            "label": "Controller & Interface",
+            "val": "I2C Bus (Default Linux 7-bit address 0x40)"
+          },
+          {
+            "label": "Motor Outputs",
+            "val": "4 DC Motor Channels (M1, M2, M3, M4)"
+          },
+          {
+            "label": "Servo Outputs",
+            "val": "4 Servo PWM Ports (S1, S2, S3, S4)"
+          },
+          {
+            "label": "On-board Lighting",
+            "val": "4 Full-color RGB LEDs (LED1-LED4)"
+          },
+          {
+            "label": "Operating Voltage",
+            "val": "DC 6V ~ 12V Screw Terminal Input"
+          }
+        ],
+        "codeSnippet": "# Python example: Control NeZha board over I2C (0x40)\nfrom carbot.nezha import NeZhaBoard\n\nnezha = NeZhaBoard(bus=1, address=0x40)\nnezha.set_motor(1, 50)   # Set M1 DC motor to 50% speed\nnezha.set_servo(1, 90)   # Set S1 servo angle to 90°",
+        "raspberryPiWiring": [
+          {
+            "pin": "VCC / Power Input",
+            "conn": "Connect 11.1V battery (DC 6V-12V) to blue terminal block"
+          },
+          {
+            "pin": "G (GND)",
+            "conn": "Raspberry Pi 5 Pin 6 (GND) — Common ground"
+          },
+          {
+            "pin": "SDA",
+            "conn": "Raspberry Pi 5 Pin 3 (GPIO 2 / SDA)"
+          },
+          {
+            "pin": "SCL",
+            "conn": "Raspberry Pi 5 Pin 5 (GPIO 3 / SCL)"
+          },
+          {
+            "pin": "5V",
+            "conn": "⚠️ Do NOT connect NeZha 5V pin to Pi GPIO 5V when board is battery powered (avoids dual power conflict)"
+          }
+        ],
+        "arduinoWiring": [
+          {
+            "pin": "SDA",
+            "conn": "Arduino A4 / SDA"
+          },
+          {
+            "pin": "SCL",
+            "conn": "Arduino A5 / SCL"
+          },
+          {
+            "pin": "GND",
+            "conn": "Arduino GND"
+          }
+        ],
+        "stm32Wiring": [
+          {
+            "pin": "SDA",
+            "conn": "STM32 PB7 (I2C1_SDA)"
+          },
+          {
+            "pin": "SCL",
+            "conn": "STM32 PB6 (I2C1_SCL)"
+          },
+          {
+            "pin": "GND",
+            "conn": "STM32 GND"
+          }
+        ]
       }
     }
   }
