@@ -45,8 +45,8 @@ SCALE = 0.84
 MAP_W_MM = 840.0
 MAP_H_MM = 588.0
 LINE_W_MM = 15.0  # 1.5 cm black line, kept at physical size
-TAG_SIZE_MM = 20.0  # AprilTag side, kept at physical size
-MIN_TAG_CLEAR_MM = 20.0  # tag edge to black-line edge
+TAG_SIZE_MM = 40.0  # AprilTag side, kept at physical size
+MIN_TAG_CLEAR_MM = 8.0  # extra clearance beyond the tag's own half-width
 
 ROUNDABOUT = (245.3, 241.9, 151.2)  # cx, cy, R (mm)
 
@@ -65,26 +65,33 @@ ROUTE = [
     [(396.5, 247.8), (589.7, 247.8)],  # Phase 10 return
 ]
 
-# Designed tag positions (id, x_mm, y_mm): one AprilTag at each of the four
-# corners of every tile (8 tiles x 4 corners = 32). All positions are clear of
-# the route (>=30 mm), the page seams (>=15 mm) and the start/scale boxes.
+# Designed tag positions (id, x_mm, y_mm). Originally one AprilTag at each
+# corner of every tile (8 tiles x 4 corners = 32); at 40 mm the corner slots
+# near the top-right route/edge pinch (5, 8, 9, 12) and the Line A / ARC2
+# route column (15) no longer had room, so those plus 25 were moved into the
+# open roundabout interior / lower map instead of their original tile corner.
+# All positions are clear of the route, page seams, and start/scale boxes
+# (see validate_tags — clearances scale with TAG_SIZE_MM).
 TAGS = [
     # tile 1 (NW) — TL, TR, BL, BR
-    (0, 30, 558), (1, 180, 558), (2, 30, 324), (3, 180, 324),
-    # tile 2 (N) — TL, TR, BL, BR (BR pulled east of the roundabout)
-    (4, 240, 558), (5, 390, 558), (6, 240, 324), (7, 398, 345),
-    # tile 3 (NE-left) — TL, TR, BL, BR (BR moved left of the scale box)
-    (8, 450, 558), (9, 600, 558), (10, 450, 324), (11, 500, 320),
-    # tile 4 (NE) — TL, TR, BL (right of scale box), BR
-    (12, 660, 558), (13, 810, 558), (14, 695, 320), (15, 818, 330),
+    (0, 42, 546), (1, 180, 546), (2, 42, 324), (3, 180, 324),
+    # tile 2 (N) — TL, BL; TR/BR relocated below (crowded by Phase-6 top line)
+    (4, 240, 546), (6, 240, 324), (7, 394, 354.8),
+    # tile 3 (NE-left) — BL, BR; TL/TR relocated below
+    (10, 450, 324), (11, 500, 320),
+    # tile 4 (NE) — TR, BL; TL/BR relocated below
+    (13, 798, 546), (14, 695, 320),
     # tile 5 (SW) — TL, TR, BL, BR
-    (16, 30, 264), (17, 180, 264), (18, 30, 30), (19, 180, 30),
+    (16, 42, 264), (17, 180, 264), (18, 42, 42), (19, 180, 42),
     # tile 6 (S) — TL, TR (clear of roundabout), BL, BR
-    (20, 240, 264), (21, 360, 264), (22, 240, 30), (23, 390, 30),
-    # tile 7 (SE-left) — TL below return line, TR above Phase 2, BL, BR
-    (24, 445, 200), (25, 500, 278.5), (26, 450, 30), (27, 528, 200),
+    (20, 240, 264), (21, 357.9, 263.6), (22, 240, 42), (23, 390, 42),
+    # tile 7 (SE-left) — TL below return line, BL, BR; TR relocated below
+    (24, 445, 200), (26, 450, 42), (27, 528, 200),
     # tile 8 (SE) — TL right of start box, TR, BL, BR
-    (28, 695, 85), (29, 810, 264), (30, 700, 30), (31, 810, 30),
+    (28, 695, 85), (29, 798, 258.5), (30, 700, 42), (31, 798, 42),
+    # relocated into the open roundabout interior / lower map — see note above
+    (5, 390, 480), (8, 450, 485), (9, 600, 480), (12, 660, 480),
+    (15, 161, 211), (25, 261, 153),
 ]
 
 START_MM = (589.7, 163.8)  # stem bottom = start zone
@@ -158,13 +165,17 @@ def dist_to_box(px: float, py: float, box) -> float:
 
 def validate_tags(tags):
     problems = []
+    tag_half = TAG_SIZE_MM / 2.0
+    route_clear_mm = LINE_W_MM / 2.0 + tag_half + MIN_TAG_CLEAR_MM
+    seam_clear_mm = tag_half + 5.0
+    box_clear_mm = tag_half + 10.0
     for tid, x, y in tags:
         rd = min_route_dist(x, y)
-        if rd < LINE_W_MM / 2.0 + MIN_TAG_CLEAR_MM:
-            problems.append(f"tag {tid}: route clearance {rd:.1f} mm < 30")
-        if min(abs(x - s) for s in SEAM_X) < 15.0:
+        if rd < route_clear_mm:
+            problems.append(f"tag {tid}: route clearance {rd:.1f} mm < {route_clear_mm:.1f}")
+        if min(abs(x - s) for s in SEAM_X) < seam_clear_mm:
             problems.append(f"tag {tid}: too close to vertical seam")
-        if abs(y - SEAM_Y) < 15.0:
+        if abs(y - SEAM_Y) < seam_clear_mm:
             problems.append(f"tag {tid}: too close to horizontal seam")
         if (
             x < TAG_SIZE_MM
@@ -174,8 +185,8 @@ def validate_tags(tags):
         ):
             problems.append(f"tag {tid}: outside map ({x:.0f},{y:.0f})")
         db = min(dist_to_box(x, y, START_BOX), dist_to_box(x, y, SCALE_BOX))
-        if db < 20.0:
-            problems.append(f"tag {tid}: box clearance {db:.1f} mm < 20")
+        if db < box_clear_mm:
+            problems.append(f"tag {tid}: box clearance {db:.1f} mm < {box_clear_mm:.1f}")
     return problems
 
 
@@ -238,11 +249,12 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) 
         # bottom-row tiles when the upper label would hit the page-number
         # band or the paper edge (tags with y > 262.7, e.g. y=264 and 278.5).
         if detail:
+            label_off = TAG_SIZE_MM / 2.0 + 6.0
             if ty <= 294.0:
-                label_dy = -12.5 if ty > 262.7 else 12.5
+                label_dy = -label_off if ty > 262.7 else label_off
             else:
-                label_dy = 12.5 if 319.5 < ty < 325.5 else -12.5
-            c.setFont("Helvetica-Bold", 8)
+                label_dy = label_off if 319.5 < ty < 325.5 else -label_off
+            c.setFont("Helvetica-Bold", 14)
             c.setFillColor(black)
             c.drawCentredString(
                 pt(tx), pt(ty + label_dy), f"ID {tag_id} (N \u2191)"
@@ -433,7 +445,7 @@ def draw_guide(c: canvas.Canvas) -> None:
     para(
         "4. AprilTag landmarks (the printed squares)",
         [
-            "32 AprilTags (family 36h11, 20 mm) are printed onto the map as absolute-position landmarks.",
+            "32 AprilTags (family 36h11, 40 mm) are printed onto the map as absolute-position landmarks.",
             "Each is labelled \u201cID n (N \u2191)\u201d (yaw = 0 = facing map-north).",
             "Source: AprilTag is an open-source project by the University of Michigan APRIL lab.",
             "Official repository: https://github.com/AprilRobotics/apriltag",
@@ -444,7 +456,7 @@ def draw_guide(c: canvas.Canvas) -> None:
         "5. Scale",
         [
             "Map 840 x 588 mm = original 1000 x 700 mm Task-1 map scaled 0.84.",
-            "Route black line 15 mm; AprilTags 20 mm (physical sizes unchanged).",
+            "Route black line 15 mm; AprilTags 40 mm (physical sizes unchanged).",
         ],
     )
 
@@ -557,7 +569,7 @@ def main() -> int:
         "description": (
             "AprilTags printed directly on the 840x588 mm map (original "
             "1000x700 mm scaled 0.84). Map frame: SW origin, x east, y north, "
-            "metres; NE corner = (0.84, 0.588). Tag size 20 mm. yaw_deg 0 = "
+            "metres; NE corner = (0.84, 0.588). Tag size 40 mm. yaw_deg 0 = "
             "ID upright facing map-north (N arrow up)."
         ),
         "tags": [
@@ -567,7 +579,7 @@ def main() -> int:
                 "y_m": round(y / 1000.0, 4),
                 "z_m": 0.0,
                 "yaw_deg": 0,
-                "size_m": 0.02,
+                "size_m": 0.04,
             }
             for tid, x, y in TAGS
         ],

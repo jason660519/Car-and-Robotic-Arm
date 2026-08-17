@@ -11,6 +11,7 @@ The goal of the suite is to verify that the system behavior remains correct afte
 - `test_servo_check.py` — Verifies servo channel behavior and servo command mapping.
 - `test_power.py` — Checks power-status decoding and electrical state logic.
 - `test_sonar.py` — Tests ultrasonic distance calculations and echo interpretation.
+- `test_ir_tracing.py` — Tests IR tracing channel normalization: every channel reports 1 on black / 0 on white.
 - `test_motion.py` — Validates motion model math, such as distance-to-time conversion.
 
 ### 2. Vision and camera processing
@@ -187,6 +188,19 @@ What it checks:
 - distance conversion from pulse width
 - echo interpretation
 - expected readings for normal and zero-distance cases
+
+### `test_ir_tracing.py`
+Main purpose:
+- Verify the IR tracing sensor normalization contract: all channels report
+  1 on black and 0 on white, regardless of raw comparator polarity.
+
+What it checks:
+- default polarity mapping (raw HIGH = black, raw LOW = white)
+- per-channel independent mapping of mixed surfaces
+- `invert` flipping only the named channels
+- `raw()` passthrough for calibration
+- read order follows channel (Out) order
+- invalid `invert` indices and empty channel lists are rejected
 
 ### `test_tag_nav.py`
 Main purpose:

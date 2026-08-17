@@ -158,6 +158,21 @@ These pins are commonly used as plain GPIO input and output:
 - `SPI`: `19`, `21`, `23`, `24`, `26`
 - `PWM`: `32`, `33`
 
+## This Project's Sensor Wiring
+
+Per-device wiring, chosen to avoid pin conflicts between all sensors on this build:
+
+| Device | Pins Used | Status | Docs |
+|---|---|---|---|
+| NeZha driver board (I2C, `0x40`) | 3, 4, 5, 6 | Connected | [nezha-integration-notes.md](nezha-integration-notes.md) |
+| AI camera (IMX500) | CSI port, no GPIO | Connected | [ai-camera.md](ai-camera.md) |
+| HC-SR04 ultrasonic | 2, 9, 11, 13 | Verified (2026-08) | [hc-sr04-ultrasonic-sensor.md](hc-sr04-ultrasonic-sensor.md) |
+| IR obstacle sensor | 1, 14, 15 | Not yet wired | [ir-obstacle-sensor.md](ir-obstacle-sensor.md) |
+| IR tracing sensor (4-channel) | 1, 14, 18, 22, 15, 16 | Verified (2026-08-17) | [ir-tracing-sensor.md](ir-tracing-sensor.md) |
+
+Full-system diagram: [assets/reference/raspberry-pi-5/car-sensor-wiring-diagram.svg](../../assets/reference/raspberry-pi-5/car-sensor-wiring-diagram.svg)
+Editable schematic: [assets/reference/raspberry-pi-5/car-sensor-wiring-diagram.cddx](../../assets/reference/raspberry-pi-5/car-sensor-wiring-diagram.cddx) — import at [circuit-diagram.org/editor/open](https://www.circuit-diagram.org/editor/open)
+
 ## File Information
 
 - Image source: `GPIO-Pinout-Diagram-2.png`
