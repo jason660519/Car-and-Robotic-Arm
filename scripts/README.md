@@ -22,7 +22,10 @@ According to [CONVENTIONS.md](../CONVENTIONS.md), this directory is meant for fi
 - `run_colmap_sfm.py` — Runs a COLMAP reconstruction pipeline using `pycolmap` on a set of overlapping photos.
 - `anchor_sfm_scale.py` — Anchors a recovered SfM model to metric scale using a known physical AprilTag target.
 
-### 5. Special-purpose production helpers
+### 5. Hardware check wrappers
+- `map1-phase1-ir-check.sh` — Phase 1 of the Map1 test plan: stationary 4-channel IR tracing sensor readout with this build's verified pins and inversion. No motors move.
+
+### 6. Special-purpose production helpers
 - `generate_ground_view_target.py` — Creates a physical paper target for calibration and measurement.
 - `generate_apriltag_sheet.py` — Creates physical tag sheets for map placement.
 
@@ -99,6 +102,17 @@ What it does:
 - writes the PDF and tag-map JSON
 
 This is one of the key map-production scripts for the project.
+
+### `map1-phase1-ir-check.sh`
+Main purpose:
+- Runs the stationary IR sensor check that gates every Map1 line-following test.
+
+What it does:
+- `cd`s to the repository root so it works from any directory
+- calls `examples/36_ir_tracing_check.py` with this build's verified pins (`24,25,22,23`) and inversion (`0,1,2,3`)
+- prints 30 readings at 0.3 s intervals
+
+Safe to run over SSH — nothing moves. Re-run it after touching the sensitivity potentiometers, since channel polarity is not stable across retunes.
 
 ### `pick_ground_view_corners.py`
 Main purpose:

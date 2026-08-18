@@ -20,12 +20,22 @@ cd /Volumes/KLEVV-4T-1/Danny/Car-and-Robotic-Arm
 在發車區附近，手拿傳感器在黑線上測試：
 
 ```bash
-PYTHONPATH=src python3 examples/36_ir_tracing_check.py --pins 24,25,22,23
+scripts/map1-phase1-ir-check.sh
+```
+
+等同於（在 repo 根目錄執行）：
+
+```bash
+PYTHONPATH=src python3 examples/36_ir_tracing_check.py --pins 24,25,22,23 --invert 0,1,2,3
 ```
 
 **預期：**
 - 黑線上方：`1 1 1 1` ✓
 - 白色紙上：`0 0 0 0` ✓
+
+`--invert 0,1,2,3` 是 2026-08-18 電位器重調後驗證的設定，見
+[docs/hardware/ir-tracing-sensor.md](../../docs/hardware/ir-tracing-sensor.md)。
+極性在每次重調電位器後都可能翻轉，動過電位器就要重跑這個檢查。
 
 Ctrl+C 停止。
 

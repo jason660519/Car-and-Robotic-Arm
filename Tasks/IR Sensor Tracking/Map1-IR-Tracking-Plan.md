@@ -45,7 +45,12 @@ Yahboom 4-Channel IR Tracing Sensor
 
 **Procedure:**
 ```bash
-PYTHONPATH=src python3 examples/36_ir_tracing_check.py --pins 24,25,22,23
+scripts/map1-phase1-ir-check.sh
+```
+
+Equivalent long form, run from the repository root:
+```bash
+PYTHONPATH=src python3 examples/36_ir_tracing_check.py --pins 24,25,22,23 --invert 0,1,2,3
 ```
 
 **Steps:**
@@ -56,7 +61,11 @@ PYTHONPATH=src python3 examples/36_ir_tracing_check.py --pins 24,25,22,23
 **Success Criteria:**
 - ✓ Black line: all 4 channels read `1`
 - ✓ White paper: all 4 channels read `0`
-- ✓ No inversion needed
+- ✓ `--invert 0,1,2,3` still correct — this replaces the original 2026-08-17
+  "no inversion needed" result, which the 2026-08-18 potentiometer retune
+  superseded. Polarity is not guaranteed to survive a retune, so treat the
+  invert set as something this phase *verifies*, not something it assumes.
+  See [docs/hardware/ir-tracing-sensor.md](../../docs/hardware/ir-tracing-sensor.md).
 
 **If a channel is wrong:**
 - Record which channel(s) are inverted
