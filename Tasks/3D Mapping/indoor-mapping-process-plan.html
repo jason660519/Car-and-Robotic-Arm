@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>室內建圖流程規劃 — Car and Robotic Arm</title>
+<title>Indoor Mapping Process Plan — Car and Robotic Arm</title>
 <style>
   :root {
     --bg: #fbfbfa;
@@ -20,6 +20,8 @@
     --open: #7a4b93;
     --open-bg: #f5eefa;
     --new: #b3261e;
+    --hold: #8a3b12;
+    --hold-bg: #f8ece4;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -27,18 +29,28 @@
       --pi: #7fc4a0; --pi-bg: #1d2a24; --mac: #8fbde3; --mac-bg: #1b242c;
       --loop: #e0a273; --loop-bg: #2b2119; --open: #cba4e0; --open-bg: #251d2b;
       --new: #f2857c;
+      --hold: #f0a070; --hold-bg: #2d2018;
     }
   }
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 40px 24px 80px;
     background: var(--bg); color: var(--fg);
-    font: 15px/1.6 "Helvetica Neue", -apple-system, "PingFang TC", "Noto Sans TC", sans-serif;
+    font: 15px/1.6 "Helvetica Neue", -apple-system, BlinkMacSystemFont, sans-serif;
   }
   .wrap { max-width: 1080px; margin: 0 auto; }
   h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
-  .sub { color: var(--muted); margin: 0 0 28px; font-size: 14px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
   h2 { font-size: 17px; margin: 44px 0 14px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+
+  .hold {
+    background: var(--hold-bg); border: 1px solid var(--hold);
+    border-radius: 7px; padding: 14px 17px; margin: 0 0 28px;
+  }
+  .hold h2 { margin: 0 0 6px; padding: 0; border: 0; font-size: 15px; color: var(--hold); text-transform: uppercase; letter-spacing: 0.04em; }
+  .hold p { margin: 0 0 6px; }
+  .hold p:last-child { margin: 0; }
+  .hold b { color: var(--fg); }
 
   .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 32px; font-size: 13px; }
   .key { display: flex; align-items: center; gap: 7px; color: var(--muted); }
@@ -101,32 +113,38 @@
 <body>
 <div class="wrap">
 
-  <h1>室內建圖流程規劃</h1>
-  <p class="sub">Car and Robotic Arm — 提案，尚未定案。所有數字皆為 2026-08-14 實測值。</p>
+  <h1>Indoor Mapping Process Plan</h1>
+  <p class="sub">Car and Robotic Arm — proposal, not yet decided. All numbers are measured values from 2026-08-14.</p>
 
-  <div class="legend">
-    <span class="key"><span class="dot" style="background:var(--pi)"></span>Raspberry Pi 5（車上）</span>
-    <span class="key"><span class="dot" style="background:var(--mac)"></span>MacBook Pro（工作站）</span>
-    <span class="key"><span class="dot" style="background:var(--loop)"></span>回饋迴路</span>
-    <span class="key"><span class="dot" style="background:var(--new)"></span>需新增</span>
-    <span class="key"><span class="dot" style="background:var(--open)"></span>待決策</span>
+  <div class="hold">
+    <h2>On hold</h2>
+    <p>This 3D mapping project is paused. Obstacle avoidance currently has <b>one</b> sensor; reliable indoor patrol is expected to need about <b>four</b>.</p>
+    <p>Resume this plan only after four obstacle sensors are installed and verified. Until then, do not implement Stages 1–4 or run motor-moving mapping tests against this document.</p>
   </div>
 
-  <h2>主流程</h2>
+  <div class="legend">
+    <span class="key"><span class="dot" style="background:var(--pi)"></span>Raspberry Pi 5 (on the car)</span>
+    <span class="key"><span class="dot" style="background:var(--mac)"></span>MacBook Pro (workstation)</span>
+    <span class="key"><span class="dot" style="background:var(--loop)"></span>Feedback loop</span>
+    <span class="key"><span class="dot" style="background:var(--new)"></span>To add</span>
+    <span class="key"><span class="dot" style="background:var(--open)"></span>Open decision</span>
+  </div>
+
+  <h2>Main pipeline</h2>
 
   <div class="stage">
     <div class="where pi">Pi</div>
     <div class="card pi">
-      <h3>Stage 0 — 出車前檢查<span class="tag have">已有</span></h3>
-      <p class="role">無馬達，SSH 安全。全過才允許動馬達。</p>
+      <h3>Stage 0 — Preflight check<span class="tag have">existing</span></h3>
+      <p class="role">No motors; SSH-safe. All checks must pass before motors may move.</p>
       <ul>
-        <li>相機 / I2C NeZha / HC-SR04 / 電力 / encoder</li>
-        <li><code>examples/14_preflight_check.py</code></li>
+        <li>Camera / I2C NeZha / HC-SR04 / power / encoder</li>
+        <li><code>examples/14_all_sensors_preflight_check.py</code></li>
       </ul>
     </div>
     <div class="facts">
-      <div><b>Gate</b>：5 項全過</div>
-      <div>電力只看 live bits，since-boot 旗標不擋</div>
+      <div><b>Gate</b>: all 5 checks pass</div>
+      <div>Power uses live bits only; since-boot flags do not block</div>
     </div>
   </div>
 
@@ -135,40 +153,40 @@
   <div class="stage">
     <div class="where pi">Pi</div>
     <div class="card pi">
-      <h3>Stage 1 — 巡邏拍攝（即時迴圈）</h3>
-      <p class="role">每個站點一輪。操作員必須在旁可即時斷電。</p>
+      <h3>Stage 1 — Patrol capture (real-time loop)</h3>
+      <p class="role">One round per station. An operator must be present and able to cut power immediately.</p>
       <ol>
-        <li><b>感測</b>：sonar + IMX500 偵測 → <code>vision_avoid.fuse()</code></li>
-        <li><b>移動</b>：blocked → 倒車 + <b>邊轉邊拍</b><span class="tag new">新增</span>／clear → 前進一步</li>
-        <li><b>Burst</b>：N 張，每張間隔 15°（≈77% 重疊）</li>
-        <li><b>每張三道閘門</b>：
+        <li><b>Sense</b>: sonar + IMX500 detection → <code>vision_avoid.fuse()</code></li>
+        <li><b>Move</b>: blocked → reverse + <b>capture while turning</b><span class="tag new">new</span> / clear → step forward</li>
+        <li><b>Burst</b>: N frames, 15° apart (≈77% overlap)</li>
+        <li><b>Three gates per frame</b>:
           <ul>
-            <li>standoff — sonar ≥ 50 cm<span class="tag have">已有</span></li>
-            <li>品質 — ≥ 6/12 textured tiles<span class="tag have">已有</span></li>
-            <li><b>重疊</b> — 與前一張 match 數達標<span class="tag new">新增</span></li>
+            <li>standoff — sonar ≥ 50 cm<span class="tag have">existing</span></li>
+            <li>quality — ≥ 6/12 textured tiles<span class="tag have">existing</span></li>
+            <li><b>overlap</b> — match count vs previous frame meets threshold<span class="tag new">new</span></li>
           </ul>
         </li>
-        <li>重疊不足 → <b>縮小角度就地重拍</b>（迴路 A）</li>
-        <li>掃完轉回原朝向，維持直線前進</li>
-        <li>原子寫入 <code>.tmp</code> → rename → <code>outbox/</code></li>
-        <li>寫入 manifest：frame id、時戳、sonar、閘門結果、品質指標</li>
+        <li>Insufficient overlap → <b>recapture in place at a smaller angle</b> (Loop A)</li>
+        <li>After the sweep, return to the original heading and continue straight</li>
+        <li>Atomic write to <code>.tmp</code> → rename → <code>outbox/</code></li>
+        <li>Write manifest: frame id, timestamp, sonar, gate results, quality metrics</li>
       </ol>
     </div>
     <div class="facts">
-      <div><b>相機</b> 2028×1520，HFOV 66.3°，fx 1553 px</div>
-      <div><b>拍攝</b> 0.05 s（單一 config，不需切模式）</div>
-      <div><b>轉速</b> 53.5 °/s @ speed 200，dead time ≈ 0</div>
-      <div><b>15° 步進</b> = 0.28 s</div>
-      <div><b>迴避門檻</b> 30 cm（45 cm 會原地打轉）</div>
-      <div><b>拍攝 standoff</b> 50 cm</div>
+      <div><b>Camera</b> 2028×1520, HFOV 66.3°, fx 1553 px</div>
+      <div><b>Capture</b> 0.05 s (single config; no mode switch needed)</div>
+      <div><b>Turn rate</b> 53.5 °/s @ speed 200, dead time ≈ 0</div>
+      <div><b>15° step</b> = 0.28 s</div>
+      <div><b>Avoidance threshold</b> 30 cm (45 cm causes spinning in place)</div>
+      <div><b>Capture standoff</b> 50 cm</div>
     </div>
   </div>
 
   <div class="stage">
     <div class="loop">
-      <b>↺ 迴路 A — 快（Pi 上，每張，約 1 秒）</b><br>
-      重疊不足就地重拍。<b>這是目前唯一缺的一塊</b>，也是三輪實跑都要拉回 Mac 才發現失敗的原因。
-      用現成的 <code>frame_quality.repeatable_keypoints()</code>，不需要上 SLAM。
+      <b>↺ Loop A — fast (on Pi, per frame, ~1 s)</b><br>
+      Recapture in place when overlap is insufficient. <b>This is the only missing piece today</b>, and the reason all three field runs only revealed failure after pulling data back to the Mac.
+      Use the existing <code>frame_quality.repeatable_keypoints()</code>; SLAM is not required.
     </div>
   </div>
 
@@ -177,18 +195,18 @@
   <div class="stage">
     <div class="where mac">Mac</div>
     <div class="card mac">
-      <h3>Stage 2 — 同步<span class="tag new">新增</span></h3>
-      <p class="role">Mac 定時拉取，不是 Pi 推送。</p>
+      <h3>Stage 2 — Sync<span class="tag new">new</span></h3>
+      <p class="role">The Mac pulls on a schedule; the Pi does not push.</p>
       <ul>
         <li><code>rsync -aP --exclude '*.tmp'</code> Pi <code>outbox/</code> → Mac <code>incoming/</code></li>
-        <li>Pi 端保留原檔直到確認接收，不用 <code>--remove-source-files</code></li>
-        <li>manifest 隨行，作為 provenance</li>
+        <li>The Pi keeps originals until receipt is confirmed; do not use <code>--remove-source-files</code></li>
+        <li>The manifest travels with the files as provenance</li>
       </ul>
     </div>
     <div class="facts">
-      <div>一張 JPEG 約 <b>170–340 KB</b></div>
-      <div>150 張 ≈ 40 MB，WiFi 數秒</div>
-      <div>傳輸不是瓶頸 → <b>維持 2028×1520，不降 720p</b></div>
+      <div>One JPEG is about <b>170–340 KB</b></div>
+      <div>150 frames ≈ 40 MB, a few seconds over WiFi</div>
+      <div>Transfer is not the bottleneck → <b>keep 2028×1520; do not drop to 720p</b></div>
     </div>
   </div>
 
@@ -197,18 +215,18 @@
   <div class="stage">
     <div class="where mac">Mac</div>
     <div class="card mac">
-      <h3>Stage 3 — 重建（批次）<span class="tag have">已有</span></h3>
-      <p class="role">COLMAP，離線全域最佳化。</p>
+      <h3>Stage 3 — Reconstruction (batch)<span class="tag have">existing</span></h3>
+      <p class="role">COLMAP, offline global optimization.</p>
       <ul>
-        <li><code>scripts/run_colmap_sfm.py</code>：特徵抽取 → exhaustive matching → 增量建圖</li>
-        <li>產出報告：registered/total、模型數、每幀歸屬</li>
-        <li>overlap 矩陣診斷<span class="tag new">新增</span>——今天用它才找到真正的病因</li>
+        <li><code>scripts/run_colmap_sfm.py</code>: feature extraction → exhaustive matching → incremental mapping</li>
+        <li>Produce a report: registered/total, model count, per-frame membership</li>
+        <li>Overlap-matrix diagnostics<span class="tag new">new</span> — this is what identified the real cause today</li>
       </ul>
     </div>
     <div class="facts">
-      <div>目前最佳：<b>17/30 registered</b>，1606 points</div>
-      <div>斷點全在站與站的迴避轉向處</div>
-      <div>COLMAP 官方建議相鄰重疊 60–80%，室內取上限</div>
+      <div>Best so far: <b>17/30 registered</b>, 1606 points</div>
+      <div>All breaks are at avoidance turns between stations</div>
+      <div>COLMAP recommends 60–80% adjacent overlap; use the upper end indoors</div>
     </div>
   </div>
 
@@ -217,82 +235,84 @@
   <div class="stage">
     <div class="where mac">Mac</div>
     <div class="card mac">
-      <h3>Stage 4 — 錨定與地圖<span class="tag new">未實作</span></h3>
-      <p class="role">把 up-to-scale 的重建變成真實尺寸。</p>
+      <h3>Stage 4 — Anchoring and map<span class="tag new">not implemented</span></h3>
+      <p class="role">Turn the up-to-scale reconstruction into real-world meters.</p>
       <ul>
-        <li>在已註冊幀中偵測 70 mm 牆面 AprilTag（<code>carbot.vision</code> 已有）</li>
-        <li>由已知邊長解出公尺／單位比例</li>
-        <li>輸出平面地圖</li>
+        <li>Detect 70 mm wall AprilTags in registered frames (<code>carbot.vision</code> already has this)</li>
+        <li>Solve meters-per-unit from the known tag size</li>
+        <li>Output a floor-plan map</li>
       </ul>
     </div>
     <div class="facts">
-      <div>ADR 0002 指定用已知尺寸標的錨定</div>
-      <div>不需要手動量測機構外參</div>
+      <div>ADR 0002 specifies anchoring with a known-size target</div>
+      <div>No need to hand-measure mechanical extrinsics</div>
     </div>
   </div>
 
   <div class="stage">
     <div class="loop">
-      <b>↺ 迴路 B — 慢（Mac → 人，數分鐘）</b><br>
-      註冊報告與 overlap 矩陣 → 調整路線、burst 角度、閘門門檻 → 下一輪。
-      這是我們今天實際在跑的迴路（三輪），有效但昂貴。迴路 A 的作用就是把大部分問題攔在這之前。
+      <b>↺ Loop B — slow (Mac → human, minutes)</b><br>
+      Registration report and overlap matrix → adjust route, burst angle, and gate thresholds → next run.
+      This is the loop we actually ran today (three rounds). It works but is expensive. Loop A's job is to catch most of the problems before this.
     </div>
   </div>
 
-  <h2>今天量到的關鍵約束</h2>
+  <h2>Key constraints measured today</h2>
   <table>
-    <tr><th>項目</th><th>數值</th><th>來源／備註</th></tr>
-    <tr><td>相機視野</td><td>66.3° 水平</td><td>由標定 fx=1553 @ 2028 推得</td></tr>
-    <tr><td>重疊 vs 轉角</td><td>20° → 70%；15° → 77%</td><td>COLMAP 建議 60–80%，室內取上限</td></tr>
-    <tr><td>轉速</td><td>53.5 °/s @ speed 200</td><td>相機自量，14 次量測</td></tr>
-    <tr><td>啟動 dead time</td><td>0.005 s</td><td>可忽略，小角度轉向可靠</td></tr>
-    <tr><td>拍攝耗時</td><td>0.05 s</td><td>單一 config，inference 與高解析同時可用</td></tr>
-    <tr><td>快門</td><td>38 ms，移動中仍銳利</td><td>模糊風險已排除</td></tr>
-    <tr><td>曝光</td><td><code>auto</code></td><td>spot 測光在轉向相機上會過曝 43%</td></tr>
+    <tr><th>Item</th><th>Value</th><th>Source / notes</th></tr>
+    <tr><td>Camera FOV</td><td>66.3° horizontal</td><td>Derived from calibration fx=1553 @ 2028</td></tr>
+    <tr><td>Overlap vs yaw</td><td>20° → 70%; 15° → 77%</td><td>COLMAP recommends 60–80%; use the upper end indoors</td></tr>
+    <tr><td>Turn rate</td><td>53.5 °/s @ speed 200</td><td>Camera self-measurement, 14 samples</td></tr>
+    <tr><td>Startup dead time</td><td>0.005 s</td><td>Negligible; small-angle turns are reliable</td></tr>
+    <tr><td>Capture time</td><td>0.05 s</td><td>Single config; inference and high-res capture can run together</td></tr>
+    <tr><td>Shutter</td><td>38 ms, still sharp while moving</td><td>Motion-blur risk ruled out</td></tr>
+    <tr><td>Exposure</td><td><code>auto</code></td><td>Spot metering overexposes 43% on a turning camera</td></tr>
   </table>
 
-  <h2>待決策</h2>
+  <h2>Open decisions</h2>
 
   <div class="decision">
-    <h4>A. 影片抽幀 vs 連拍</h4>
-    <p>錄影可讓重疊由幀率保證，不用算角度；代價是移動中的 rolling shutter 與單幀品質。</p>
-    <p class="rec"><b>建議</b>：先用連拍 + 迴路 A。已知 38 ms 快門在停下時銳利，錄影是連續移動，風險未知且會同時改變太多變因。</p>
+    <h4>A. Video frame extraction vs burst capture</h4>
+    <p>Video can guarantee overlap from frame rate without computing angles; the cost is rolling shutter while moving and per-frame quality.</p>
+    <p class="rec"><b>Recommendation</b>: start with burst + Loop A. The 38 ms shutter is known-sharp when stopped; video is continuous motion, with unknown risk and too many variables changing at once.</p>
   </div>
 
   <div class="decision">
-    <h4>B. 路線策略：隨機彈跳 vs 有意識路線</h4>
-    <p>目前是 Roomba 式隨機，覆蓋是機率性的。文獻中的自主拍攝系統都有 map-based navigation。</p>
-    <p class="rec"><b>建議</b>：先不動。等迴路 A 上線、看到第一個連通模型再決定是否需要沿牆一圈 + 中央來回。</p>
+    <h4>B. Route strategy: random bounce vs intentional path</h4>
+    <p>Current behavior is Roomba-style random; coverage is probabilistic. Published autonomous capture systems all use map-based navigation.</p>
+    <p class="rec"><b>Recommendation</b>: leave it. Wait until Loop A is live and the first connected model appears, then decide whether a wall-follow loop + center sweep is needed.</p>
   </div>
 
   <div class="decision">
-    <h4>C. 重疊門檻取多少</h4>
-    <p>今天資料：同模型的相鄰對最低 19 個 match，不同模型的最高 25 —— <b>區間重疊，無法用來預測</b>連通性。但反向當充分條件成立。</p>
-    <p class="rec"><b>建議</b>：門檻設在明顯連通的區間（約 200），當「重疊夠不夠」的即時閘門，不當「會不會斷」的判據。實跑後用 <code>--keep-rejected</code> 校準。</p>
+    <h4>C. What overlap threshold to use</h4>
+    <p>Today's data: lowest same-model adjacent pair is 19 matches; highest different-model pair is 25 — <b>the ranges overlap, so this cannot predict</b> connectivity. The reverse (as a sufficient condition) does hold.</p>
+    <p class="rec"><b>Recommendation</b>: set the threshold in the clearly-connected range (~200). Use it as a live "is overlap enough" gate, not as a "will the model split" predictor. Calibrate after field runs with <code>--keep-rejected</code>.</p>
   </div>
 
   <div class="decision">
-    <h4>D. COLMAP 自動觸發 vs 手動</h4>
-    <p>可以在 <code>incoming/</code> 上掛監看自動跑，或維持手動。</p>
-    <p class="rec"><b>建議</b>：維持手動。目前每輪都需要人看 overlap 矩陣做判斷，自動化只會增加一層沒人看的東西。</p>
+    <h4>D. Auto-trigger COLMAP vs manual</h4>
+    <p>Could watch <code>incoming/</code> and auto-run, or keep it manual.</p>
+    <p class="rec"><b>Recommendation</b>: keep it manual. Each round still needs a human reading the overlap matrix; automation would only add a layer nobody looks at.</p>
   </div>
 
-  <h2>實作順序建議</h2>
+  <h2>Suggested implementation order</h2>
+  <p class="rec" style="margin-bottom:12px">Do not start this sequence until four obstacle sensors are installed. The order below is the plan to resume with, not work to do now.</p>
   <ol>
-    <li><b>邊轉邊拍</b> — 接上現在斷掉的站與站交界（改動最小、預期收益最大）</li>
-    <li><b>迴路 A 重疊閘門</b> — 用現成的 <code>repeatable_keypoints()</code></li>
-    <li>burst 步進 20° → 15°</li>
+    <li><b>Capture while turning</b> — close the current station-to-station gaps (smallest change, largest expected gain)</li>
+    <li><b>Loop A overlap gate</b> — use existing <code>repeatable_keypoints()</code></li>
+    <li>Burst step 20° → 15°</li>
     <li>Stage 2 rsync + manifest</li>
-    <li>Stage 4 尺度錨定</li>
+    <li>Stage 4 scale anchoring</li>
   </ol>
-  <p class="rec">1–3 可以合併成同一輪監看實跑驗證，並同時開 <code>--keep-rejected</code> 補完閾值校準。</p>
+  <p class="rec">Items 1–3 can be combined into one supervised field run, with <code>--keep-rejected</code> enabled to finish threshold calibration.</p>
 
   <p class="footnote">
-    參考：<a href="https://ieeexplore.ieee.org/document/9757663/">Photogrammabot (IEEE)</a>、
-    <a href="https://arxiv.org/pdf/2512.02375">On-the-fly Feedback SfM</a>、
-    <a href="https://colmap.org/what-is-colmap-and-how-does-it-work/">COLMAP 拍攝指引</a>、
-    <a href="https://raspberrypi.com/documentation/remote-access/ssh/rsync.md">Raspberry Pi rsync</a>。
-    本檔位於 <code>scratch/</code>，不進版控；定案後應轉為 <code>docs/adr/</code>。
+    References:
+    <a href="https://ieeexplore.ieee.org/document/9757663/">Photogrammabot (IEEE)</a>,
+    <a href="https://arxiv.org/pdf/2512.02375">On-the-fly Feedback SfM</a>,
+    <a href="https://colmap.org/what-is-colmap-and-how-does-it-work/">COLMAP capture guide</a>,
+    <a href="https://raspberrypi.com/documentation/remote-access/ssh/rsync.md">Raspberry Pi rsync</a>.
+    This file lives under <code>Tasks/3D Mapping/</code> and is not a decided ADR; once resumed and decided it should become a <code>docs/adr/</code> record.
   </p>
 
 </div>
