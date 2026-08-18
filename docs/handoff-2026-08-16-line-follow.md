@@ -91,7 +91,7 @@ advanced a real distance before stopping safely.
   are current, do not assume the previous sync is still there.**
 - **Mac repo:** `/Volumes/KLEVV-4T-1/Danny/Car-and-Robotic-Arm`.
 - **Motors:** only with a person beside the car who can cut power.
-  `examples/26_line_follow_drive.py` prompts for this; answer honestly.
+  `examples/26_cam_line_follow_drive.py` prompts for this; answer honestly.
 - **I2C:** address `0x40`, ≤200 kHz, 500 ms init / 100 ms reset. `vendor/` is
   read-only.
 - **Drive:** `car.drive(left, right)` differential only. Forward @ 200 ≈
@@ -119,7 +119,7 @@ Files (all uncommitted, do not commit unless asked):
   click-to-get-`--corners` helper. Not used this session in the end (corners
   were extracted with `cv2.findContours` on the thick border instead, more
   precise than clicking) but still works and is faster for a one-off.
-- `examples/27_ground_view_calibrate.py` — CLI wrapper. **Does not expose
+- `examples/27_cam_ground_view_calibrate.py` — CLI wrapper. **Does not expose
   `x_min_m`/`y_min_m`/`y_max_m`** (the BEV world-coordinate window) as flags,
   only `--near-m`/`--size-m`. The default window
   (`y_min_m=0.12, y_max_m=0.72`) was too narrow and excluded the real line
@@ -156,7 +156,7 @@ uv run --with reportlab python3 scripts/generate_ground_view_target.py \
 # Pi (no motors): capture with the target in view
 ssh carpi
 cd ~/Car-and-Robotic-Arm
-PYTHONPATH=src python3 examples/25_line_follow_capture.py --output /tmp/line-follow
+PYTHONPATH=src python3 examples/25_cam_line_follow_capture.py --output /tmp/line-follow
 # scp the raw capture back, find the 4 corners (findContours on the thick
 # border, or scripts/pick_ground_view_corners.py), then run calibration —
 # widen the BEV window if the real line falls outside y_min_m..y_max_m,
@@ -222,26 +222,26 @@ ssh carpi 'cd ~/Car-and-Robotic-Arm && git status --short && git log -1 --onelin
 # Re-sync if needed
 scp src/carbot/line_follow.py src/carbot/line_nav.py src/carbot/ground_view.py \
   carpi:~/Car-and-Robotic-Arm/src/carbot/
-scp examples/25_line_follow_capture.py examples/26_line_follow_drive.py \
-  examples/27_ground_view_calibrate.py \
+scp examples/25_cam_line_follow_capture.py examples/26_cam_line_follow_drive.py \
+  examples/27_cam_ground_view_calibrate.py \
   carpi:~/Car-and-Robotic-Arm/examples/
 
 # Capture-only (no motors) — reads whatever ground-view.json is already at
 # /tmp/line-follow/ground-view.json; run examples/27 --auto first (below) if
 # you need a fresh one for a one-off capture outside examples/26.
-ssh carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/25_line_follow_capture.py \
+ssh carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/25_cam_line_follow_capture.py \
   --output /tmp/line-follow --ground-view /tmp/line-follow/ground-view.json'
 
 # One-off manual recalibration from the printed target (examples/26 already
 # does this automatically at startup — use this only to check calibration
 # on its own, e.g. before a capture-only examples/25 session)
-ssh carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/27_ground_view_calibrate.py \
+ssh carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/27_cam_ground_view_calibrate.py \
   --auto --size-m 0.10,0.05 --near-m 0.18'
 
 # Motors: operator at the car, confirmed beside it and able to cut power.
 # --auto-calibrate is on by default — no --ground-view file to keep fresh by
 # hand; just keep the printed target taped where the starting pose sees it.
-ssh carpi 'cd ~/Car-and-Robotic-Arm && printf "yes\n" | PYTHONPATH=src python3 examples/26_line_follow_drive.py \
+ssh carpi 'cd ~/Car-and-Robotic-Arm && printf "yes\n" | PYTHONPATH=src python3 examples/26_cam_line_follow_drive.py \
   --duration 8 --speed 150 --save-every 10 --log-dir /tmp/line-follow'
 ```
 

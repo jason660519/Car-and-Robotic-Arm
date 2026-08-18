@@ -19,14 +19,14 @@ distance, the reverse distance, and the residual offset between them — the
 quantity that decides whether an avoidance manoeuvre gives ground back.
 
 **Motor-moving, and the car drives toward a wall.** An operator must stand beside
-it able to cut main power instantly. Run `examples/14_preflight_check.py` first.
+it able to cut main power instantly. Run `examples/14_all_sensors_preflight_check.py` first.
 
 Setup: put the car on clear floor roughly 1.5-2 m from a wall AprilTag, facing it
 squarely. Facing it squarely matters — the range component of the measurement is
 the best-conditioned part, and it equals the full distance only when the car
 drives along the line of sight.
 
-    PYTHONPATH=src python3 examples/24_linear_speed_check.py --speed 200
+    PYTHONPATH=src python3 examples/24_cam_linear_speed_check.py --speed 200
 """
 
 from __future__ import annotations

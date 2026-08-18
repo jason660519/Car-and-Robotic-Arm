@@ -22,7 +22,7 @@ stops the motors, closes the board and cleans up GPIO.
 Run on the Raspberry Pi with the car LIFTED or on a clear floor, operator
 beside it able to cut power:
 
-    PYTHONPATH=src python3 examples/10_calibrate_motion.py --speed 200
+    PYTHONPATH=src python3 examples/10_sonar_motion_calibrate.py --speed 200
 """
 
 from __future__ import annotations

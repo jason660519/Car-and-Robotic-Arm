@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Map1 test: drive the circular track by downward camera and IR sensor guidance.
+"""Map1 test: drive the circular track by downward camera only (no IR sensor).
+
+The IR-sensor version of the same route is `39_map1_ir_line_follow.py`.
 
 **Motor-moving. An operator must stand beside the car able to cut main power instantly.**
 
@@ -9,11 +11,11 @@ The Map1 track is a simple circular loop with a marked start zone. The car:
   3. Completes the loop and exits when a second roundabout fork is detected
 
 Usage (dry run — no motor, debug detection):
-    PYTHONPATH=src python3 examples/38_map1_line_follow.py --dry-run --duration 10
+    PYTHONPATH=src python3 examples/38_map1_cam_line_follow.py --dry-run --duration 10
 
 Usage (live run — on the track):
     # Operator beside car, track clear, wheels on start line
-    PYTHONPATH=src python3 examples/38_map1_line_follow.py --duration 120
+    PYTHONPATH=src python3 examples/38_map1_cam_line_follow.py --duration 120
 """
 
 from __future__ import annotations

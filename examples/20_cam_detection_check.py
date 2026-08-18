@@ -12,7 +12,7 @@ shares exactly this verdict; this script is the hardware check around it.
 
 Run on the Pi while the operator places/removes obstacles in front of the car:
 
-    PYTHONPATH=src python3 examples/20_visual_detection_check.py --frames 30
+    PYTHONPATH=src python3 examples/20_cam_detection_check.py --frames 30
 
 Models available on this Pi:
     /usr/share/imx500-models/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.rpk

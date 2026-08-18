@@ -19,12 +19,12 @@ Completed:
   camera poses. Verified on 5 calibration frames: 5/5 registered, 656 points,
   per-image camera positions export correctly.
 - **Patrol experiments** (all motor-moving, all superseded):
-  - `examples/16_capture_room.py` — manual-push capture (abandoned: the user
+  - `examples/16_cam_room_capture.py` — manual-push capture (abandoned: the user
     wants the car to drive itself).
-  - `examples/17_patrol_capture.py` — random-bounce patrol, iterated through
+  - `examples/17_cam_patrol_capture.py` — random-bounce patrol, iterated through
     several bug fixes (see pitfalls below).
-  - `examples/18_wall_follow_capture.py` — single-sonar wall following.
-- **IMX500 visual obstacle detection** (`examples/20_visual_detection_check.py`)
+  - `examples/18_sonar_wall_follow_capture.py` — single-sonar wall following.
+- **IMX500 visual obstacle detection** (`examples/20_cam_detection_check.py`)
   — loads the on-sensor SSD mobilenetv2 detector through Picamera2's `IMX500`
   API and flags `OBSTACLE AHEAD`. **Verified on the Pi**: open floor → `clear`,
   chair + dining table ahead → `OBSTACLE AHEAD`.
@@ -41,7 +41,7 @@ uv run python scripts/run_colmap_sfm.py /tmp/sfm-test/images /tmp/sfm-test/work
   -> model 1: 5/5 images registered, 656 points; camera poses export OK
 
 # Pi: IMX500 visual detection (operator placed a chair/table in front)
-PYTHONPATH=src python3 examples/20_visual_detection_check.py --frames 6
+PYTHONPATH=src python3 examples/20_cam_detection_check.py --frames 6
   open floor              -> [1..8] clear
   chair + dining table    -> [1..4] OBSTACLE AHEAD
     chair          conf=0.38 box=(14,185,147,245)

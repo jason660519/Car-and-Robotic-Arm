@@ -11,7 +11,7 @@ no map, just overlapping viewpoints.
 An operator must stand beside the car able to cut main power instantly
 (motor-moving). Run on the Pi:
 
-    PYTHONPATH=src python3 examples/17_patrol_capture.py --frames 150
+    PYTHONPATH=src python3 examples/17_cam_patrol_capture.py --frames 150
 
 Loop per frame: sample the sonar (keep nearest of 3); if ``None`` (HC-SR04
 <~20 cm blind zone or fault) or closer than --obstacle-cm, spin a random angle

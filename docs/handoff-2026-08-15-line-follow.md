@@ -30,9 +30,9 @@ lap) → continue → exit → back to the start zone.
   with target locking + release), SEARCH (spin to re-acquire), ROUNDABOUT
   (fork + elapsed-lap-time double confirmation; lap time anchored to the
   verified 53.5 deg/s @ speed 200). Unit-tested (17 tests).
-- `examples/25_line_follow_capture.py` — one frame + annotated overlay, no
+- `examples/25_cam_line_follow_capture.py` — one frame + annotated overlay, no
   motors, safe over SSH.
-- `examples/26_line_follow_drive.py` — closed loop; fixed exposure
+- `examples/26_cam_line_follow_drive.py` — closed loop; fixed exposure
   (50 ms / gain 4.5); dry-run verified on the Pi (motors never energised).
 - Full suite: 250 tests passed before the afternoon changes; line-follow tests
   alone 35 passed; ruff clean.
@@ -61,7 +61,7 @@ to confirm via annotated images, which the user could not interpret reliably.
 **Do this first, before any more tuning:**
 
 1. Park the car on the start zone, nose along the black line (as the user did).
-2. Capture: `PYTHONPATH=src python3 examples/25_line_follow_capture.py --output /tmp/line-follow`
+2. Capture: `PYTHONPATH=src python3 examples/25_cam_line_follow_capture.py --output /tmp/line-follow`
    → view `/tmp/line-follow/line-follow-overlay.jpg` (on the Pi) or pull it to a
    machine with a screen.
 3. Check the green cross (main line) is on the 2 cm black line. If it is on a
@@ -138,8 +138,8 @@ or pull the file with `scp`.
 - Motor/servo programs only when a person is physically beside the robot with
   power within reach (AGENTS.md). Over SSH that means the operator at the robot;
   wheels lifted for the first smoke test.
-- Run `examples/14_preflight_check.py` before any supervised motion test.
-- `examples/26_line_follow_drive.py` prompts for operator confirmation; use
+- Run `examples/14_all_sensors_preflight_check.py` before any supervised motion test.
+- `examples/26_cam_line_follow_drive.py` prompts for operator confirmation; use
   `--dry-run` first. Do not let the car drive off the map unsupervised.
 - `vendor/` is read-only; I2C at 0x40, bus ≤200 kHz; keep the 500 ms init and
   100 ms reset delays (see `docs/hardware/nezha-i2c-protocol.md`).
@@ -152,5 +152,5 @@ or pull the file with `scp`.
   junction_width_factor, roundabout timings), `LineNav` (FOLLOW/SEARCH/ROUNDABOUT,
   target locking with `_LOCK_RELEASE_GAP=0.15`, baseline-width junction
   confirmation), `steer_command`.
-- `examples/25_line_follow_capture.py`, `examples/26_line_follow_drive.py`:
+- `examples/25_cam_line_follow_capture.py`, `examples/26_cam_line_follow_drive.py`:
   capture/overlay and closed-loop drive respectively.

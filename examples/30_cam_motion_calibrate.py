@@ -7,11 +7,11 @@ them on the real car:
 
     # 1) straight-line speed: car drives 1.0 s at --speed, operator measures
     #    how far it travelled (tape measure on the floor)
-    PYTHONPATH=src python3 examples/30_motion_calibrate.py --mode forward --seconds 1.0
+    PYTHONPATH=src python3 examples/30_cam_motion_calibrate.py --mode forward --seconds 1.0
 
     # 2) spin rate: car spins in place 1.0 s at --speed, operator measures
     #    the heading change (phone compass or a reference line on the floor)
-    PYTHONPATH=src python3 examples/30_motion_calibrate.py --mode spin
+    PYTHONPATH=src python3 examples/30_cam_motion_calibrate.py --mode spin
 
 **Motor-moving. An operator must stand beside the car able to cut main power
 instantly; the wheels must be able to move freely on a clear floor.**
@@ -76,7 +76,7 @@ def main() -> int:
         print(f"  heading change (deg) -> spin_degps = angle_deg / {args.seconds:.2f}")
     print(
         "Update the constants in src/carbot/motion.py or pass the values to "
-        "examples/29_route_nav_drive.py with --forward-mps / --spin-degps."
+        "examples/29_cam_route_nav_drive.py with --forward-mps / --spin-degps."
     )
     return 0
 

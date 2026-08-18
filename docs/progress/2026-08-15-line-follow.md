@@ -17,8 +17,8 @@ New files (working tree, not committed):
 - `src/carbot/line_nav.py` — follow/search/roundabout state machine (pure)
 - `tests/test_line_follow.py` — 18 tests
 - `tests/test_line_nav.py` — 17 tests
-- `examples/25_line_follow_capture.py` — capture one frame + annotated overlay (no motors)
-- `examples/26_line_follow_drive.py` — closed-loop drive (motors; supervised runs only)
+- `examples/25_cam_line_follow_capture.py` — capture one frame + annotated overlay (no motors)
+- `examples/26_cam_line_follow_drive.py` — closed-loop drive (motors; supervised runs only)
 
 ## Verification
 
@@ -26,13 +26,13 @@ New files (working tree, not committed):
   4056x3040 still (1726594 bytes).
 - Detector on real stills (Mac, `uv run --extra vision`): consistent single line
   (x≈3793/4056, width≈230px) on the first start-zone capture.
-- Pi capture: `PYTHONPATH=src python3 examples/25_line_follow_capture.py` —
+- Pi capture: `PYTHONPATH=src python3 examples/25_cam_line_follow_capture.py` —
   `line err=+912px (+0.90) x=1926 width=130px rows=113` on the 2028x1520 preview.
 - Full suite: `uv run python3 -m pytest tests/` — 250 passed (before the
   afternoon changes; line-follow tests alone: 35 passed, `tests/test_line_follow.py`
   + `tests/test_line_nav.py`).
 - `uv run ruff check` — clean.
-- Dry-run loop on the Pi: `examples/26_line_follow_drive.py --dry-run --duration 8`
+- Dry-run loop on the Pi: `examples/26_cam_line_follow_drive.py --dry-run --duration 8`
   — ~17 fps, detection stable, state machine emitted sane commands, motors never
   energised.
 - **Supervised on-map runs (motors energised, operator beside the car): the car
@@ -106,6 +106,6 @@ New files (working tree, not committed):
 3. Resolve the circling behaviour (fixed target ≈ chasing a chassis/shadow
    feature, or gain/geometry oscillation).
 4. Only then tune roundabout entry/exit and run the full route.
-5. Supervised runs: `examples/14_preflight_check.py` first, operator beside the
+5. Supervised runs: `examples/14_all_sensors_preflight_check.py` first, operator beside the
    car, `--dry-run` before any motor run. Keep the car on the map — the room is
    small, walls/wardrobes/mirrors are right outside it.

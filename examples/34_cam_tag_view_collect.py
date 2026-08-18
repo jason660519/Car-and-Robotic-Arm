@@ -6,7 +6,7 @@ Run this ON the Pi while the operator slowly rotates the car 360 degrees
 mapped tag corners are appended to a JSON file. The operator rotates the car
 by hand; the script just records.
 
-    PYTHONPATH=src python3 examples/34_collect_tag_views.py \\
+    PYTHONPATH=src python3 examples/34_cam_tag_view_collect.py \\
         --frames 80 --interval 0.35 --out /tmp/tag-views.json
 
 The JSON is meant to be calibrated offline on the Mac with a shared-intrinsics

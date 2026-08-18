@@ -9,14 +9,14 @@ duration -> angle -> deg/s table at the end.
 
 Deliberately measured on the actual paper surface the robot drives on:
 friction differs between the Task-1 print and other floors, so a rate
-measured elsewhere (`examples/23_spin_rate_check.py`, done on a textured wall
+measured elsewhere (`examples/23_cam_spin_rate_check.py`, done on a textured wall
 for the camera feature-matcher) would not transfer reliably here.
 
 **Motor-moving. Operator must stand beside the car able to cut main power instantly.**
 
 Usage:
-    PYTHONPATH=src python3 examples/41_spin_angle_sweep.py --speed 150
-    PYTHONPATH=src python3 examples/41_spin_angle_sweep.py --speed 150 --durations 2,4,6,8,10
+    PYTHONPATH=src python3 examples/41_motor_spin_angle_sweep.py --speed 150
+    PYTHONPATH=src python3 examples/41_motor_spin_angle_sweep.py --speed 150 --durations 2,4,6,8,10
 """
 
 from __future__ import annotations

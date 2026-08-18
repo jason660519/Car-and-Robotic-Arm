@@ -103,11 +103,11 @@ PYTHONPATH=src python3 examples/37_map1_motor_test.py
 **Run Script:**
 ```bash
 # Simulation (debug detection, no motor)
-PYTHONPATH=src python3 examples/39_map1_ir_tracking.py \
+PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py \
   --dry-run --duration 30
 
 # Live tracking (operator standing beside car)
-PYTHONPATH=src python3 examples/39_map1_ir_tracking.py \
+PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py \
   --speed 150 --turn-gain 2.0 --duration 120
 ```
 
@@ -207,7 +207,7 @@ Name format:
 
 ## Next Steps After Test
 
-1. **If successful:** Record data, then test with camera (examples/26_line_follow_drive.py)
+1. **If successful:** Record data, then test with camera (examples/26_cam_line_follow_drive.py)
 2. **If sensor issues:** Recalibrate potentiometers, adjust sensor height
 3. **If motor issues:** Check wheel alignment, NeZha I2C address conflicts
 4. **If steering issues:** Tune turn_gain parameter per tuning table above
@@ -221,4 +221,4 @@ Name format:
 - [Example: Motor Check](../../examples/02_motor_check.py)
 - [Example: IR Sensor Check](../../examples/36_ir_tracing_check.py)
 - [Example: Motor Test](../../examples/37_map1_motor_test.py)
-- [Example: IR Tracking](../../examples/39_map1_ir_tracking.py)
+- [Example: IR Tracking](../../examples/39_map1_ir_line_follow.py)

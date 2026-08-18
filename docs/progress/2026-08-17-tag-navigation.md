@@ -46,7 +46,7 @@ Nothing committed (user did not ask).
 uv run pytest -q tests/                    # 369 passed
 uv run pytest -q tests/test_tag_nav.py     # 7 passed (new supervision tests)
 
-# Pi (operator beside the car, power-cut ready) — examples/32_tag_nav_drive.py
+# Pi (operator beside the car, power-cut ready) — examples/32_cam_tag_nav_drive.py
 # run-10: departure confirmed (0.2 s), stem tracking steady 0-5.5 s
 #   (err +0.04..+0.09, L120 R120), then the car was pulled left by a
 #   structure the detector locked at x≈757-983 and drifted to x≈0.35
@@ -95,7 +95,7 @@ uv run pytest -q tests/test_tag_nav.py     # 7 passed (new supervision tests)
 
 1. Recalibrate the intrinsics from the map's own AprilTags (positions exact):
    capture ≥3 views with the car rotated 30-60° between them
-   (`examples/33_self_calibrate_tags.py` exists but needs views with ≥2 tags
+   (`examples/33_cam_tag_self_calibrate.py` exists but needs views with ≥2 tags
    per frame — with the near-vertical camera this requires rotating the car
    to face several tags, or temporarily raising the camera).
 2. Re-verify tag localization: camera height must come back ≈0.28 m and the

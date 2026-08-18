@@ -5,7 +5,7 @@ This is M1 of the room-mapping prototype — capture the polar distance profile
 of the space around the car. Run with the car LIFTED (or on the floor with an
 operator beside it, able to cut power):
 
-    PYTHONPATH=src python3 examples/09_room_scan.py --scan 20 --interval 0.15
+    PYTHONPATH=src python3 examples/09_sonar_room_scan.py --scan 20 --interval 0.15
 
 Output: /tmp/room_scan.csv with columns elapsed_s, distance_cm, spin360_s.
 

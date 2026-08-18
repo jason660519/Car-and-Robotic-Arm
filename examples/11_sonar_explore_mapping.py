@@ -22,12 +22,12 @@ Timing and speed rules (Gate A):
   never from a global constant, so ``--spin360`` takes effect everywhere
   (see ``carbot.frames.scan_angle_rad``).
 - ``FWD_CM_PER_S`` is only a rough estimate measured at ``DRIVE_SPEED``;
-  re-run examples/10_calibrate_motion.py after any mechanical change.
+  re-run examples/10_sonar_motion_calibrate.py after any mechanical change.
 
 Run on the Raspberry Pi with the operator beside the car (able to cut power)
 and the wheels lifted or the floor clear:
 
-    PYTHONPATH=src python3 examples/11_explore_mapping.py --steps 20
+    PYTHONPATH=src python3 examples/11_sonar_explore_mapping.py --steps 20
 
 Known limits (documented in docs/progress/2026-08-14-...): no wheel encoders,
 so odometry is open-loop; incremental ICP drift accumulates, and pure
@@ -58,7 +58,7 @@ MAX_RANGE = 400.0
 
 STEP_S = 2.5  # seconds of forward per step (~15-25 cm at the measured ~5-10 cm/s)
 DRIVE_SPEED = 200
-FWD_CM_PER_S = 8.0  # rough calibration at DRIVE_SPEED from examples/10_calibrate_motion.py
+FWD_CM_PER_S = 8.0  # rough calibration at DRIVE_SPEED from examples/10_sonar_motion_calibrate.py
 
 
 def spin_scan(

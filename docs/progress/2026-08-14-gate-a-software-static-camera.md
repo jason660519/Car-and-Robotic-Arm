@@ -24,26 +24,26 @@ Changed:
 - **`src/carbot/mapping.py`** — `load_polar_scan` now uses `scan_angle_rad`;
   `polar_to_points` docstring fixed: the sensor frame convention is
   **angle=0 -> +y** (`x=d·sinθ, y=d·cosθ`), which the code always did.
-- **`examples/10_calibrate_motion.py`** — `--spin-seconds` now takes effect
+- **`examples/10_sonar_motion_calibrate.py`** — `--spin-seconds` now takes effect
   (spin leg uses `args.spin_seconds`); `--spin-speed` added and defaults to
   150, the only speed with a verified 8.2 s/rev; `Car()` is created only
   after operator confirmation; every exit path stops/closes/cleans up.
-- **`examples/11_explore_mapping.py`** — `--spin-speed` and `--drive-speed`
+- **`examples/11_sonar_explore_mapping.py`** — `--spin-speed` and `--drive-speed`
   separated; scan angles derived from the run's `--spin360` via
   `scan_angle_rad`; the speed-150 timing is no longer applied at speed 200;
   operator confirmation before `Car()`; uses `sonar.Sonar`.
-- **`examples/09_room_scan.py`** — `--spin-360` default corrected 8.0 -> 8.2
+- **`examples/09_sonar_room_scan.py`** — `--spin-360` default corrected 8.0 -> 8.2
   (verified value), `--speed` default 150 paired with it, shared `sonar.Sonar`,
   operator confirmation before `Car()`.
 - **`src/carbot/vision.py`** — new `anchor_tags()`; examples/13 now rejects a
   duplicated anchor ID explicitly (`duplicate-anchor` frame status) instead of
   silently picking the first detection.
-- **`examples/13_room_pose.py`** — consumes `anchor_tags()`; duplicate ID 0
+- **`examples/13_cam_room_pose.py`** — consumes `anchor_tags()`; duplicate ID 0
   fails clearly; missing anchor still yields `missing-anchor` status.
 - **`examples/06/07/08`** — 8 Ruff findings cleaned (EXE001 x3 via `chmod +x`,
   PLR0402 x4 via `from RPi import GPIO`, PLW1510 x1 via `check=False`); no
   hardware behaviour change.
-- **`examples/14_preflight_check.py` (new)** — no-motion preflight: camera
+- **`examples/14_all_sensors_preflight_check.py` (new)** — no-motion preflight: camera
   (Picamera2 open/close), I2C (`NeZha(init_motors=False)` + reset), HC-SR04
   (sensor-only readings), power (`EXT5V_V`, `get_throttled`, temperature),
   encoder availability. Never constructs `Car()`.
@@ -77,14 +77,14 @@ New regression coverage (Gate A acceptance criteria):
 Raspberry Pi (via `ssh carpi`, static checks only, no motion):
 
 ```text
-PYTHONPATH=src python3 examples/14_preflight_check.py
+PYTHONPATH=src python3 examples/14_all_sensors_preflight_check.py
   [OK] camera     picamera2 opened and closed a still configuration
   [OK] i2c/nezha  NeZha responded at 0x40 bus 1 (reset OK)
   [OK] hc-sr04    HC-SR04 responded: 3/3 readings, avg 54.9 cm
   [FAIL] power    EXT5V_V=4.895 V (OK); get_throttled=0x50000 (throttling NOW); temp=37.8 C (OK)
   [OK] encoders   config.HAS_ENCODERS=False (two-wire motors; encoder reads expected 0)
 
-PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.65
+PYTHONPATH=src python3 examples/13_cam_room_pose.py --anchor-height-cm 14.65
   Room pose from 5/5 inlier frames:
   wall_distance=61.20 cm  wall_right=-0.82 cm  height=11.07 cm
   heading=+179.87 deg  elevation=+16.85 deg

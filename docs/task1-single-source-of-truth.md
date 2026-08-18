@@ -131,7 +131,7 @@
 | 14 | 86 | 25 | ARC 1 / Phase 2 末端 |
 | 15 | 52 | 23 | 圓環 3 點鐘出口 → 出口時機 |
 
-> **不需要精準貼放**：貼在哪都可以（避開軌道、N 箭頭朝北即可），事後用尺量「離左邊幾公分、離下邊幾公分」填入 tag map JSON（`scratch/landmarks/task1-tag-map-draft.json` 已預填草案值）。驗證工具：`examples/31_ground_tag_pose.py`（無馬達、2028×1520 preview）。
+> **不需要精準貼放**：貼在哪都可以（避開軌道、N 箭頭朝北即可），事後用尺量「離左邊幾公分、離下邊幾公分」填入 tag map JSON（`scratch/landmarks/task1-tag-map-draft.json` 已預填草案值）。驗證工具：`examples/31_cam_ground_tag_pose.py`（無馬達、2028×1520 preview）。
 
 ### 6.4 定位層到位後的控制邏輯（Phase 2 目標）
 

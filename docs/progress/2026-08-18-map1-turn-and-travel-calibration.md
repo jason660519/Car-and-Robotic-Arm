@@ -17,7 +17,7 @@ to cut main power instantly.
   **2, 4, 6, 8, 10 seconds**, the car spun in place and the operator read the
   resulting angle by eye (reference: the Map1 T-junction's printed right angle /
   a straightedge). See
-  [`examples/41_spin_angle_sweep.py`](../../examples/41_spin_angle_sweep.py).
+  [`examples/41_motor_spin_angle_sweep.py`](../../examples/41_motor_spin_angle_sweep.py).
 - **Forward travel distance** — for each of the durations **1, 2, 3 seconds**,
   the car drove straight and the distance travelled was measured.
 - The two calibrations give the duration -> angle and duration -> distance
@@ -26,7 +26,7 @@ to cut main power instantly.
 ## 2. Turn Tests — duration vs. turned degrees (Map 1)
 
 Script:
-[`examples/41_spin_angle_sweep.py`](../../examples/41_spin_angle_sweep.py)
+[`examples/41_motor_spin_angle_sweep.py`](../../examples/41_motor_spin_angle_sweep.py)
 (spin speed 150, direction right, durations `2,4,6,8,10`).
 
 | Duration (s) | Observed angle (deg) | Deg/s |

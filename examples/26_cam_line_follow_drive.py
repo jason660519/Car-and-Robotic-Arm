@@ -8,14 +8,14 @@ the line, searches when it disappears, and treats a persistent fork as a
 roundabout entry with a time-confirmed lap.
 
 **Motor-moving. An operator must stand beside the car able to cut main power
-instantly.** Run `examples/14_preflight_check.py` first, lift the wheels for
+instantly.** Run `examples/14_all_sensors_preflight_check.py` first, lift the wheels for
 the first smoke test, then place the car on the track map at the start zone.
 
     # stationary logic check — camera + detection + state machine, never drives
-    PYTHONPATH=src python3 examples/26_line_follow_drive.py --dry-run --duration 10
+    PYTHONPATH=src python3 examples/26_cam_line_follow_drive.py --dry-run --duration 10
 
     # supervised run (prompts for operator confirmation)
-    PYTHONPATH=src python3 examples/26_line_follow_drive.py --duration 60
+    PYTHONPATH=src python3 examples/26_cam_line_follow_drive.py --duration 60
 
 Run with the system python3: picamera2 and OpenCV are apt packages. The line
 detection threshold and the navigation policy are tunable; defaults match the

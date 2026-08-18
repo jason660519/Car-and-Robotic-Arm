@@ -59,7 +59,7 @@ Because not all motors were reversed, `FORWARD_IS_MOTOR_A` remained unchanged.
 Command:
 
 ```bash
-uv run python examples/03_drive.py
+uv run python examples/03_motor_drive.py
 ```
 
 All of the following lifted movements matched their labels:

@@ -3,11 +3,11 @@
 
 Run on the Raspberry Pi with its system Python:
 
-    PYTHONPATH=src python3 examples/12_apriltag_pose.py
+    PYTHONPATH=src python3 examples/12_cam_apriltag_pose.py
 
 For an existing image on a development machine:
 
-    PYTHONPATH=src uv run --extra vision python examples/12_apriltag_pose.py --input photo.jpg
+    PYTHONPATH=src uv run --extra vision python examples/12_cam_apriltag_pose.py --input photo.jpg
 """
 
 from __future__ import annotations

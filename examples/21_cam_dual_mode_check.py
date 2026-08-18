@@ -31,9 +31,9 @@ trades the blur straight back in once the car is only briefly settled.
 
 No motors, no servos, no GPIO — safe to run over SSH:
 
-    PYTHONPATH=src python3 examples/21_camera_dual_mode_check.py
-    PYTHONPATH=src python3 examples/21_camera_dual_mode_check.py --check exposure
-    PYTHONPATH=src python3 examples/21_camera_dual_mode_check.py --check modes --mode single
+    PYTHONPATH=src python3 examples/21_cam_dual_mode_check.py
+    PYTHONPATH=src python3 examples/21_cam_dual_mode_check.py --check exposure
+    PYTHONPATH=src python3 examples/21_cam_dual_mode_check.py --check modes --mode single
 
 The sonar is not read here; the fused verdict uses a simulated clear reading so
 the printed decision reflects vision alone.

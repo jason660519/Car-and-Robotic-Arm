@@ -32,13 +32,13 @@ the Pi is the safe way to level it.
 
 | Thing | State |
 |---|---|
-| Preflight ([`14`](../examples/14_preflight_check.py)) | 5/5 pass; power reads live bits only |
+| Preflight ([`14`](../examples/14_all_sensors_preflight_check.py)) | 5/5 pass; power reads live bits only |
 | Camera mode | One config does inference **and** 2028x1520 stills; 0.05 s per capture |
 | Detection + fusion (`carbot.vision_avoid`) | Verified on hardware; labels come from the network, never a local table |
 | Frame quality (`carbot.frame_quality`) | Per-tile keypoints; `repeatable_keypoints` is the pair metric |
 | Spin rate | 53.5 deg/s at speed 200, dead time ~0, direction verified 14/14 |
 | Travel speed | 0.117 m/s at speed 200, 0.166 at speed 400; reverse within 5% of forward |
-| Patrol ([`22`](../examples/22_fused_patrol_capture.py)) | 29/30 registered in one model, 0.48 m coverage over 30 frames |
+| Patrol ([`22`](../examples/22_cam_sonar_patrol_capture.py)) | 29/30 registered in one model, 0.48 m coverage over 30 frames |
 | Scale anchoring ([`anchor_sfm_scale.py`](../scripts/anchor_sfm_scale.py)) | 0.0510 m/unit, 8.2% spread, cross-validated to 4% |
 
 ## The Next Task
@@ -46,8 +46,8 @@ the Pi is the safe way to level it.
 ### 1. Run the full sweep (operator required)
 
 ```bash
-ssh carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/14_preflight_check.py'
-ssh -t carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/22_fused_patrol_capture.py --frames 150 --frame-report'
+ssh carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/14_all_sensors_preflight_check.py'
+ssh -t carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/22_cam_sonar_patrol_capture.py --frames 150 --frame-report'
 ```
 
 Four things decide whether the run is usable, and three of them are physical:
@@ -94,7 +94,7 @@ Beyond the ones in [CLAUDE.md](../CLAUDE.md):
 - **`--speed` and `--spin-speed` are separate on purpose.** 53.5 deg/s was
   calibrated at speed 200. Raising the turn speed invalidates every commanded
   angle, and nothing will warn you. Re-measure with
-  [`23_spin_rate_check.py`](../examples/23_spin_rate_check.py) if you change it.
+  [`23_cam_spin_rate_check.py`](../examples/23_cam_spin_rate_check.py) if you change it.
 - **Keep `--min-standoff-cm` at or below `--obstacle-cm`.** A higher standoff
   opens a band where the car may neither photograph nor is required to move.
 - **The SSD model's labels are its own 90-entry COCO-91 list.** The common

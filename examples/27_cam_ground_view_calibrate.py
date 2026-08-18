@@ -9,11 +9,11 @@ homography; later captures are warped to a metric top-down patch before the
 Stationary, **no motors**.
 
     # on the Pi, ChArUco board flat on the paper in front of the car
-    PYTHONPATH=src python3 examples/27_ground_view_calibrate.py \\
+    PYTHONPATH=src python3 examples/27_cam_ground_view_calibrate.py \\
         --output /tmp/line-follow/ground-view.json
 
     # from a still, four image corners of a measured rectangle (TL TR BR BL)
-    PYTHONPATH=src python3 examples/27_ground_view_calibrate.py \\
+    PYTHONPATH=src python3 examples/27_cam_ground_view_calibrate.py \\
         --image /tmp/line-follow/line-follow-raw.jpg \\
         --corners 400,500,1600,520,1580,900,380,880 \\
         --size-m 0.20,0.15 --near-m 0.20

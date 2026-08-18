@@ -51,14 +51,14 @@ The avoidance threshold is deliberately *not* raised to the standoff distance: a
 45 cm turn threshold is what made an earlier patrol spin in place.
 
 **Motor-moving.** An operator must stand beside the car able to cut main power
-instantly. Run `examples/14_preflight_check.py` first.
+instantly. Run `examples/14_all_sensors_preflight_check.py` first.
 
     # stationary logic check — reads sensors, never drives
-    PYTHONPATH=src python3 examples/22_fused_patrol_capture.py --dry-run --frames 10
+    PYTHONPATH=src python3 examples/22_cam_sonar_patrol_capture.py --dry-run --frames 10
 
     # supervised run
-    PYTHONPATH=src python3 examples/22_fused_patrol_capture.py --frames 10
-    PYTHONPATH=src python3 examples/22_fused_patrol_capture.py --frames 150
+    PYTHONPATH=src python3 examples/22_cam_sonar_patrol_capture.py --frames 10
+    PYTHONPATH=src python3 examples/22_cam_sonar_patrol_capture.py --frames 150
 
 Exposure defaults to `auto`. The stationary sweep in `examples/21` preferred spot
 metering, but a patrol turns to face every direction, and spot metering blew out
@@ -84,7 +84,7 @@ from carbot.vision_avoid import ObstaclePolicy, detections_from_metadata, fuse
 
 TRIG_PIN = 17  # GPIO 17 (Pin 11)
 ECHO_PIN = 27  # GPIO 27 (Pin 13)
-# Measured at speed 200 by examples/23_spin_rate_check.py: 53.5 deg/s with a
+# Measured at speed 200 by examples/23_cam_spin_rate_check.py: 53.5 deg/s with a
 # startup dead time of 0.005 s, i.e. none worth compensating. The older 43.9
 # deg/s came from speed 150 and made every commanded turn ~22% too large.
 VERIFIED_SPIN_DEG_PER_S = 53.5

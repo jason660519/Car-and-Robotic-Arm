@@ -22,12 +22,12 @@ past roughly 40 deg leaves too little overlap for the frames to be matched, and
 the measurement would silently degrade instead of failing.
 
 **Motor-moving.** An operator must stand beside the car able to cut main power
-instantly. Run `examples/14_preflight_check.py` first. Directions alternate, so
+instantly. Run `examples/14_all_sensors_preflight_check.py` first. Directions alternate, so
 the car oscillates around its starting heading instead of walking away — but
 lift or secure the chassis if the space is tight.
 
-    PYTHONPATH=src python3 examples/23_spin_rate_check.py --speed 200
-    PYTHONPATH=src python3 examples/23_spin_rate_check.py --speed 150 --repeats 3
+    PYTHONPATH=src python3 examples/23_cam_spin_rate_check.py --speed 200
+    PYTHONPATH=src python3 examples/23_cam_spin_rate_check.py --speed 150 --repeats 3
 
 Point the car at a textured part of the room. A blank wall gives the matcher
 nothing to work with; the script checks the first frame and says so.

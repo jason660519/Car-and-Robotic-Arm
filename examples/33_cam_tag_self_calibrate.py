@@ -19,7 +19,7 @@ Workflow (Pi, no motors):
 Only tags listed in the tag map are used. Views that see fewer than two tags
 are rejected (single-tag views do not constrain intrinsics).
 
-    PYTHONPATH=src python3 examples/33_self_calibrate_tags.py \\
+    PYTHONPATH=src python3 examples/33_cam_tag_self_calibrate.py \\
         --views 5 --out /tmp/camera-calibration/2026-08-17-imx500-2028x1520/calibration.json
 """
 

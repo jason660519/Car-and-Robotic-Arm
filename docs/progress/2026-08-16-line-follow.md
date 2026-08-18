@@ -36,8 +36,8 @@ uv run pytest -q tests/test_line_follow.py tests/test_line_nav.py tests/test_gro
   # 65+ tests in line_follow/nav; ground_view tests exist if the extra is installed
 
 # Pi (operator beside the car)
-PYTHONPATH=src python3 examples/25_line_follow_capture.py --output /tmp/line-follow
-printf "yes\n" | PYTHONPATH=src python3 examples/26_line_follow_drive.py \
+PYTHONPATH=src python3 examples/25_cam_line_follow_capture.py --output /tmp/line-follow
+printf "yes\n" | PYTHONPATH=src python3 examples/26_cam_line_follow_drive.py \
   --duration 20 --start-turn-s 0 --speed 150
 ```
 
@@ -111,7 +111,7 @@ barrel) between captures until text and line edges were sharp.
 reportlab is not a project dependency) generates a printable rectangle with
 crosshair corners (TL/TR/BR/BL, matching `scripts/pick_ground_view_corners.py`
 click order) and cm axis ticks, for the `--corners` calibration path of
-`examples/27_ground_view_calibrate.py`.
+`examples/27_cam_ground_view_calibrate.py`.
 
 - v1 (20×15 cm, then 10×7.5 cm): hairline (0.75 pt) border and small (6–9 pt)
   labels. **Consistently the blurriest thing in every capture** even after
@@ -134,7 +134,7 @@ than by hand-clicking, since the border gave enough contrast for a reliable
 threshold. Final corner pixels (image space, TL/TR/BR/BL):
 `(866.5,616) (1431.5,614.5) (1496.5,866.5) (868,869.5)`.
 
-`examples/27_ground_view_calibrate.py --corners ... --size-m 0.10,0.05
+`examples/27_cam_ground_view_calibrate.py --corners ... --size-m 0.10,0.05
 --near-m 0.18` was run, but **`--near-m 0.18` is an unmeasured guess**, not a
 tape-measure reading from any physical reference point on the chassis — there
 was no time to measure it and, as reasoned through in-session, it mostly
@@ -164,7 +164,7 @@ before the next session if it's gone).
 
 ### Gate A — PASSED
 
-`examples/25_line_follow_capture.py --ground-view <path>`: green cross landed
+`examples/25_cam_line_follow_capture.py --ground-view <path>`: green cross landed
 exactly centred on the real 2 cm line (zoomed-pixel check, not just the
 overlay) in every capture, including with the calibration target and the full
 poem text both in frame (deliberately left in as a noise test at the
@@ -174,7 +174,7 @@ the existing width filter.
 
 ### Gate B — partial pass (first correct segment, then a safe stop)
 
-`examples/26_line_follow_drive.py --duration 8 --speed 150 --ground-view
+`examples/26_cam_line_follow_drive.py --duration 8 --speed 150 --ground-view
 <path> --save-every 10`, operator beside the car, power-cut ready:
 
 - Frames 1–22 (0.0–1.0 s): `err` converged smoothly from **+209 px to −7 px**,

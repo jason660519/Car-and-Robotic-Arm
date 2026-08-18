@@ -113,7 +113,7 @@ Direction handling:
 Keep the car lifted.
 
 ```bash
-uv run python examples/03_drive.py
+uv run python examples/03_motor_drive.py
 ```
 
 The script tests:

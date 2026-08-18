@@ -23,7 +23,7 @@ exists, validate the whole pipeline on the current map with taped tags —
 | `tests/test_landmarks.py` | 24 tests; synthetic tags built through `cv2.projectPoints` + the real `estimate_square_pose`, so the round trip is the real pipeline. |
 | `src/carbot/vision.py` | **Modified**: `estimate_square_pose` now tries both `SOLVEPNP_IPPE_SQUARE` (closed-form) and `SOLVEPNP_ITERATIVE` and returns the lower-residual positive-depth solution. IPPE_SQUARE's 4-fold symmetry returns wrong-branch solutions on noiseless corners for 90°-rotated tags (~4 px) and for tags viewed from the map's opposite side (~7 px); plain iterative is exact in both cases (verified 2026-08-16). Regression test in `tests/test_vision.py`. |
 | `scripts/generate_apriltag_sheet.py` | Printable A4 PDF of 36h11 tags at **exact mm scale**, each with an N-arrow (yaw-0 orientation marker), corner crosses, a 100 mm scale bar, and a `--tag-map-out` JSON template. Defaults: 20 mm tag + 5 mm quiet zone, ids 0–15. Run with `uv run --with reportlab`. |
-| `examples/31_ground_tag_pose.py` | No-motor capture tool: detects flat tags, reports per-tag range/reprojection, and (with `--tag-map`) prints the camera's map-frame (x, y, heading) + writes annotated overlay + JSON. Captures at the 2028×1520 preview stream (the 4056×3040 still is unnecessary for pose — see ADR). |
+| `examples/31_cam_ground_tag_pose.py` | No-motor capture tool: detects flat tags, reports per-tag range/reprojection, and (with `--tag-map`) prints the camera's map-frame (x, y, heading) + writes annotated overlay + JSON. Captures at the 2028×1520 preview stream (the 4056×3040 still is unnecessary for pose — see ADR). |
 | `scratch/landmarks/task1-tags-20mm.pdf` | The printable sheet (16 tags, ids 0–15). |
 | `scratch/landmarks/task1-tag-map-draft.json` | Tag map with the draft positions pre-filled (2 cm size). Edit `x_m`/`y_m` if you tape elsewhere. |
 
@@ -113,11 +113,11 @@ per tag, `x_m`/`y_m` in **metres** from west/south edges (`cm / 100`),
 ```bash
 # Mac -> Pi (no motors anywhere in this phase)
 scp src/carbot/landmarks.py src/carbot/vision.py carpi:~/Car-and-Robotic-Arm/src/carbot/
-scp examples/31_ground_tag_pose.py carpi:~/Car-and-Robotic-Arm/examples/
+scp examples/31_cam_ground_tag_pose.py carpi:~/Car-and-Robotic-Arm/examples/
 scp scratch/landmarks/task1-tag-map.json carpi:~/Car-and-Robotic-Arm/scratch/landmarks/
 
 # Pi (car parked on the map, camera already focused for ~40 cm distance)
-ssh carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/31_ground_tag_pose.py \
+ssh carpi 'cd ~/Car-and-Robotic-Arm && PYTHONPATH=src python3 examples/31_cam_ground_tag_pose.py \
   --tag-map scratch/landmarks/task1-tag-map.json \
   --annotated-out /tmp/ground-tag-pose.jpg --json-out /tmp/ground-tag-pose.json'
 
@@ -139,7 +139,7 @@ measure.
   `heading` matches the car's facing (0 = east, 90 = north, 180 = west,
   −90 = south).
 - The line detector does **not** lock onto tag borders: run
-  `examples/25_line_follow_capture.py` once with a tag in view and confirm
+  `examples/25_cam_line_follow_capture.py` once with a tag in view and confirm
   the green cross stays on the 2 cm line. If it does lock on a tag, the width
   filter needs a capture-based check before Phase 2.
 

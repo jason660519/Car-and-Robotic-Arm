@@ -259,7 +259,7 @@ within arm's reach of the power switch. A browser tab in another city cannot do 
 | Safe over a remote session 遠端可做 | Requires someone at the robot 需要有人在機器旁 |
 |---|---|
 | `git pull`, `uv sync`, editing config | `examples/02_motor_check.py` |
-| `uv run pytest` | `examples/03_drive.py` |
+| `uv run pytest` | `examples/03_motor_drive.py` |
 | `examples/01_i2c_probe.py` (communication only, flashes an LED)<br>只測通訊，僅閃一下 LED | `examples/04_servo_check.py` |
 | `i2cdetect -y 1`, `vcgencmd get_throttled` | Anything after Step 5 of [raspberry-pi-first-run.md](raspberry-pi-first-run.md) |
 

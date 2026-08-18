@@ -5,7 +5,7 @@ This is a static camera-only test. It never imports or accesses the car motors.
 
 Run on the Raspberry Pi with its system Python:
 
-    PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.7
+    PYTHONPATH=src python3 examples/13_cam_room_pose.py --anchor-height-cm 14.7
 """
 
 from __future__ import annotations

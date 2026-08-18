@@ -18,11 +18,11 @@ It never constructs :class:`carbot.Car` and never sends a motor command.
 
 Live capture mode (operator moves the car between locations):
 
-    PYTHONPATH=src python3 examples/15_gate_b_pose_log.py --positions 5 --anchor-height-cm 14.65
+    PYTHONPATH=src python3 examples/15_cam_gate_b_pose_log.py --positions 5 --anchor-height-cm 14.65
 
 Existing-images mode (each subdirectory = one location, frames inside):
 
-    PYTHONPATH=src python3 examples/15_gate_b_pose_log.py --input-dir /tmp/gate-b --anchor-height-cm 14.65
+    PYTHONPATH=src python3 examples/15_cam_gate_b_pose_log.py --input-dir /tmp/gate-b --anchor-height-cm 14.65
 
 Output: /tmp/gate-b-poses.json
 """

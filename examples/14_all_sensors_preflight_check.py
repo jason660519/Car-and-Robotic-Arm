@@ -5,7 +5,7 @@ This script never constructs :class:`carbot.Car` and never sends a motor or
 servo command. It is safe to run over SSH with the robot powered. Run it
 before any Gate C/D/E motion test:
 
-    PYTHONPATH=src python3 examples/14_preflight_check.py
+    PYTHONPATH=src python3 examples/14_all_sensors_preflight_check.py
 
 Checks:
   1. Camera — Picamera2 opens and closes (static capture path only).

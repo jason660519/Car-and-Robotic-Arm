@@ -4,7 +4,7 @@
 ⚠️ Lift the car so all wheels are off the ground before running this script.
 Only place it on the floor after the configuration and directions are verified.
 
-    uv run python examples/03_drive.py
+    uv run python examples/03_motor_drive.py
 """
 
 from __future__ import annotations

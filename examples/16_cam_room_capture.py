@@ -7,7 +7,7 @@ It never accesses the motors.
 
 Run on the Pi:
 
-    PYTHONPATH=src python3 examples/16_capture_room.py --duration 90 --interval 3
+    PYTHONPATH=src python3 examples/16_cam_room_capture.py --duration 90 --interval 3
 
 Walk one small step (30-50 cm) then pause briefly at each beat so most frames
 are sharp; keep the wall AprilTag (ID 0, 70 mm) in view for as many frames as

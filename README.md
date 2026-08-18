@@ -35,21 +35,21 @@ A Raspberry Pi 5 smart car project with real hardware notes, verified wiring, an
 uv sync
 uv run python examples/01_i2c_probe.py              # I2C link to the NeZha board — no moving parts
 uv run python examples/02_motor_check.py            # ⚠️ lift the car; operator beside it
-uv run python examples/03_drive.py                  # ⚠️ low-speed ground run; operator beside it
+uv run python examples/03_motor_drive.py            # ⚠️ low-speed ground run; operator beside it
 uv run python examples/04_servo_check.py            # ⚠️ arm servos; operator beside it
 python3 examples/05_ai_camera_check.py --photo      # AI Camera (IMX500) — system interpreter
 python3 examples/06_ultrasonic_avoidance.py         # HC-SR04 obstacle detector — no moving parts
-PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py --dry-run  # sensor only first
-PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py            # ⚠️ avoidance run, operator beside it
+PYTHONPATH=src python3 examples/07_sonar_avoidance_drive.py --dry-run  # sensor only first
+PYTHONPATH=src python3 examples/07_sonar_avoidance_drive.py            # ⚠️ avoidance run, operator beside it
 PYTHONPATH=src python3 examples/08_battery_check.py  # battery / power health — no moving parts
-PYTHONPATH=src python3 examples/09_room_scan.py     # ⚠️ spin-scan the room (HC-SR04), operator beside it
-PYTHONPATH=src python3 examples/10_calibrate_motion.py  # ⚠️ drive/spin calibration, operator beside it
-PYTHONPATH=src python3 examples/11_explore_mapping.py   # ⚠️ M3 exploration loop, operator beside it
-PYTHONPATH=src python3 examples/12_apriltag_pose.py  # static AprilTag pose; no motors
-PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.65  # fixed-wall room pose
-PYTHONPATH=src python3 examples/14_preflight_check.py  # no-motion preflight — run before any motion test
-PYTHONPATH=src python3 examples/15_gate_b_pose_log.py --anchor-height-cm 14.65  # Gate B pose log (static)
-PYTHONPATH=src python3 examples/16_capture_room.py --duration 90  # room sweep for SfM (push the car)
+PYTHONPATH=src python3 examples/09_sonar_room_scan.py     # ⚠️ spin-scan the room (HC-SR04), operator beside it
+PYTHONPATH=src python3 examples/10_sonar_motion_calibrate.py  # ⚠️ drive/spin calibration, operator beside it
+PYTHONPATH=src python3 examples/11_sonar_explore_mapping.py   # ⚠️ M3 exploration loop, operator beside it
+PYTHONPATH=src python3 examples/12_cam_apriltag_pose.py  # static AprilTag pose; no motors
+PYTHONPATH=src python3 examples/13_cam_room_pose.py --anchor-height-cm 14.65  # fixed-wall room pose
+PYTHONPATH=src python3 examples/14_all_sensors_preflight_check.py  # no-motion preflight — run before any motion test
+PYTHONPATH=src python3 examples/15_cam_gate_b_pose_log.py --anchor-height-cm 14.65  # Gate B pose log (static)
+PYTHONPATH=src python3 examples/16_cam_room_capture.py --duration 90  # room sweep for SfM (push the car)
 ```
 
 The chassis and arm are controlled by the **Yourfun NeZha bus driver board**. A Raspberry Pi 5
@@ -117,37 +117,41 @@ Run the examples in order. Scripts `01`, `05`-`06`, `08`, and `12`-`15` are safe
 (no motors or servos move); motor-moving scripts (`02`-`04`, `07`, `09`-`11`) require an operator
 standing beside the robot who can cut main power instantly. Run `14` before any motion test.
 
+Script names are `NN_<tool>_<function>.py`, so the filename tells you which hardware it drives —
+`cam` (IMX500), `sonar` (HC-SR04), `ir` (IR tracing sensor), `motor`, `servo`, `i2c`, `power`. See
+[CONVENTIONS.md §3.6](CONVENTIONS.md#36-runnable-scripts-in-examples-nn_tool_function_modepy).
+
 | # | Script | What it checks | Run with | Safety |
 |---|---|---|---|---|
 | 01 | `examples/01_i2c_probe.py` | I2C link to the NeZha driver board at `0x40`, reset command, head LED path | `uv run python examples/01_i2c_probe.py` | ✅ No moving parts |
 | 02 | `examples/02_motor_check.py` | Wheel → motor port mapping (`M1`-`M4`) and forward/reverse direction | `uv run python examples/02_motor_check.py` | ⚠️ Lift the car, operator beside it |
-| 03 | `examples/03_drive.py` | Minimal differential-drive movement on the ground | `uv run python examples/03_drive.py` | ⚠️ Low speed, operator beside it |
+| 03 | `examples/03_motor_drive.py` | Minimal differential-drive movement on the ground | `uv run python examples/03_motor_drive.py` | ⚠️ Low speed, operator beside it |
 | 04 | `examples/04_servo_check.py` | Arm servos `S2`-`S4`, one channel at a time | `uv run python examples/04_servo_check.py` | ⚠️ Operator beside it |
 | 05 | `examples/05_ai_camera_check.py` | AI Camera (IMX500) detected, picamera2 capture, models listed; `--photo` saves a still, `--inference` runs an on-sensor object-detection pass (first run uploads the model to the camera — takes a few minutes) | `python3 examples/05_ai_camera_check.py --photo` | ✅ No moving parts (use system interpreter, not `uv`) |
 | 06 | `examples/06_ultrasonic_avoidance.py` | HC-SR04 obstacle detector: distance readings + obstacle warning; `--trials`/`--threshold` to tune | `python3 examples/06_ultrasonic_avoidance.py` | ✅ No moving parts |
-| 07 | `examples/07_obstacle_avoidance_drive.py` | Closed-loop avoidance: HC-SR04 drives the car (forward / stop + spin); `--dry-run` tests the sensor loop only | `PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py` | ⚠️ Operator beside it; lifted by default, `--ground` for a floor run |
+| 07 | `examples/07_sonar_avoidance_drive.py` | Closed-loop avoidance: HC-SR04 drives the car (forward / stop + spin); `--dry-run` tests the sensor loop only | `PYTHONPATH=src python3 examples/07_sonar_avoidance_drive.py` | ⚠️ Operator beside it; lifted by default, `--ground` for a floor run |
 | 08 | `examples/08_battery_check.py` | Battery / power health: `EXT5V_V`, `get_throttled` bits (live vs since-boot), temperature | `PYTHONPATH=src python3 examples/08_battery_check.py` | ✅ No moving parts |
-| 09 | `examples/09_room_scan.py` | Room spin-scan (M1): logs the HC-SR04 polar distance profile while the car spins; one frame of the mapping loop | `PYTHONPATH=src python3 examples/09_room_scan.py` | ⚠️ Operator beside it (lifted or floor) |
-| 10 | `examples/10_calibrate_motion.py` | Drive-speed and spin calibration with the HC-SR04; honours `--spin-seconds`/`--spin-speed`; confirms before constructing `Car()` | `PYTHONPATH=src python3 examples/10_calibrate_motion.py` | ⚠️ Operator beside it (lifted or floor) |
-| 11 | `examples/11_explore_mapping.py` | M3 exploration loop: spin-scan -> ICP -> grid -> small step; `--spin-speed`/`--drive-speed` separated | `PYTHONPATH=src python3 examples/11_explore_mapping.py` | ⚠️ Operator beside it (lifted or floor) |
-| 12 | `examples/12_apriltag_pose.py` | Static AprilTag 36h11 metric pose and undistorted image | `PYTHONPATH=src python3 examples/12_apriltag_pose.py` | ✅ No moving parts |
-| 13 | `examples/13_room_pose.py` | Five-frame ChArUco + AprilTag fixed-wall room pose with outlier rejection and JSON output | `PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.65` | ✅ No moving parts |
-| 14 | `examples/14_preflight_check.py` | No-motion preflight: camera, I2C, HC-SR04, power, encoders — run before any motion test | `PYTHONPATH=src python3 examples/14_preflight_check.py` | ✅ No moving parts |
-| 15 | `examples/15_gate_b_pose_log.py` | Gate B manual-reposition pose log: per-location repeatability + displacement vs tape | `PYTHONPATH=src python3 examples/15_gate_b_pose_log.py --anchor-height-cm 14.65` | ✅ No moving parts (operator moves the car by hand) |
-| 16 | `examples/16_capture_room.py` | Room sweep of stills for Structure-from-Motion (push the stopped car; capture every `--interval` s) | `PYTHONPATH=src python3 examples/16_capture_room.py --duration 90` | ✅ No moving parts (operator pushes the car) |
-| 17 | `examples/17_patrol_capture.py` | Roomba-style random-bounce patrol + capture (superseded by planned vision fusion) | `PYTHONPATH=src python3 examples/17_patrol_capture.py --frames 150` | ⚠️ Operator beside it |
-| 18 | `examples/18_wall_follow_capture.py` | Single-sonar wall-following patrol + capture (same sonar limitation) | `PYTHONPATH=src python3 examples/18_wall_follow_capture.py --frames 150` | ⚠️ Operator beside it |
-| 20 | `examples/20_visual_detection_check.py` | IMX500 on-sensor object detection for visual avoidance (`OBSTACLE AHEAD`) | `PYTHONPATH=src python3 examples/20_visual_detection_check.py` | ✅ No moving parts |
-| 21 | `examples/21_camera_dual_mode_check.py` | Camera experiments for the patrol: compares `single`/`switch`/`restart` capture modes, and sweeps auto-exposure settings ranked by repeatable keypoints | `PYTHONPATH=src python3 examples/21_camera_dual_mode_check.py` | ✅ No moving parts |
-| 22 | `examples/22_fused_patrol_capture.py` | Vision + sonar fused patrol with 2028×1520 SfM capture — avoids the chairs a single sonar cannot see | `PYTHONPATH=src python3 examples/22_fused_patrol_capture.py --dry-run --frames 10` | ⚠️ Operator beside it (`--dry-run` is safe) |
-| 23 | `examples/23_spin_rate_check.py` | Measures the real spin rate and startup dead time from the camera's own view — no protractor, no encoders | `PYTHONPATH=src python3 examples/23_spin_rate_check.py --speed 200` | ⚠️ Operator beside it |
-| 24 | `examples/24_linear_speed_check.py` | Measures forward and reverse travel distance against a wall AprilTag | `PYTHONPATH=src python3 examples/24_linear_speed_check.py --speed 200` | ⚠️ Operator beside it (drives toward a wall) |
-| 25 | `examples/25_line_follow_capture.py` | Line-follow capture + overlay: confirms the green cross sits on the real 2 cm line (Gate A) | `PYTHONPATH=src python3 examples/25_line_follow_capture.py` | ✅ No moving parts |
-| 26 | `examples/26_line_follow_drive.py` | Closed-loop line-follow drive with auto ground-view calibration (Gate B) | `printf "yes\n" \| PYTHONPATH=src python3 examples/26_line_follow_drive.py --duration 8 --speed 150` | ⚠️ Operator beside it |
-| 27 | `examples/27_ground_view_calibrate.py` | Bird's-eye (ground-view) homography calibration from a measured rectangle or flat ChArUco | `PYTHONPATH=src python3 examples/27_ground_view_calibrate.py --auto --size-m 0.10,0.05` | ✅ No moving parts |
-| 29 | `examples/29_route_nav_drive.py` | Task-1 route drive: vision-driven nav state machine, route plan advisory only | `PYTHONPATH=src python3 examples/29_route_nav_drive.py --dry-run --duration 10` | ⚠️ Operator beside it (`--dry-run` is safe) |
-| 30 | `examples/30_motion_calibrate.py` | Time-based motion model calibration (no encoders): forward speed + spin rate | `PYTHONPATH=src python3 examples/30_motion_calibrate.py --mode forward --seconds 1.0` | ⚠️ Operator beside it (car drives/spins) |
-| 31 | `examples/31_ground_tag_pose.py` | Ground AprilTag pose check: camera (x, y, heading) in the map frame from flat tags (Phase 0 of landmark localization) | `PYTHONPATH=src python3 examples/31_ground_tag_pose.py --tag-map scratch/landmarks/task1-tag-map.json` | ✅ No moving parts |
+| 09 | `examples/09_sonar_room_scan.py` | Room spin-scan (M1): logs the HC-SR04 polar distance profile while the car spins; one frame of the mapping loop | `PYTHONPATH=src python3 examples/09_sonar_room_scan.py` | ⚠️ Operator beside it (lifted or floor) |
+| 10 | `examples/10_sonar_motion_calibrate.py` | Drive-speed and spin calibration with the HC-SR04; honours `--spin-seconds`/`--spin-speed`; confirms before constructing `Car()` | `PYTHONPATH=src python3 examples/10_sonar_motion_calibrate.py` | ⚠️ Operator beside it (lifted or floor) |
+| 11 | `examples/11_sonar_explore_mapping.py` | M3 exploration loop: spin-scan -> ICP -> grid -> small step; `--spin-speed`/`--drive-speed` separated | `PYTHONPATH=src python3 examples/11_sonar_explore_mapping.py` | ⚠️ Operator beside it (lifted or floor) |
+| 12 | `examples/12_cam_apriltag_pose.py` | Static AprilTag 36h11 metric pose and undistorted image | `PYTHONPATH=src python3 examples/12_cam_apriltag_pose.py` | ✅ No moving parts |
+| 13 | `examples/13_cam_room_pose.py` | Five-frame ChArUco + AprilTag fixed-wall room pose with outlier rejection and JSON output | `PYTHONPATH=src python3 examples/13_cam_room_pose.py --anchor-height-cm 14.65` | ✅ No moving parts |
+| 14 | `examples/14_all_sensors_preflight_check.py` | No-motion preflight: camera, I2C, HC-SR04, power, encoders — run before any motion test | `PYTHONPATH=src python3 examples/14_all_sensors_preflight_check.py` | ✅ No moving parts |
+| 15 | `examples/15_cam_gate_b_pose_log.py` | Gate B manual-reposition pose log: per-location repeatability + displacement vs tape | `PYTHONPATH=src python3 examples/15_cam_gate_b_pose_log.py --anchor-height-cm 14.65` | ✅ No moving parts (operator moves the car by hand) |
+| 16 | `examples/16_cam_room_capture.py` | Room sweep of stills for Structure-from-Motion (push the stopped car; capture every `--interval` s) | `PYTHONPATH=src python3 examples/16_cam_room_capture.py --duration 90` | ✅ No moving parts (operator pushes the car) |
+| 17 | `examples/17_cam_patrol_capture.py` | Roomba-style random-bounce patrol + capture (superseded by planned vision fusion) | `PYTHONPATH=src python3 examples/17_cam_patrol_capture.py --frames 150` | ⚠️ Operator beside it |
+| 18 | `examples/18_sonar_wall_follow_capture.py` | Single-sonar wall-following patrol + capture (same sonar limitation) | `PYTHONPATH=src python3 examples/18_sonar_wall_follow_capture.py --frames 150` | ⚠️ Operator beside it |
+| 20 | `examples/20_cam_detection_check.py` | IMX500 on-sensor object detection for visual avoidance (`OBSTACLE AHEAD`) | `PYTHONPATH=src python3 examples/20_cam_detection_check.py` | ✅ No moving parts |
+| 21 | `examples/21_cam_dual_mode_check.py` | Camera experiments for the patrol: compares `single`/`switch`/`restart` capture modes, and sweeps auto-exposure settings ranked by repeatable keypoints | `PYTHONPATH=src python3 examples/21_cam_dual_mode_check.py` | ✅ No moving parts |
+| 22 | `examples/22_cam_sonar_patrol_capture.py` | Vision + sonar fused patrol with 2028×1520 SfM capture — avoids the chairs a single sonar cannot see | `PYTHONPATH=src python3 examples/22_cam_sonar_patrol_capture.py --dry-run --frames 10` | ⚠️ Operator beside it (`--dry-run` is safe) |
+| 23 | `examples/23_cam_spin_rate_check.py` | Measures the real spin rate and startup dead time from the camera's own view — no protractor, no encoders | `PYTHONPATH=src python3 examples/23_cam_spin_rate_check.py --speed 200` | ⚠️ Operator beside it |
+| 24 | `examples/24_cam_linear_speed_check.py` | Measures forward and reverse travel distance against a wall AprilTag | `PYTHONPATH=src python3 examples/24_cam_linear_speed_check.py --speed 200` | ⚠️ Operator beside it (drives toward a wall) |
+| 25 | `examples/25_cam_line_follow_capture.py` | Line-follow capture + overlay: confirms the green cross sits on the real 2 cm line (Gate A) | `PYTHONPATH=src python3 examples/25_cam_line_follow_capture.py` | ✅ No moving parts |
+| 26 | `examples/26_cam_line_follow_drive.py` | Closed-loop line-follow drive with auto ground-view calibration (Gate B) | `printf "yes\n" \| PYTHONPATH=src python3 examples/26_cam_line_follow_drive.py --duration 8 --speed 150` | ⚠️ Operator beside it |
+| 27 | `examples/27_cam_ground_view_calibrate.py` | Bird's-eye (ground-view) homography calibration from a measured rectangle or flat ChArUco | `PYTHONPATH=src python3 examples/27_cam_ground_view_calibrate.py --auto --size-m 0.10,0.05` | ✅ No moving parts |
+| 29 | `examples/29_cam_route_nav_drive.py` | Task-1 route drive: vision-driven nav state machine, route plan advisory only | `PYTHONPATH=src python3 examples/29_cam_route_nav_drive.py --dry-run --duration 10` | ⚠️ Operator beside it (`--dry-run` is safe) |
+| 30 | `examples/30_cam_motion_calibrate.py` | Time-based motion model calibration (no encoders): forward speed + spin rate | `PYTHONPATH=src python3 examples/30_cam_motion_calibrate.py --mode forward --seconds 1.0` | ⚠️ Operator beside it (car drives/spins) |
+| 31 | `examples/31_cam_ground_tag_pose.py` | Ground AprilTag pose check: camera (x, y, heading) in the map frame from flat tags (Phase 0 of landmark localization) | `PYTHONPATH=src python3 examples/31_cam_ground_tag_pose.py --tag-map scratch/landmarks/task1-tag-map.json` | ✅ No moving parts |
 
 Expected results (verified on this build, 2026-08):
 

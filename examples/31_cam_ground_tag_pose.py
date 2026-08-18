@@ -9,11 +9,11 @@ tags at the real mount angles, and does the localization match where the
 car actually is?*
 
     # on the Pi, from the repo root (system python3, OpenCV + picamera2)
-    PYTHONPATH=src python3 examples/31_ground_tag_pose.py \
+    PYTHONPATH=src python3 examples/31_cam_ground_tag_pose.py \
         --tag-map scratch/landmarks/task1-tag-map.json
 
     # on the Mac, with an existing image
-    PYTHONPATH=src uv run --extra vision python examples/31_ground_tag_pose.py \
+    PYTHONPATH=src uv run --extra vision python examples/31_cam_ground_tag_pose.py \
         --input /tmp/tags.jpg --tag-map scratch/landmarks/task1-tag-map.json
 
 Captures use the **2028x1520 preview stream — the same stream the drive

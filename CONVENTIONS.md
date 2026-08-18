@@ -4,7 +4,7 @@
 > If you are unsure where a file belongs or how it should be named, follow this document.
 > If the repository disagrees with this document, update the repository layout instead of weakening the rule.
 
-Last updated: 2026-08-14
+Last updated: 2026-08-19
 
 ---
 
@@ -184,7 +184,51 @@ Exceptions:
   are preserved so they match the assessment. First-party derivatives inside it still use
   `lower-kebab-case`, for example `11se-assessment-2-folio.html`.
 
-### 3.6 Dated Work Records
+### 3.6 Runnable Scripts in `examples/`: `NN_<tool>_<function>[_<mode>].py`
+
+A reader scanning `ls examples/` must be able to tell **which hardware a script drives** without
+opening it. The filename therefore names the tool before it names the task.
+
+```
+good: 26_cam_line_follow_drive.py       camera-guided line following
+good: 39_map1_ir_line_follow.py         same route, IR sensor instead
+good: 18_sonar_wall_follow_capture.py   the wall is measured by HC-SR04, not seen
+bad:  03_drive.py                       drive with what?
+bad:  22_fused_patrol_capture.py        fused from which two sensors?
+bad:  38_map1_line_follow.py            camera or IR? both scripts exist
+```
+
+**`NN`** is the two-digit creation sequence. Like asset numbers (§3.3) it is never reused,
+reordered, or recycled — progress logs and handoffs cite scripts by number, and gaps (`19`, `28`)
+record scripts that were removed. Renaming a script keeps its number and changes only the
+descriptive part.
+
+**`<tool>`** comes from this closed vocabulary. Extend the table in the same commit that
+introduces a new tag.
+
+| Tag | Hardware / subsystem |
+|---|---|
+| `i2c` | I2C bus and NeZha board communication |
+| `motor` | Motors and encoders only, with no external sensor feedback |
+| `servo` | Servos |
+| `cam` | Raspberry Pi AI Camera (IMX500), including anything read through it such as AprilTags |
+| `sonar` | HC-SR04 ultrasonic sensor |
+| `ir` | Yahboom 4-channel IR tracing sensor |
+| `power` | Battery and supply health |
+| `all_sensors` | Deliberately exercises every attached sensor, e.g. the preflight check |
+
+Combine tags with `_` in reading order when a script genuinely fuses two sources
+(`22_cam_sonar_patrol_capture.py`). A route or map scope may precede the tool when several scripts
+target the same course (`38_map1_cam_line_follow.py`, `39_map1_ir_line_follow.py`).
+
+**`<function>`** is `noun_verb`, not `verb_noun` — `motion_calibrate`, not `calibrate_motion` — so
+that related scripts sort together. Reuse the established verbs: `check` (read and report, no
+motion), `calibrate`, `capture`, `drive`, `sweep`, `probe`, `log`.
+
+The tool tag must match what the script actually imports. A script whose docstring claims a sensor
+it never reads is a naming bug; fix the docstring and the filename together.
+
+### 3.7 Dated Work Records
 
 Use one role per document; do not duplicate the same mutable status in several files.
 
@@ -216,7 +260,7 @@ snapshot, not a second source of truth and not a replacement for the work log. L
 hardware, ADR, or progress documents instead of copying their full content. When a newer handoff
 supersedes an older one, state that relationship at the top of the newer file.
 
-### 3.7 Calibration and Mapping Evidence
+### 3.8 Calibration and Mapping Evidence
 
 Use the session key `YYYY-MM-DD-device-resolution` consistently:
 

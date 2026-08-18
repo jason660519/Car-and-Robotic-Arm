@@ -15,7 +15,7 @@ beside the car able to cut main power instantly (motor-moving).
 
 Run on the Pi:
 
-    PYTHONPATH=src python3 examples/18_wall_follow_capture.py --frames 150
+    PYTHONPATH=src python3 examples/18_sonar_wall_follow_capture.py --frames 150
 
 Assumes the wall is on the car's **right** side; the nose is angled toward
 the wall by --approach-angle-deg (default 45 deg).

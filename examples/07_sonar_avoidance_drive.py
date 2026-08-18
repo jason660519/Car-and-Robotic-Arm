@@ -7,9 +7,9 @@ for a real floor run after the wheel-mapping tests pass.
 
 Run on the Raspberry Pi (system interpreter, not uv):
 
-    PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py --dry-run
-    PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py --duration 60
-    PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py --ground --duration 60
+    PYTHONPATH=src python3 examples/07_sonar_avoidance_drive.py --dry-run
+    PYTHONPATH=src python3 examples/07_sonar_avoidance_drive.py --duration 60
+    PYTHONPATH=src python3 examples/07_sonar_avoidance_drive.py --ground --duration 60
 
 Logic per loop:
   distance > threshold      -> drive forward at --speed

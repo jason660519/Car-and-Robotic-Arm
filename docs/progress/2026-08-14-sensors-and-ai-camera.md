@@ -36,15 +36,15 @@ kernel 6.18.34 aarch64).
 | AI Camera | `python3 examples/05_ai_camera_check.py --photo` | IMX500 detected, 4056x3040 still captured |
 | AI Camera inference | `python3 examples/05_ai_camera_check.py --inference` | mobilenet-ssd, 30 fps for 120 s |
 | Obstacle detector | `python3 examples/06_ultrasonic_avoidance.py --trials 8 --threshold 50` | 8/8, avg 31.3 cm, warning triggered |
-| Avoidance loop (dry-run) | `PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py --dry-run` | 33 loops, sensor logic OK |
-| Avoidance loop (ground) | `PYTHONPATH=src python3 examples/07_obstacle_avoidance_drive.py --ground --duration 30 --threshold 40` | 109 loops, stop+spin on obstacle |
+| Avoidance loop (dry-run) | `PYTHONPATH=src python3 examples/07_sonar_avoidance_drive.py --dry-run` | 33 loops, sensor logic OK |
+| Avoidance loop (ground) | `PYTHONPATH=src python3 examples/07_sonar_avoidance_drive.py --ground --duration 30 --threshold 40` | 109 loops, stop+spin on obstacle |
 | Battery health | `python3 examples/08_battery_check.py` | EXT5V_V 4.89 V, **throttle warning, see below** |
 
 ## New Test Scripts (committed)
 
 - `examples/06_ultrasonic_avoidance.py` — HC-SR04 distance + obstacle warning (`--trials`,
   `--threshold`). Runs with the system interpreter; no motors involved.
-- `examples/07_obstacle_avoidance_drive.py` — closed-loop avoidance: distance > threshold → forward,
+- `examples/07_sonar_avoidance_drive.py` — closed-loop avoidance: distance > threshold → forward,
   distance <= threshold → stop + spin. `--dry-run` never drives motors; `--ground` for a floor run.
   Needs `PYTHONPATH=src python3` (system interpreter has RPi.GPIO; the uv venv does not).
 - `examples/08_battery_check.py` — reads `EXT5V_V`, `get_throttled` bits, and temperature; all
@@ -84,7 +84,7 @@ chassis secured**. This matches the existing safety section in `docs/setup/mac-t
 
 ## Next Steps
 
-- `examples/03_drive.py` ground run (operator beside the car)
+- `examples/03_motor_drive.py` ground run (operator beside the car)
 - `examples/04_servo_check.py` arm servos (operator beside the car)
 - Recharge/replace the battery and re-run `examples/08_battery_check.py` until `✓ Power health OK`
 - Optionally wire IMX500 detections into the avoidance loop (vision + ultrasonic fusion)
@@ -135,12 +135,12 @@ robot is placed in a room and maps it, turning around obstacles on its own).
 
 ## Addendum 2: M3 Autonomous-Exploration Prototype — Verified Limits
 
-Motion calibration (`examples/10_calibrate_motion.py`): ultrasonic-based forward-speed
+Motion calibration (`examples/10_sonar_motion_calibrate.py`): ultrasonic-based forward-speed
 calibration is unstable (5.4 / 16.7 / -1.1 cm/s across reps) due to the HC-SR04 near-range
 blind zone and Mecanum side-slip. Conclusion: open-loop odometry is only good to an order of
 magnitude; use ~8 cm/s @ speed 200 as a rough value.
 
-M3 loop (`examples/11_explore_mapping.py`): spin scan -> ICP -> occupancy grid -> small step.
+M3 loop (`examples/11_sonar_explore_mapping.py`): spin scan -> ICP -> occupancy grid -> small step.
 
 | Version | Change | Reliable accumulation |
 |---|---|---|

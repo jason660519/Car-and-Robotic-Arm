@@ -9,13 +9,13 @@ figure — this script measures the real thing by timing camera start, the one-t
 IMX500 network firmware upload, and then each subsequent inference frame separately.
 
 Detection and box logic is shared with the patrol via :mod:`carbot.vision_avoid`
-(ported from `examples/20_visual_detection_check.py`); this script adds timing and a
+(ported from `examples/20_cam_detection_check.py`); this script adds timing and a
 summary instead of the obstacle-fusion verdict.
 
 Run on the Pi:
 
-    PYTHONPATH=src python3 examples/35_object_id_check.py
-    PYTHONPATH=src python3 examples/35_object_id_check.py --frames 20
+    PYTHONPATH=src python3 examples/35_cam_object_id_check.py
+    PYTHONPATH=src python3 examples/35_cam_object_id_check.py --frames 20
 
 This Pi's `/usr/share/imx500-models/` has no YOLO `.rpk` (checked 2026-08-17 — only SSD
 mobilenetv2-fpnlite and NanoDet Plus are present as detection models, the rest are

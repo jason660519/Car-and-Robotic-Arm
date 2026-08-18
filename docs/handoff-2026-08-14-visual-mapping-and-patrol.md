@@ -35,10 +35,10 @@ the car able to cut power. Do not commit/push unless asked.
 | Thing | State |
 |---|---|
 | SfM toolchain (`scripts/run_colmap_sfm.py`, `pycolmap`) | Works; 5/5 registration on calibration frames, camera poses export |
-| **IMX500 visual obstacle detection** (`examples/20_visual_detection_check.py`) | **Works on the Pi**: open→`clear`, chair/table ahead→`OBSTACLE AHEAD` |
-| Random-bounce patrol (`examples/17_patrol_capture.py`) | Drives, but single sonar can't avoid thin legs/overhead → keep as reference only |
-| Wall-follow patrol (`examples/18_wall_follow_capture.py`) | Same single-sonar limitation |
-| Manual-push capture (`examples/16_capture_room.py`) | Abandoned (user wants the car to drive itself) |
+| **IMX500 visual obstacle detection** (`examples/20_cam_detection_check.py`) | **Works on the Pi**: open→`clear`, chair/table ahead→`OBSTACLE AHEAD` |
+| Random-bounce patrol (`examples/17_cam_patrol_capture.py`) | Drives, but single sonar can't avoid thin legs/overhead → keep as reference only |
+| Wall-follow patrol (`examples/18_sonar_wall_follow_capture.py`) | Same single-sonar limitation |
+| Manual-push capture (`examples/16_cam_room_capture.py`) | Abandoned (user wants the car to drive itself) |
 
 `examples/19_visual_obstacle_check.py` (edge-density heuristic) was **deleted**
 — superseded by the real detector in `20`.
@@ -75,7 +75,7 @@ or use `stop()`/`start(config)` around the still. The IMX500 firmware is
 already uploaded, so re-start is fast. Prefer `switch_mode` first; fall back to
 `stop/start` if it drops the network.
 
-The detection code to reuse is in `examples/20_visual_detection_check.py`
+The detection code to reuse is in `examples/20_cam_detection_check.py`
 (`IMX500`, `parse_detections`, and the central-lower-box obstacle test). Factor
 it into `src/carbot/vision_avoid.py` (importable, testable) rather than
 copy-pasting.
@@ -101,7 +101,7 @@ copy-pasting.
 ## Remaining Risks / Open Questions
 
 1. **Battery** — `get_throttled=0x50000` was persistent. Re-run
-   `examples/14_preflight_check.py` before motor tests; recharge/replace if it
+   `examples/14_all_sensors_preflight_check.py` before motor tests; recharge/replace if it
    still fails.
 2. **Spin rate** — 8.2 s/360° is only verified at speed 150. Re-measure for the
    speed the fused patrol will use.
@@ -120,5 +120,5 @@ copy-pasting.
    first: 10 frames, then 150).
 3. Dry-test obstacle logic with the car stationary, then run supervised on the
    floor.
-4. Re-run `14_preflight_check.py` first (battery), then run the sweep, pull the
+4. Re-run `14_all_sensors_preflight_check.py` first (battery), then run the sweep, pull the
    frames, and check the SfM registration count.

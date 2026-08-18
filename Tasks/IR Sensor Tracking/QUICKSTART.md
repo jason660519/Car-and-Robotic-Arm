@@ -58,7 +58,7 @@ PYTHONPATH=src python3 examples/37_map1_motor_test.py
 ### 先試試看不開馬達（純檢測）
 
 ```bash
-PYTHONPATH=src python3 examples/39_map1_ir_tracking.py \
+PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py \
   --dry-run --duration 30
 ```
 
@@ -67,7 +67,7 @@ PYTHONPATH=src python3 examples/39_map1_ir_tracking.py \
 ### 實際跑（操作者站在機器人旁邊）
 
 ```bash
-PYTHONPATH=src python3 examples/39_map1_ir_tracking.py \
+PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py \
   --speed 150 --turn-gain 2.0 --duration 120
 ```
 
@@ -95,7 +95,7 @@ PYTHONPATH=src python3 examples/39_map1_ir_tracking.py \
 重新運行，參數改在命令行：
 
 ```bash
-PYTHONPATH=src python3 examples/39_map1_ir_tracking.py \
+PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py \
   --speed 120 --turn-gain 2.5 --duration 120
 ```
 

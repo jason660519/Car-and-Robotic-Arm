@@ -8,8 +8,8 @@ can eyeball whether the ROI, threshold, and centroid look right before any
 closed-loop driving is attempted.
 
     # on the Pi, from the repo root
-    PYTHONPATH=src python3 examples/25_line_follow_capture.py
-    PYTHONPATH=src python3 examples/25_line_follow_capture.py --threshold 100 --output /tmp/line-follow
+    PYTHONPATH=src python3 examples/25_cam_line_follow_capture.py
+    PYTHONPATH=src python3 examples/25_cam_line_follow_capture.py --threshold 100 --output /tmp/line-follow
 
 The overlay draws: the ROI band, the frame centre line, a dot for every scan
 row that saw the line, and a cross at the aggregated centroid. The printed

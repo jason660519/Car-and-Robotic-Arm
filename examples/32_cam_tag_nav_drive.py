@@ -21,10 +21,10 @@ disagree by tens of degrees (print/paste misalignment), so turns are driven
 by the vision cross-bar + position supervision.
 
     # dry run (no motors): camera + detection + state machine
-    PYTHONPATH=src python3 examples/32_tag_nav_drive.py --dry-run --duration 10
+    PYTHONPATH=src python3 examples/32_cam_tag_nav_drive.py --dry-run --duration 10
 
     # supervised run
-    PYTHONPATH=src python3 examples/32_tag_nav_drive.py --duration 15 \\
+    PYTHONPATH=src python3 examples/32_cam_tag_nav_drive.py --duration 15 \\
         --ground-view /tmp/line-follow/ground-view.json \\
         --tag-map scratch/landmarks/task1-tag-map.json
 """

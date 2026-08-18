@@ -9,17 +9,17 @@ matches.
 
 This is deliberately surface-specific: friction differs between the printed
 map paper and other floors, so a duration measured elsewhere (e.g. with
-`examples/23_spin_rate_check.py` on a textured wall) would not transfer
+`examples/23_cam_spin_rate_check.py` on a textured wall) would not transfer
 reliably here. Iterate directly on the track.
 
 **Motor-moving. Operator must stand beside the car able to cut main power instantly.**
 
 Usage:
     # start with a rough guess, e.g. from spin_deg_per_s_at_200=53.5 -> ~2.24s for 90 deg at speed 150
-    PYTHONPATH=src python3 examples/40_spin_duration_check.py --speed 150 --duration-s 2.24 --direction right
+    PYTHONPATH=src python3 examples/40_motor_spin_duration_check.py --speed 150 --duration-s 2.24 --direction right
 
     # too far / not far enough -> adjust and re-run
-    PYTHONPATH=src python3 examples/40_spin_duration_check.py --speed 150 --duration-s 1.80 --direction right
+    PYTHONPATH=src python3 examples/40_motor_spin_duration_check.py --speed 150 --duration-s 1.80 --direction right
 """
 
 from __future__ import annotations

@@ -8,9 +8,9 @@
 > **Gate A status (2026-08-14):** the spin timing and angle-conversion defects below are **fixed**
 > (commits `3359cd6`..`efb5347`); see
 > [`docs/progress/2026-08-14-gate-a-software-static-camera.md`](progress/2026-08-14-gate-a-software-static-camera.md)
-> before running `examples/10_calibrate_motion.py` / `examples/11_explore_mapping.py`. Both
+> before running `examples/10_sonar_motion_calibrate.py` / `examples/11_sonar_explore_mapping.py`. Both
 > scripts now confirm with the operator before constructing `Car()`; run
-> `examples/14_preflight_check.py` before any motion test.
+> `examples/14_all_sensors_preflight_check.py` before any motion test.
 
 This document is a handoff for the next engineer continuing this project. It summarises what is
 built, what is verified, what failed, and where the open decisions are. Read
@@ -80,15 +80,15 @@ tests/         pytest suite (60 passed incl. 7 mapping tests)
 |---|---|---|---|
 | 01 | `01_i2c_probe.py` | safe | NeZha I2C link, reset, LED |
 | 02 | `02_motor_check.py` | ⚠️ lifted | M1-M4 mapping verified, matches config |
-| 03 | `03_drive.py` | ⚠️ | ground run, **not re-run this session** |
+| 03 | `03_motor_drive.py` | ⚠️ | ground run, **not re-run this session** |
 | 04 | `04_servo_check.py` | ⚠️ | arm servos — **arm removed, skip** |
 | 05 | `05_ai_camera_check.py` | safe | IMX500 detect/photo/`--inference` |
 | 06 | `06_ultrasonic_avoidance.py` | safe | HC-SR04 distance + obstacle warning |
-| 07 | `07_obstacle_avoidance_drive.py` | ⚠️ | closed-loop avoidance (dry-run/ground) |
+| 07 | `07_sonar_avoidance_drive.py` | ⚠️ | closed-loop avoidance (dry-run/ground) |
 | 08 | `08_battery_check.py` | safe | EXT5V_V, get_throttled, temp |
-| 09 | `09_room_scan.py` | ⚠️ | M1 spin-scan → polar CSV |
-| 10 | `10_calibrate_motion.py` | ⚠️ floor | forward-speed calibration (unstable) |
-| 11 | `11_explore_mapping.py` | ⚠️ | M3 loop: scan→ICP→grid→step |
+| 09 | `09_sonar_room_scan.py` | ⚠️ | M1 spin-scan → polar CSV |
+| 10 | `10_sonar_motion_calibrate.py` | ⚠️ floor | forward-speed calibration (unstable) |
+| 11 | `11_sonar_explore_mapping.py` | ⚠️ | M3 loop: scan→ICP→grid→step |
 
 ## 5. Verified Facts & Findings (read before continuing)
 
@@ -150,7 +150,7 @@ tests/         pytest suite (60 passed incl. 7 mapping tests)
    (COLMAP) is the fastest way to a demo without touching hardware.
 2. If A: order encoder motors or magnetic encoders for the N20 gearmotors, wire the encoder
    inputs on the NeZha board (`HAS_ENCODERS=True` in `config.py`), then re-run
-   `examples/10_calibrate_motion.py` and `examples/11_explore_mapping.py`.
+   `examples/10_sonar_motion_calibrate.py` and `examples/11_sonar_explore_mapping.py`.
 3. If C: write a photo-patrol example (drive + stop + capture with picamera2), transfer images to
    the Mac, `brew install colmap`, run SfM. Verify on the bathroom (tiles/toilet/sink give
    features) and on a white-wall room (expected failure mode).

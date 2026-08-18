@@ -8,12 +8,12 @@ reconstructing. The answer was not image quality.
 
 ## 1. Scope and Result
 
-- **Fused patrol** — [`examples/22_fused_patrol_capture.py`](../../examples/22_fused_patrol_capture.py):
+- **Fused patrol** — [`examples/22_cam_sonar_patrol_capture.py`](../../examples/22_cam_sonar_patrol_capture.py):
   sonar and IMX500 detections combined through `carbot.vision_avoid.fuse`,
   capture in mode `single`, back up before a random turn, `--dry-run` for a
   stationary logic test.
 - **Spin rate measured, not assumed** —
-  [`examples/23_spin_rate_check.py`](../../examples/23_spin_rate_check.py) with
+  [`examples/23_cam_spin_rate_check.py`](../../examples/23_cam_spin_rate_check.py) with
   [`src/carbot/visual_yaw.py`](../../src/carbot/visual_yaw.py): the camera
   measures the car's own rotation by matching features across a spin, so no
   protractor and no encoders are needed (ADR 0002 ruled out measuring the robot
@@ -55,13 +55,13 @@ uv run --extra vision --extra mapping pytest -q   -> 195 passed
 uv run ruff check .                               -> All checks passed
 
 # Pi: spin rate at speed 200 (14 measurements, 7 durations x 2 directions)
-PYTHONPATH=src python3 examples/23_spin_rate_check.py --speed 200
+PYTHONPATH=src python3 examples/23_cam_spin_rate_check.py --speed 200
   Direction: spin_left/spin_right match the chassis on all 14 trusted measurements
   Fitted: angle = 53.5 deg/s x (duration - 0.005s) at speed 200
   Previously assumed 43.9 deg/s with no dead time (measured at speed 150)
 
 # Pi: 30-frame burst patrol, operator beside the car
-PYTHONPATH=src python3 examples/22_fused_patrol_capture.py --frames 30 --frame-report
+PYTHONPATH=src python3 examples/22_cam_sonar_patrol_capture.py --frames 30 --frame-report
   Kept 30 frames in 10 stations (5 blocked, 5 forward, 18 rejected, 0 empty bursts)
     rejected 12x: standoff
     rejected  6x: quality
@@ -73,7 +73,7 @@ uv run python scripts/run_colmap_sfm.py sfm2/images sfm2/work
   model 2: 13/30 registered, 3272 points
 
 # Pi: run 4 — capture through the turn, 15 deg step, live overlap repair
-PYTHONPATH=src python3 examples/22_fused_patrol_capture.py \
+PYTHONPATH=src python3 examples/22_cam_sonar_patrol_capture.py \
     --frames 30 --frame-report --keep-rejected
   Kept 30 frames in 5 stations (3 blocked, 2 forward, 3 rejected, 0 empty sweeps)
     rejected 3x: standoff

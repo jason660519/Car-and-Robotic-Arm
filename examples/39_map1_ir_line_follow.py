@@ -26,10 +26,10 @@ Steering logic (see `carbot.ir_line_nav.IRLineNav`):
     seen again (or `--search-give-up-s` elapses)
 
 Usage (wheels lifted, operator ready):
-    PYTHONPATH=src python3 examples/39_map1_ir_tracking.py --duration 120
+    PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py --duration 120
 
 Usage (simulation, no motor):
-    PYTHONPATH=src python3 examples/39_map1_ir_tracking.py --dry-run --duration 30
+    PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py --dry-run --duration 30
 """
 
 from __future__ import annotations

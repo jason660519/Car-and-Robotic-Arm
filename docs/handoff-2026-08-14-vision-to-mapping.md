@@ -121,7 +121,7 @@ Command:
 
 ```bash
 cd ~/Car-and-Robotic-Arm
-PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.65
+PYTHONPATH=src python3 examples/13_cam_room_pose.py --anchor-height-cm 14.65
 ```
 
 Accepted five-frame result:
@@ -160,12 +160,12 @@ is safe to drive forward from that pose until the camera-to-chassis alignment is
 - multi-frame position/rotation aggregation and outlier rejection;
 - diagnostic image annotation.
 
-### `examples/12_apriltag_pose.py`
+### `examples/12_cam_apriltag_pose.py`
 
 Static one-frame diagnostic. It is useful for tag detection and distance, but its single-square
 pitch/roll must not be treated as a stable room orientation when the tag is nearly front-on.
 
-### `examples/13_room_pose.py`
+### `examples/13_cam_room_pose.py`
 
 Static five-frame hybrid estimator. It skips missing/reprojection-rejected frames, rejects pose
 outliers, and writes:
@@ -189,7 +189,7 @@ Pi fixed-wall smoke: 5/5 inliers
 
 ### 1. Camera pose is not yet ultrasonic-sensor pose
 
-`examples/13_room_pose.py` gives the camera optical-center pose. `OccupancyGrid.update()` expects
+`examples/13_cam_room_pose.py` gives the camera optical-center pose. `OccupancyGrid.update()` expects
 the 2D pose of the ultrasonic sensor frame. The rigid offsets between these frames are not yet
 measured:
 
@@ -234,7 +234,7 @@ orientation; use multiple known corners/tags or a board when orientation matters
 
 ### 4. Open-loop rotation is currently inconsistent
 
-Do not run `examples/10_calibrate_motion.py` or `examples/11_explore_mapping.py` yet:
+Do not run `examples/10_sonar_motion_calibrate.py` or `examples/11_sonar_explore_mapping.py` yet:
 
 - script 10 parses `--spin-seconds` but sleeps for a hard-coded 4.0 seconds;
 - script 11 drives spin at speed 200 but uses an 8.2-second revolution measured at speed 150;

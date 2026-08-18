@@ -94,7 +94,7 @@ Command:
 
 ```bash
 cd ~/Car-and-Robotic-Arm
-PYTHONPATH=src python3 examples/13_room_pose.py --anchor-height-cm 14.65
+PYTHONPATH=src python3 examples/13_cam_room_pose.py --anchor-height-cm 14.65
 ```
 
 Final fixed-wall result:
@@ -190,12 +190,12 @@ Installing OpenCV into the Pi project venv is not necessary for this path.
 
 ## Mapping Scripts That Must Not Run Yet
 
-The vision anchor is ready, but `examples/10_calibrate_motion.py` and
-`examples/11_explore_mapping.py` still contain known preflight defects:
+The vision anchor is ready, but `examples/10_sonar_motion_calibrate.py` and
+`examples/11_sonar_explore_mapping.py` still contain known preflight defects:
 
-1. `10_calibrate_motion.py --spin-seconds` is parsed but ignored; the motor duration is hard-coded
+1. `10_sonar_motion_calibrate.py --spin-seconds` is parsed but ignored; the motor duration is hard-coded
    to 4.0 seconds while the message describes a full-circle calibration.
-2. `11_explore_mapping.py` spins at `DRIVE_SPEED = 200`, but `SPIN_360_S = 8.2` was measured at
+2. `11_sonar_explore_mapping.py` spins at `DRIVE_SPEED = 200`, but `SPIN_360_S = 8.2` was measured at
    speed 150.
 3. `--spin360` changes scan duration, but angle conversion still uses the global 8.2-second
    constant, distorting the polar scan when another value is supplied.
@@ -211,8 +211,8 @@ low speed with an operator beside the robot.
 
 - `src/carbot/vision.py` — calibration loading/scaling, undistortion, AprilTag pose, measured
   ChArUco pose, hybrid room transform, multi-frame outlier rejection, and annotation.
-- `examples/12_apriltag_pose.py` — static single-frame AprilTag measurement and diagnostic output.
-- `examples/13_room_pose.py` — static multi-frame hybrid room pose and JSON output.
+- `examples/12_cam_apriltag_pose.py` — static single-frame AprilTag measurement and diagnostic output.
+- `examples/13_cam_room_pose.py` — static multi-frame hybrid room pose and JSON output.
 - `tests/test_vision.py` — synthetic and real-metadata regression tests.
 - `assets/reference/apriltags/apriltag-tag36h11-id-0-to-4-75mm-a4.pdf` — printable tags; physical
   size must still be measured.
@@ -226,8 +226,8 @@ low speed with an operator beside the robot.
 ## Verification
 
 ```text
-uv run ruff check src/carbot/vision.py examples/12_apriltag_pose.py \
-  examples/13_room_pose.py tests/test_vision.py
+uv run ruff check src/carbot/vision.py examples/12_cam_apriltag_pose.py \
+  examples/13_cam_room_pose.py tests/test_vision.py
 All checks passed
 
 PYTHONPATH=src uv run --extra vision pytest -q

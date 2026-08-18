@@ -14,20 +14,20 @@ Completed:
   motor work was a decoding bug, not a power fault. New
   [`src/carbot/power.py`](../../src/carbot/power.py) is the single decoder;
   [`examples/08_battery_check.py`](../../examples/08_battery_check.py) and
-  [`examples/14_preflight_check.py`](../../examples/14_preflight_check.py) use it.
+  [`examples/14_all_sensors_preflight_check.py`](../../examples/14_all_sensors_preflight_check.py) use it.
   All five preflight checks now pass.
 - **Detection logic factored out**, as the handoff asked:
   [`src/carbot/vision_avoid.py`](../../src/carbot/vision_avoid.py) holds
   `Detection`, `ObstaclePolicy`, `is_blocking`, `fuse`, and the one
   hardware-facing `detections_from_metadata`.
-  [`examples/20_visual_detection_check.py`](../../examples/20_visual_detection_check.py)
+  [`examples/20_cam_detection_check.py`](../../examples/20_cam_detection_check.py)
   now consumes the module instead of carrying its own copy.
 - **SfM frame-quality measurement**:
   [`src/carbot/frame_quality.py`](../../src/carbot/frame_quality.py) reports
   sharpness, exposure, and per-tile keypoint spread separately, plus
   `repeatable_keypoints` for matches across two views.
 - **Camera experiments** (no motors):
-  [`examples/21_camera_dual_mode_check.py`](../../examples/21_camera_dual_mode_check.py)
+  [`examples/21_cam_dual_mode_check.py`](../../examples/21_cam_dual_mode_check.py)
   compares the three capture modes and sweeps auto-exposure.
 
 Two handoff assumptions did not survive measurement:
@@ -45,14 +45,14 @@ uv run --extra vision --extra mapping pytest -q   -> 175 passed (was 97)
 uv run ruff check .                               -> All checks passed
 
 # Pi: preflight, after the get_throttled fix
-PYTHONPATH=src python3 examples/14_preflight_check.py
+PYTHONPATH=src python3 examples/14_all_sensors_preflight_check.py
   [OK] camera / i2c-nezha / hc-sr04 / encoders
   [OK] power  EXT5V_V=4.915 V (OK); get_throttled=0x50000 | no live throttling
               | since boot: undervoltage, throttled; temp=41.7 °C (OK)
   ✓ All preflight checks passed — safe to proceed to a supervised motion test.
 
 # Pi: capture-mode comparison
-PYTHONPATH=src python3 examples/21_camera_dual_mode_check.py --check modes
+PYTHONPATH=src python3 examples/21_cam_dual_mode_check.py --check modes
   mode      tensor  dets       still  sharp  bright  textured  capture  resume
   single       5/5     0   2028x1520     53     123      9/12    0.05s   0.00s
   switch       5/5     0   2028x1520     56     128      9/12    0.37s   0.11s
@@ -60,7 +60,7 @@ PYTHONPATH=src python3 examples/21_camera_dual_mode_check.py --check modes
   -> Use mode 'single' in the fused patrol.
 
 # Pi: refactored detection path still labels correctly
-PYTHONPATH=src python3 examples/20_visual_detection_check.py --frames 2 --threshold 0.10
+PYTHONPATH=src python3 examples/20_cam_detection_check.py --frames 2 --threshold 0.10
   chair conf=0.27 / dining table / bench / tv    (was a flood of "toilet" — see pitfall 3)
 ```
 

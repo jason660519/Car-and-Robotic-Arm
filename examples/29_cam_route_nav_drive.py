@@ -13,10 +13,10 @@ so the operator can see which phase the car is expected to be in; the car
 never *commands* turns from wheel timing because the camera decides.
 
     # dry run: camera + nav only, no motors
-    PYTHONPATH=src python3 examples/29_route_nav_drive.py --dry-run --duration 10
+    PYTHONPATH=src python3 examples/29_cam_route_nav_drive.py --dry-run --duration 10
 
     # supervised run
-    PYTHONPATH=src python3 examples/29_route_nav_drive.py --duration 120 \\
+    PYTHONPATH=src python3 examples/29_cam_route_nav_drive.py --duration 120 \\
         --ground-view /tmp/line-follow/ground-view.json
 """
 

@@ -195,7 +195,7 @@ class IRNavPolicy:
     #                                                     spin_rate_deg_per_s v
     #   Turn overshoots past 90°                       -> turn_deg v, OR
     #                                                     spin_rate_deg_per_s ^
-    #     (re-run examples/41_spin_angle_sweep.py if unsure which one moved —
+    #     (re-run examples/41_motor_spin_angle_sweep.py if unsure which one moved —
     #     it re-measures spin_rate_deg_per_s/spin_dead_time_s directly; do not
     #     guess-scale them, this project already got burned assuming a
     #     camera-measured rate would transfer to this paper — see below)
@@ -239,10 +239,10 @@ class IRNavPolicy:
     # is the "what", those are the "how fast".
     turn_deg: float = 90.0
     # Measured directly on the Task-1 map paper at speed=150 (verified
-    # 2026-08-18, examples/41_spin_angle_sweep.py, 5-point sweep 2-10s,
+    # 2026-08-18, examples/41_motor_spin_angle_sweep.py, 5-point sweep 2-10s,
     # linear fit angle = rate*(duration - dead_time)): rate 40.5 deg/s,
     # dead_time 0.2s. NOT extrapolated from the camera-based calibration
-    # (examples/23_spin_rate_check.py, measured on a different, textured
+    # (examples/23_cam_spin_rate_check.py, measured on a different, textured
     # surface elsewhere in the room) — friction differs by surface, so that
     # number does not transfer here. These two constants are only valid at
     # `speed=150` on this paper; re-run the sweep before trusting them at a

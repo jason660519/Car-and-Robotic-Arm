@@ -6,12 +6,12 @@
 
 ## 腳本本體
 
-[`examples/35_object_id_check.py`](../../examples/35_object_id_check.py)
+[`examples/35_cam_object_id_check.py`](../../examples/35_cam_object_id_check.py)
 
 在 Pi 上跑:
 
 ```bash
-PYTHONPATH=src python3 examples/35_object_id_check.py
+PYTHONPATH=src python3 examples/35_cam_object_id_check.py
 ```
 
 量測 IMX500 on-sensor 物件偵測(SSD MobileNetV2 FPN-Lite,這台 Pi 上沒裝 YOLO)辨識一次的時間

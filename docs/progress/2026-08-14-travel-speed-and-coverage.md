@@ -9,7 +9,7 @@ stays in one piece.
 ## 1. Scope and Result
 
 - **Travel speed measured** —
-  [`examples/24_linear_speed_check.py`](../../examples/24_linear_speed_check.py):
+  [`examples/24_cam_linear_speed_check.py`](../../examples/24_cam_linear_speed_check.py):
   the wall tag gives metric camera positions directly, so distance travelled is
   measurable without a tape measure and without depending on the reconstruction
   scale that was in question.
@@ -40,7 +40,7 @@ uv run --extra vision --extra mapping pytest -q   -> 217 passed
 uv run ruff check .                               -> All checks passed
 
 # Pi: travel speed, 24 legs at speed 200 (forward-then-back per duration)
-PYTHONPATH=src python3 examples/24_linear_speed_check.py --speed 200 --tag-id 0 \
+PYTHONPATH=src python3 examples/24_cam_linear_speed_check.py --speed 200 --tag-id 0 \
     --durations 0.3 0.5 0.75 1.0 1.5 2.0 --repeats 2
   forward  median 0.117 m/s  (0.112-0.151, 12 legs)
   reverse  median 0.111 m/s  (0.100-0.132, 12 legs)
@@ -52,7 +52,7 @@ PYTHONPATH=src python3 examples/24_linear_speed_check.py --speed 200 --tag-id 0 
   reverse/forward speed ratio: 0.99
 
 # Pi: run 7, open floor with a tag in view
-PYTHONPATH=src python3 examples/22_fused_patrol_capture.py --frames 30 --frame-report
+PYTHONPATH=src python3 examples/22_cam_sonar_patrol_capture.py --frames 30 --frame-report
   Kept 30 frames in 7 stations (3 blocked, 3 forward, 13 rejected, 0 empty sweeps)
   Overlap with the previous kept frame: min 38, median 1007, max 2118
     — 4 below 200, 2 bridge frames inserted
@@ -80,7 +80,7 @@ tag-anchored 0.48 m — two independent methods agreeing within 4%.
 - **PWM is a weak lever.** Doubling it bought 1.42x the speed, not 2x. Coverage
   had to come from longer steps instead.
 
-**Current defaults** in `examples/22_fused_patrol_capture.py`:
+**Current defaults** in `examples/22_cam_sonar_patrol_capture.py`:
 
 | Setting | Value | Why |
 |---|---|---|
