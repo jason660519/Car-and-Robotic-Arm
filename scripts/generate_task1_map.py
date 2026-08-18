@@ -44,9 +44,9 @@ A4_W_MM, A4_H_MM = 210.0, 297.0
 SCALE = 0.84
 MAP_W_MM = 840.0
 MAP_H_MM = 588.0
-LINE_W_MM = 15.0  # 1.5 cm black line, kept at physical size
+LINE_W_MM = 20.0  # 2.0 cm black line, kept at physical size
 TAG_SIZE_MM = 40.0  # AprilTag side, kept at physical size
-MIN_TAG_CLEAR_MM = 8.0  # extra clearance beyond the tag's own half-width
+MIN_TAG_CLEAR_MM = 5.0  # extra clearance beyond the tag's own half-width
 
 ROUNDABOUT = (245.3, 241.9, 151.2)  # cx, cy, R (mm)
 
@@ -250,14 +250,24 @@ def draw_map(c: canvas.Canvas, tag_pngs: dict[int, bytes], detail: bool = True) 
         # band or the paper edge (tags with y > 262.7, e.g. y=264 and 278.5).
         if detail:
             label_off = TAG_SIZE_MM / 2.0 + 6.0
-            if ty <= 294.0:
-                label_dy = -label_off if ty > 262.7 else label_off
+            label_x = tx
+            # Special adjustments to avoid overlapping labels.
+            if tag_id == 15:
+                label_dy = TAG_SIZE_MM / 2.0 + 14.0
+            elif tag_id == 28:
+                label_x = tx - 28.0
+                label_dy = label_off
+            elif tag_id == 31:
+                label_dy = -label_off
             else:
-                label_dy = label_off if 319.5 < ty < 325.5 else -label_off
+                if ty <= 294.0:
+                    label_dy = -label_off if ty > 262.7 else label_off
+                else:
+                    label_dy = label_off if 319.5 < ty < 325.5 else -label_off
             c.setFont("Helvetica-Bold", 14)
             c.setFillColor(black)
             c.drawCentredString(
-                pt(tx), pt(ty + label_dy), f"ID {tag_id} (N \u2191)"
+                pt(label_x), pt(ty + label_dy), f"ID {tag_id} (N \u2191)"
             )
 
     # North arrow.

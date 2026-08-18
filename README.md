@@ -77,6 +77,40 @@ channels, the onboard LEDs, and optional encoder inputs.
 
 For complete wiring notes, see [docs/hardware/nezha-integration-notes.md](docs/hardware/nezha-integration-notes.md).
 
+## SSH Access to Raspberry Pi 5
+
+The Raspberry Pi is configured for key-based authentication. Connect via SSH alias:
+
+```bash
+ssh carpi
+```
+
+or explicitly:
+
+```bash
+ssh dannypi@danny-raspberrypi5-8gram-225gssd.local
+```
+
+**Authentication:** Ed25519 key (`~/.ssh/id_ed25519`), not password.  
+**User:** `dannypi`  
+**Hostname:** `danny-raspberrypi5-8gram-225gssd.local` (mDNS, requires local network)
+
+After connecting, navigate to the project:
+
+```bash
+cd /Volumes/KLEVV-4T-1/Danny/Car-and-Robotic-Arm
+```
+
+or if that's not mounted, clone the repo:
+
+```bash
+git clone https://github.com/jason660519/Car-and-Robotic-Arm.git
+cd Car-and-Robotic-Arm
+uv sync
+```
+
+---
+
 ## Quick Start
 
 Run the examples in order. Scripts `01`, `05`-`06`, `08`, and `12`-`15` are safe to run over SSH

@@ -75,20 +75,43 @@ GPIO.setmode(GPIO.BCM)
 for pin in PINS:
     GPIO.setup(pin, GPIO.IN)
 
-sensor = IRTracingSensor(PINS, GPIO)  # no inversion needed
+sensor = IRTracingSensor(PINS, GPIO, invert={0, 1, 2, 3})  # all 4 inverted — see below
 readings = sensor.read()  # (1, 0, 1, 0): 1 = black, 0 = white, in Out order
 ```
 
 Test on hardware (no motors, safe over SSH):
 
 ```bash
-PYTHONPATH=src python3 examples/36_ir_tracing_check.py --pins 24,25,22,23
+PYTHONPATH=src python3 examples/36_ir_tracing_check.py --pins 24,25,22,23 --invert 0,1,2,3
 ```
 
-**Calibration result (2026-08-17):** All four channels verified:
+**Calibration result (2026-08-17):** All four channels verified with the
+potentiometers at their as-received setting:
 - Over black surface: 1, 1, 1, 1 ✓
 - Over white surface: 0, 0, 0, 0 ✓
 - No inversion required
+
+**Recalibration (2026-08-18):** The four sensitivity potentiometers were
+manually retuned (fully CW/CCW sweep to find the working range, then set so
+that a strong IR return — white paper, high reflectance — reads differently
+from a weak return — black line or no surface at all, low/no reflectance).
+After retuning, **all four channels flipped polarity together** and now
+require `invert={0, 1, 2, 3}` (all channels), replacing the 2026-08-17
+no-inversion result:
+
+- Over black line: raw `0, 0, 0, 0` → normalized `1, 1, 1, 1` (with invert) ✓
+- Over white paper: raw `1, 1, 1, 1` → normalized `0, 0, 0, 0` (with invert) ✓
+- Floating / no surface (e.g. resting on a wood table) reads the same as
+  black — expected, since both give a weak/no IR return. This is not a
+  fault; it only matters if the sensor is ever truly airborne over the
+  track, which does not happen during normal line-following.
+
+Potentiometer polarity is sensitive to the CW/CCW sweep endpoint, not just a
+gradual gain change: turning **all the way CW** pinned every channel HIGH
+regardless of surface, and **all the way CCW** pinned every channel LOW
+regardless of surface. The working range is between those extremes — verify
+with `examples/36_ir_tracing_check.py` after any pot adjustment, since the
+polarity is not guaranteed to stay the same across retuning sessions.
 
 Tune each potentiometer with the car powered but wheels lifted, watching the
 readout while moving the sensor between black and white.
