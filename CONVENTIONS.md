@@ -33,6 +33,9 @@ Car-and-Robotic-Arm/
 ├── examples/              Runnable example and verification scripts
 ├── scripts/               One-off tools and validators
 │
+├── tasks/                 Per-task working notes, plans, and run books
+│   └── <task-slug>/       One directory per task, `lower-kebab-case`
+│
 ├── assets/                Binary assets
 │   ├── inventory/         Inventory photos (numbered sequence)
 │   ├── assembly/          Assembly photos (numbered sequence)
@@ -63,6 +66,7 @@ Car-and-Robotic-Arm/
 |---|---|---|
 | First-party documentation | `docs/` | Yes |
 | First-party code | `src/`, `tests/`, `examples/`, `scripts/` | Yes |
+| Working notes and run books scoped to one task | `tasks/<task-slug>/` | Yes |
 | Curated photos we captured and intend to publish | `assets/` | Append only |
 | Website frontend | `site/` | Yes |
 | Vendor-provided material | `vendor/` | No |
@@ -83,6 +87,10 @@ and keep the original files untouched for reference.
   `report-final.md`, and `handoff.md` are prohibited because they cannot be found reliably later.
 - Each handoff's **Read First** section must link to the applicable progress log and stable
   hardware/setup/ADR sources. Each progress log must link to the files it changed or produced.
+- `tasks/<task-slug>/` holds working notes and run books for one task, in `lower-kebab-case` like
+  everything else. It is version-controlled, so it is not a dumping ground: capture evidence
+  (photos, raw logs, scoring runs) belongs in the ignored `scratch/` per §7, and a decision that
+  outlives the task belongs in `docs/adr/` or `docs/hardware/`.
 
 ## 3. Naming Rules
 
@@ -142,7 +150,7 @@ assets/assembly/003_Car_Chassis_Bottom_Wiring.jpg
 - `NNN` is a three-digit inventory number.
 - Once assigned, a number is never reused, reordered, or recycled.
 - The numbering sequence is global across `assets/inventory/` and `assets/assembly/`.
-- The current highest number is `102`. Number `048` is intentionally unused. The next photo starts at `103`.
+- The current highest number is `103`. Number `048` is intentionally unused. The next photo starts at `104`.
 
 Title case is intentional here. The number is part of the identity, and these filenames are easier
 to browse visually than kebab case. This is the only repository-wide exception to the standard naming style.

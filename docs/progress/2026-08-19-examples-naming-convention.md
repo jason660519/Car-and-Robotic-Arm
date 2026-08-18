@@ -88,7 +88,8 @@ No hardware was run. This change touches no motor, sensor, or I2C code path.
 
 The first bulk-replace pass silently edited nothing. Two causes: the shell `&&` chain
 short-circuited before the replace loop ran, and the file list was collected with a plain
-`for f in $FILES` word-split that broke on the space-containing `Tasks/IR Sensor Tracking/` paths.
+`for f in $FILES` word-split that broke on the space-containing `Tasks/IR Sensor Tracking/` paths
+(that directory has since been renamed to `tasks/ir-sensor-tracking/`).
 Corrected by driving the replace from `git ls-files -z -co --exclude-standard` with a
 NUL-delimited read and an extension allowlist, which also guarantees `.venv/`, `.ruff_cache/`, and
 `node_modules/` binaries are never rewritten.

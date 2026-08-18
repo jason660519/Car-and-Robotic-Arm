@@ -128,4 +128,4 @@ PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py \
 - **車子一直漂移** → 降低 `--speed` 或增加 `--turn-gain`
 - **線完全丟失** → Ctrl+C 停止，重新放在發車區，檢查黑線是否清晰
 
-更詳細的故障排除見 `Map1-IR-Tracking-Plan.md`
+更詳細的故障排除見 [`map1-ir-tracking-plan.md`](map1-ir-tracking-plan.md)

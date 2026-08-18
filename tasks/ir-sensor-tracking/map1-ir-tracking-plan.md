@@ -186,7 +186,7 @@ If the car overshoots or undershoots curves:
 ## Data Collection
 
 ### Frame Naming
-Save logs to: `Tasks/IR Sensor Tracking/` (relative to the repository root)
+Save logs to: `tasks/ir-sensor-tracking/` (relative to the repository root)
 
 Name format:
 ```
