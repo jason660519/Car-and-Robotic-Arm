@@ -28,8 +28,8 @@ next session is to find out whether the car now steers toward the line.
 
 | Where | State |
 |---|---|
-| `origin/main` | `cd716a3` — the channel-order fix and the 16-state table are pushed |
-| Local working tree | **2 uncommitted changes**: `docs/task1-single-source-of-truth.md` (Phase 11 deleted, route is now a continuous loop) and `assets/reference/yahboom/` (new, the vendor sensor diagram plus a README) |
+| `origin/main` | everything below is pushed: the channel-order fix and 16-state table (`cd716a3`), the route spec losing Phase 11 (`d11972e`), and the loop rate limit |
+| Local working tree | clean |
 | Pi `~/Car-and-Robotic-Arm` | `4ca4eae` — **far behind**, and dirty: `examples/08`, `examples/14`, `examples/20`, `src/carbot/sonar.py`, `src/carbot/vision.py` all modified locally by someone else |
 
 ### How the new code got onto the Pi
@@ -79,19 +79,36 @@ else's uncommitted changes.
   not confirm it — the card used was wider than the 6.4 cm bar so there was no
   known scale, and the hand sweep averaged 0.56 cm/s with visibly uneven speed.
 
-## Blocker Found In The Last Dry Run
+## Fixed: The Free-Running Control Loop
 
-**The control loop is free-running with no rate limit.** A 148-second dry run
-produced **6.2 million frames** (~42 kHz) and a **608 MB log**. On a 2 GB tmpfs
-that is minutes away from filling the disk, and it makes the log unreadable.
+A 148-second dry run produced **6.2 million frames** (~42 kHz) and a **608 MB
+log** — minutes from filling the 2 GB tmpfs, and unreadable as evidence. The
+logic was unaffected (`junction_min_s` still accumulated correctly over ~6300
+frames) but no run could be used to judge anything.
 
-Fix before the next dry run — either sleep to a fixed rate in
-`examples/39_map1_ir_line_follow.py`'s loop, or only print when the classified
-state changes. The rate does not break the logic (`junction_min_s` still
-accumulates correctly over ~6300 frames) but it makes every run unusable as
-evidence.
+Fixed in `examples/39_map1_ir_line_follow.py`:
 
-That dry run also produced no useful data because the car was never pushed —
+- `--hz` (default **100**) rate-limits the loop. Not arbitrary: at 10 cm/s the
+  0.8 cm blind band takes 0.08 s to cross, so 100 Hz still samples it 8 times.
+- Logging is **on state change** plus a 2 s heartbeat. A car tracking a straight
+  line holds one reading for thousands of cycles, and printing each of them
+  buries the transitions that matter. `--log-every` restores per-cycle output.
+- The closing summary now prints the achieved rate and the line count, so a
+  regression is visible immediately.
+
+Measured over the same 20 s window:
+
+| | Before | After |
+|---|---|---|
+| Loop rate | ~42,000 Hz | **99 Hz** |
+| Cycles | ~840,000 | **1,989** |
+| Log size | ~82 MB | **1.5 KB** |
+| Log lines | one per cycle | **10** |
+
+That run also confirmed the static noise floor is clean: 1,989 cycles parked on
+the line in the start box, **0 noise frames, 0 lost frames**.
+
+The earlier dry run produced no route data because the car was never pushed —
 6.8 million frames of `P0110 on_line`. Not a fault, just an aborted attempt.
 
 ## Acceptance Gates
@@ -111,13 +128,15 @@ Pass: white → `0 0 0 0`; on the line → middle two = 1; airborne → `1 1 1 1
 
 ### Gate 2 — dry run, car pushed by hand (no motors)
 
-**Fix the loop rate first.** Then, with the car pushed by hand around one full
-lap:
+With the car pushed by hand around one full lap:
 
 ```bash
 cd /tmp/carbot-test && PYTHONPATH=src python3 39_map1_ir_line_follow.py \
     --dry-run --duration 180 --invert 0,1,2,3
 ```
+
+The log is now transitions-only, so a clean lap should be a few dozen lines —
+if it is thousands, the rate limit is not in effect and the deployment is stale.
 
 Pass conditions, all four required:
 
@@ -167,21 +186,18 @@ source directly. Cheaper than any amount of parameter tuning.
 |---|---|---|
 | `/tmp/carbot-test` wiped by a reboot | Silently reverts to the old mirrored order — a run would look plausible and be wrong | `ls /tmp/carbot-test/src/carbot/ir_geometry.py` before every session |
 | Steering still mirrored | Everything downstream is invalid | Gate 2 check 1 is designed to catch exactly this |
-| 42 kHz loop fills the tmpfs | Disk full mid-run | Rate-limit before Gate 2 |
+| Stale deployment reverts the rate limit | Log balloons again, disk fills mid-run | Summary prints the achieved Hz — anything above ~200 means the old file is running |
 | Spacing figures wrong | Blind band offsets (±1.8 cm) and the correction ladder both derive from them | Re-sweep with a strip *narrower* than 6.4 cm at a steady speed |
 | Loose VCC/GND | Looks exactly like a dead sensor | Four channels misbehaving together is power/wiring; a real fault sticks on one channel |
 
 ## Next Steps, In Order
 
-1. Commit the two pending local changes (SSoT Phase 11 deletion, the yahboom
-   asset directory).
-2. Rate-limit the control loop in `examples/39_map1_ir_line_follow.py`.
-3. Re-rsync to `/tmp/carbot-test`, verify `ir_geometry.py` is present.
-4. Run Gate 2 with the car pushed by hand. **Check the steering direction
+1. Re-rsync to `/tmp/carbot-test`, verify `ir_geometry.py` is present.
+2. Run Gate 2 with the car pushed by hand. **Check the steering direction
    first** — if it is mirrored, stop and re-examine `PHYSICAL_ORDER` before
    anything else.
-5. Raise the sensor bar to ~2 cm, re-run Gate 2, compare the noise percentage.
-6. Gates 3 and 4 with the operator present.
-7. Add oversampling + per-channel debounce + a stuck-channel check to
+3. Raise the sensor bar to ~2 cm, re-run Gate 2, compare the noise percentage.
+4. Gates 3 and 4 with the operator present.
+5. Add oversampling + per-channel debounce + a stuck-channel check to
    `carbot.ir_tracing` — a 90-second static trace recorded 22 sub-0.25 s
    flickers reaching the wheels unfiltered.

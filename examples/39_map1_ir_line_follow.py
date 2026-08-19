@@ -51,6 +51,24 @@ def main() -> int:
         description="Map1 IR sensor line tracking (no camera)"
     )
     parser.add_argument("--dry-run", action="store_true", help="detection only, no motor")
+    parser.add_argument(
+        "--hz",
+        type=float,
+        default=100.0,
+        help="control loop rate (default 100). Free-running produced 6.2M frames and a "
+        "608MB log in 148s; at 10cm/s, 100Hz still samples the 0.8cm blind band 8 times",
+    )
+    parser.add_argument(
+        "--log-every",
+        action="store_true",
+        help="log every cycle instead of only on state change (very verbose)",
+    )
+    parser.add_argument(
+        "--heartbeat-s",
+        type=float,
+        default=2.0,
+        help="print the current state at least this often even when unchanged",
+    )
     parser.add_argument("--duration", type=float, default=120.0, help="run duration (seconds)")
     parser.add_argument(
         "--speed", type=int, default=150, help="base drive speed 0-1000 (default 150)"
@@ -197,9 +215,19 @@ def main() -> int:
     search_entries = 0
     last_state = None
 
+    period = 1.0 / args.hz if args.hz > 0 else 0.0
+    last_logged: tuple | None = None
+    last_log_time = 0.0
+    logged_lines = 0
+
     try:
         while True:
             now = time.monotonic()
+            if period:
+                sleep_for = period - (now - last)
+                if sleep_for > 0:
+                    time.sleep(sleep_for)
+                    now = time.monotonic()
             dt = now - last
             last = now
             frame_index += 1
@@ -224,14 +252,24 @@ def main() -> int:
                 car.drive(command.left, command.right)
 
             # Log — bits are physical P1..P4, left to right along the bar.
-            ch_str = "".join(str(c) for c in reading.physical)
-            status = "OK" if reading.visible else "LOST"
-            where = "RND" if nav.in_roundabout else "   "
-            print(
-                f"[{elapsed:6.1f}s] #{frame_index:4d} "
-                f"{status:5s} P{ch_str} {reading.state.kind.value:9s} {where} -> "
-                f"{command.state.value:14s} L{command.left:4d} R{command.right:4d} | {command.reason}"
-            )
+            # Only on change by default: a car tracking a straight line holds
+            # one reading for thousands of cycles and printing each of them
+            # buries the transitions that actually matter.
+            key = (reading.physical, command.state, command.left, command.right)
+            stale = (now - last_log_time) >= args.heartbeat_s
+            if args.log_every or key != last_logged or stale:
+                ch_str = "".join(str(c) for c in reading.physical)
+                status = "OK" if reading.visible else "LOST"
+                where = "RND" if nav.in_roundabout else "   "
+                print(
+                    f"[{elapsed:6.1f}s] #{frame_index:6d} "
+                    f"{status:5s} P{ch_str} {reading.state.kind.value:9s} {where} -> "
+                    f"{command.state.value:14s} L{command.left:4d} R{command.right:4d} "
+                    f"| {command.reason}"
+                )
+                last_logged = key
+                last_log_time = now
+                logged_lines += 1
 
             if args.duration and elapsed >= args.duration:
                 print(f"\nDuration limit reached ({args.duration}s)")
@@ -247,7 +285,9 @@ def main() -> int:
         elapsed = time.monotonic() - start
         print()
         print("=" * 70)
-        print(f"Test summary: {elapsed:.1f}s, {frame_index} cycles")
+        rate = frame_index / elapsed if elapsed else 0.0
+        print(f"Test summary: {elapsed:.1f}s, {frame_index} cycles ({rate:.0f} Hz)")
+        print(f"  Log lines written: {logged_lines}")
         print(f"  Line visible: {line_found_count} cycles")
         print(f"  Line lost: {line_lost_count} cycles")
         print(f"  Line-recovery searches: {search_entries}")
