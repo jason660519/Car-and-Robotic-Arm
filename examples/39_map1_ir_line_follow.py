@@ -5,25 +5,32 @@ Pure 4-channel IR sensor line following, plus a scripted junction turn.
 
 **Motor-moving. Operator must stand beside the car able to cut main power instantly.**
 
-Wiring (verified 2026-08-17) and physical bar order (verified 2026-08-18 —
-see `carbot.ir_line_nav` module docstring, do not assume Out1..Out4 is
-left-to-right):
-  Out1 (GPIO 24), Out2 (GPIO 25), Out3 (GPIO 22), Out4 (GPIO 23)
-  physical left-to-right: Out4, Out3, Out1, Out2
+Wiring and physical layout — see `carbot.ir_geometry`, and the mapping table in
+docs/hardware/ir-tracing-sensor.md. Do NOT assume Out1..Out4 is left-to-right:
 
-Steering logic (see `carbot.ir_line_nav.IRLineNav`):
-  - Normal line width lights the middle two physical channels → proportional
-    follow steering (partial left/right imbalance)
-  - All 4 channels black, sustained → a junction crossbar, not the line
-    itself; the car executes a *scripted* turn (direction from policy, not
-    detected — see IRNavPolicy docstring for why) then resumes follow once
-    the line is reacquired or the nominal turn time elapses
-  - No channels see black → line lost; automatic recovery (the sensor bar
-    has a ~2.4cm dead zone between its two pairs while the route line is
-    only ~2cm wide, so after a turn the car can face the gap and read
-    nothing): sweep `--search-sweep-deg` left, sweep back through centre to
-    the same angle right, then creep forward step by step until the line is
-    seen again (or `--search-give-up-s` elapses)
+  position       P1      P2      P3      P4
+  channel      Out2    Out1    Out3    Out4
+  BCM GPIO       25      24      22      23     (measured 2026-08-19)
+  offset      -3.2cm  -0.4cm  +0.4cm  +3.2cm
+
+Readings are logged in **physical P1..P4 order**, not channel order, so the bit
+string reads left-to-right as the bar is laid out.
+
+Steering (see `carbot.ir_geometry.STATE_TABLE`, total over all 16 readings):
+  - `0110` centred → straight. `0010`/`0100` → slight correction; these are the
+    only warning before the blind band, and the window is just 0.8cm wide
+  - `0000` is NOT automatically "line lost". The outer gap is 2.8cm and the line
+    2.0cm, so there is a 0.8cm band where the car is on the line and sees
+    nothing. The previous reading decides: after `0010`/`0100` it is the blind
+    band and steering continues; after `0001`/`1000` the line really has left
+    the bar and the search starts
+  - `1111` sustained → the roundabout entry (the only unambiguous junction).
+    `0111` sustained → the roundabout exit while inside, the T junction while
+    outside, which is crossed straight through. One boolean sequences the loop
+    and re-synchronises on every `1111`
+  - Non-contiguous readings (`0101`, `1001`, `1010`, `1011`, `1101`) cannot come
+    from a single 2cm line, so they never steer — the previous command is held
+    and the frame is counted as noise
 
 Usage (wheels lifted, operator ready):
     PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py --duration 120
@@ -216,12 +223,13 @@ def main() -> int:
             if car:
                 car.drive(command.left, command.right)
 
-            # Log
-            ch_str = "".join(str(c) for c in reading.channels)
+            # Log — bits are physical P1..P4, left to right along the bar.
+            ch_str = "".join(str(c) for c in reading.physical)
             status = "OK" if reading.visible else "LOST"
+            where = "RND" if nav.in_roundabout else "   "
             print(
                 f"[{elapsed:6.1f}s] #{frame_index:4d} "
-                f"{status:5s} {ch_str} err={reading.error_fraction:+.2f} -> "
+                f"{status:5s} P{ch_str} {reading.state.kind.value:9s} {where} -> "
                 f"{command.state.value:14s} L{command.left:4d} R{command.right:4d} | {command.reason}"
             )
 
@@ -243,6 +251,12 @@ def main() -> int:
         print(f"  Line visible: {line_found_count} cycles")
         print(f"  Line lost: {line_lost_count} cycles")
         print(f"  Line-recovery searches: {search_entries}")
+        print(f"  Junctions taken: {nav.junctions_seen}  (last: {nav.last_junction or 'none'})")
+        noise_pct = 100 * nav.noise_frames / frame_index if frame_index else 0.0
+        print(f"  Noise/hold frames: {nav.noise_frames} ({noise_pct:.1f}%)")
+        if noise_pct > 5.0:
+            print("    ^ over 5%: raise the sensor bar toward 2cm, or re-tune the pots.")
+            print("      Non-contiguous readings cannot come from the line itself.")
         print("=" * 70)
 
     return 0

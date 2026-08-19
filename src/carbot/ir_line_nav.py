@@ -1,36 +1,43 @@
 """IR sensor line following — 4-channel direct steering without camera.
 
-Each of the 4 IR channels reads a strip under the sensor. **Physical left-to-right
-order on the sensor bar is Out4, Out3, Out1, Out2** — verified 2026-08-18 from the
-potentiometer silkscreen (labelled SW4, SW3, SW1, SW2 left to right) and confirmed
-live: a centered line lighting "the middle two" physical LEDs read as channels
-(Out1=1, Out2=0, Out3=1, Out4=0) in GPIO/Out-number order. This is NOT the naive
-Out1→Out2→Out3→Out4 left-to-right assumption; do not "simplify" this back without
-re-verifying on hardware.
+The sensor's physical layout, the meaning of all 16 readings, and the geometry
+that produces them live in :mod:`carbot.ir_geometry`. This module is only the
+navigation state machine on top of it.
 
-    physical:  Out4(L) Out3(L) | Out1(R) Out2(R)
-               ├─ left half ──┤ ├─ right half ──┤
+**The physical channel order was wrong here until 2026-08-19.** This docstring
+previously recorded the bar as ``Out4 Out3 Out1 Out2`` left to right, read off
+the potentiometer silkscreen. A card swept across the bar tripped the channels
+in the order ``Out2 Out1 Out3 Out4`` instead — the leading and trailing edges of
+the card agreed independently, and the operator separately confirmed ``Out4`` is
+the rightmost sensor. The old order is the exact mirror of the truth, so every
+steering correction was being applied to the wrong side.
 
-Steering logic:
-  - All 4 see black (1,1,1,1) → straight ahead
-  - Physical left sees more (Out4+Out3 high) → steer left
-  - Physical right sees more (Out1+Out2 high) → steer right
-  - None see black (0,0,0,0) → line lost; enter SEARCH (see below)
-  - Only middle channels lit → on-center, slight correction
+Two other numbers here were also wrong: the bar spans **64 mm**, not the ~10 mm
+once recorded, and the outer gap is **2.8 cm**, not 2.4 cm. What matters for
+recovery is not the gap but ``gap - line width = 0.8 cm``: the band of line
+positions no channel can see.
 
-Line-recovery search (SEARCH state): the sensor bar spans ~10mm but the
-two pairs are separated by a dead zone (~2.4cm) while the Task-1 route
-line is only ~2cm wide, so after a turn the car can end up pointing
-straight into the gap and read nothing at all. Sitting still can never
-recover from that, so instead of stopping, the car probes: sweep
-`search_sweep_deg` left, sweep back through centre to the same angle
-right (watching for the line the whole time), then creep forward in
-short steps until the line is seen again — or the search gives up after
-`search_give_up_s`.
+Steering comes from :data:`carbot.ir_geometry.STATE_TABLE`, which is total over
+all 16 readings and splits them three ways — readings a single 2 cm line can
+produce (steer on these), readings needing a second dark feature (junctions and
+badly skewed passes over a curve), and non-contiguous readings that one line
+cannot produce at all (hold the previous command, never steer).
 
-State machine: follow the line proportionally; a sustained all-4-black
-junction commits to a scripted creep+turn; a lost line triggers the
-sweep-and-creep recovery above.
+``0000`` is deliberately not "line lost". Inside the 0.8 cm blind band the car
+is squarely on the line and sees nothing, so the previous reading decides:
+the line can only leave the bar past an *outer* sensor, making ``0000`` after
+``0010``/``0100`` a blind band and ``0000`` after ``0001``/``1000`` a real loss.
+
+Line-recovery search (SEARCH state): on a genuine loss the car probes rather
+than stopping — sweep `search_sweep_deg` left, sweep back through centre to the
+same angle right (watching for the line throughout), then creep forward in short
+steps until the line is seen again, or give up after `search_give_up_s`.
+
+Junctions on the continuous Task-1 loop are sequenced by one boolean, not a
+script: a symmetric ``1111`` is the roundabout entry and is unambiguous, so it
+re-synchronises the sequence every lap. The right-branch reading that follows it
+is the roundabout exit; the next one is the T junction, which is crossed
+straight through.
 """
 
 from __future__ import annotations
@@ -39,99 +46,57 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from carbot.ir_geometry import (
+    DETECTION_LIMIT_CM,
+    IRState,
+    Kind,
+    classify,
+    resolve_blind,
+    to_physical,
+    wheel_speeds,
+)
+
 if TYPE_CHECKING:
     from carbot.ir_tracing import IRTracingSensor
 
 
 @dataclass(frozen=True)
 class IRLineReading:
-    """One cycle of 4-channel IR sensor data."""
+    """One cycle of 4-channel IR sensor data, already classified."""
 
-    channels: tuple[int, int, int, int]  # (Out1, Out2, Out3, Out4) = 1 or 0
-    visible: bool  # True if any channel sees the line
-    error_fraction: float  # -1.0 (hard left) to +1.0 (hard right)
-    summary: str
+    channels: tuple[int, int, int, int]  # (Out1..Out4) as the driver reports them
+    physical: tuple[int, int, int, int]  # (P1..P4) left to right, 1 = black
+    state: IRState  # entry from carbot.ir_geometry.STATE_TABLE
+    visible: bool  # any channel sees black
+
+    @property
+    def summary(self) -> str:
+        bits = "".join(str(b) for b in self.physical)
+        return f"{bits} {self.state.label}"
+
+    @property
+    def error_fraction(self) -> float:
+        """Offset normalised to [-1, 1] against the detection limit, for logs."""
+        if self.state.offset_cm is None:
+            return 0.0
+        return max(-1.0, min(1.0, self.state.offset_cm / DETECTION_LIMIT_CM))
 
 
-@dataclass(frozen=True)
-class IRSteering:
-    """Proportional steering command from IR reading."""
-
-    left: int
-    right: int
-    reason: str
-
-
-def detect_ir_line(sensor: IRTracingSensor, speed: int = 200) -> IRLineReading:
-    """Read 4 IR channels and compute steering error.
-
-    Returns:
-      - visible: True if any channel detects the line
-      - error_fraction: proportional steering demand
-        * -1.0 = hard left (only left sees line)
-        *  0.0 = centered (all 4 or middle 2 see line)
-        * +1.0 = hard right (only right sees line)
-      - channels: raw (Out1, Out2, Out3, Out4) readings
-    """
-    ch = sensor.read()  # (1=black, 0=white), in Out1..Out4 order
-    # Physical bar order is Out4, Out3, Out1, Out2 (left to right) — see module
-    # docstring. Left half = Out4+Out3 (indices 3,2); right half = Out1+Out2.
-    left_count = ch[3] + ch[2]
-    right_count = ch[0] + ch[1]
-    visible = left_count > 0 or right_count > 0
-
-    if not visible:
-        return IRLineReading(
-            channels=ch,
-            visible=False,
-            error_fraction=0.0,
-            summary="no line",
-        )
-
-    if left_count == right_count:
-        error = 0.0
-        summary = f"centered {left_count}+{right_count}"
-    else:
-        error = (right_count - left_count) / 4.0
-        side = "right" if error > 0 else "left"
-        summary = f"{side} L{left_count} R{right_count}"
-
+def make_reading(channels: tuple[int, int, int, int]) -> IRLineReading:
+    """Classify an ``Out1..Out4`` reading without touching hardware."""
+    physical = to_physical(channels)
     return IRLineReading(
-        channels=ch,
-        visible=True,
-        error_fraction=error,
-        summary=summary,
+        channels=tuple(channels),  # type: ignore[arg-type]
+        physical=physical,
+        state=classify(physical, physical=True),
+        visible=any(physical),
     )
 
 
-def ir_steer_command(reading: IRLineReading, speed: int = 200) -> IRSteering:
-    """Convert IR line reading to proportional wheel speeds.
-
-    Proportional steering: the more offset the line, the more the inside wheel slows.
-
-    Args:
-      reading: IR line detection result
-      speed: base forward speed (0-1000)
-
-    Returns:
-      left, right wheel speeds
-    """
-    if not reading.visible:
-        return IRSteering(0, 0, "line lost; stop")
-
-    err = reading.error_fraction
-    if abs(err) < 0.15:
-        return IRSteering(speed, speed, f"centered err={err:+.2f}")
-
-    turn_gain = 2.0
-    ratio = max(0.2, 1.0 - turn_gain * abs(err))
-
-    if err > 0:
-        left, right = speed, int(speed * ratio)
-    else:
-        left, right = int(speed * ratio), speed
-
-    return IRSteering(left, right, f"steer err={err:+.2f} ratio={ratio:.2f}")
+def detect_ir_line(sensor: IRTracingSensor, speed: int = 200) -> IRLineReading:
+    """Read the four channels and classify them. ``speed`` is unused, kept for
+    call-site compatibility with the example scripts."""
+    return make_reading(sensor.read())  # type: ignore[arg-type]
 
 
 class IRNavState(Enum):
@@ -391,6 +356,14 @@ class IRLineNav:
         self._search_elapsed = 0.0  # time in the current search sub-phase
         self._search_total = 0.0  # total time spent searching
         self._search_creep_steps = 0  # creep steps done in the current search cycle
+        self._last_command: IRNavCommand | None = None
+        self._last_localising: tuple[int, int, int, int] | None = None
+        #: True between the roundabout entry and its exit. Re-synchronised
+        #: every lap by the unambiguous symmetric crossbar reading.
+        self.in_roundabout = False
+        self.junctions_seen = 0
+        self.last_junction: str | None = None
+        self.noise_frames = 0
 
     def step(self, reading: IRLineReading, dt: float) -> IRNavCommand:
         if dt < 0:
@@ -403,49 +376,103 @@ class IRLineNav:
             return self._search_step(reading, dt)
         return self._follow_step(reading, dt)
 
+    def _steer(self, state: IRState, note: str) -> IRNavCommand:
+        left, right = wheel_speeds(self.policy.speed, state.direction, state.inner_ratio)
+        cmd = IRNavCommand(left, right, note, IRNavState.FOLLOW)
+        self._last_command = cmd
+        return cmd
+
+    def _commit_junction(self, label: str) -> IRNavCommand:
+        """Confirmed junction: creep to put the axle on it, then turn.
+
+        From here the car is blind to the sensor on purpose — verified
+        2026-08-18 that a single noisy frame mid-crossbar (one channel dropping
+        out, e.g. 1111->1110) fed back into normal steering and yanked the car
+        off the junction before the creep even finished.
+        """
+        self.junctions_seen += 1
+        self.last_junction = label
+        self.state = IRNavState.JUNCTION_CREEP
+        self._creep_elapsed = 0.0
+        self._junction_elapsed = 0.0
+        return self._creep_step(0.0)
+
+    def _junction_label(self, state: IRState) -> str | None:
+        """Name the junction, or None if this reading is not one to act on.
+
+        The loop passes three junctions per lap and only one of them is
+        unambiguous: a symmetric crossbar is the roundabout entry. The
+        right-branch reading means the roundabout exit while inside, and the T
+        junction while outside — identical signatures that only the sequence
+        separates. Anchoring on the symmetric reading means a mis-sequenced lap
+        re-synchronises at the next entry instead of staying wrong forever.
+        """
+        if state.bits == (1, 1, 1, 1):
+            self.in_roundabout = True
+            return "roundabout entry"
+        if state.bits == (0, 1, 1, 1):
+            if self.in_roundabout:
+                self.in_roundabout = False
+                return "roundabout exit"
+            return None  # T junction: cross it, do not turn
+        return None
+
     def _follow_step(self, reading: IRLineReading, dt: float) -> IRNavCommand:
-        all_four_black = sum(reading.channels) == 4
-        if all_four_black:
+        state = reading.state
+
+        if state.kind is Kind.JUNCTION:
             self._junction_elapsed += dt
             if self._junction_elapsed >= self.policy.junction_min_s:
-                # Junction confirmed: commit. From here on (creep, then
-                # turn) the car is blind to the sensor on purpose — verified
-                # 2026-08-18 that a single noisy frame mid-crossbar (one
-                # channel dropping out, e.g. 1111->1110) fed back into
-                # normal proportional steering and yanked the car off the
-                # junction before the creep even finished. Once committed,
-                # only elapsed time decides what happens next, same as the
-                # turn itself.
-                self.state = IRNavState.JUNCTION_CREEP
-                self._creep_elapsed = 0.0
-                return self._creep_step(0.0)
-            return IRNavCommand(
-                self.policy.speed,
-                self.policy.speed,
-                f"possible junction: {self._junction_elapsed:.2f}/{self.policy.junction_min_s:.2f}s",
-                IRNavState.FOLLOW,
+                label = self._junction_label(state)
+                if label is not None:
+                    return self._commit_junction(label)
+                # A branch we cross rather than turn at. Keep following; the
+                # extra black is off to one side and must not steer us into it.
+                return self._steer(
+                    classify((0, 1, 1, 0), physical=True),
+                    f"crossing {state.label}, holding straight",
+                )
+            return self._steer(
+                state,
+                f"possible junction {state.label}: "
+                f"{self._junction_elapsed:.2f}/{self.policy.junction_min_s:.2f}s",
             )
         self._junction_elapsed = 0.0
 
-        if not reading.visible:
-            # Line lost — e.g. the car turned onto the ~2.4cm dead zone
-            # between the two sensor pairs. Do not just stop: run the
-            # sweep-and-creep recovery (see module docstring).
+        if state.kind is Kind.NOISE:
+            # Non-contiguous black: one 2 cm line cannot produce it, so it is
+            # undulation, a mis-tuned pot, or a second feature. Never steer.
+            self.noise_frames += 1
+            if self._last_command is not None:
+                return IRNavCommand(
+                    self._last_command.left,
+                    self._last_command.right,
+                    f"noise {state.label}: holding previous",
+                    IRNavState.FOLLOW,
+                )
+            return self._steer(classify((0, 1, 1, 0), physical=True), f"noise {state.label}: no history")
+
+        if state.kind is Kind.AMBIGUOUS:
+            verdict, offset = resolve_blind(self._last_localising)
+            if verdict == "blind":
+                blind = IRState(state.bits, Kind.DRIFT, offset, state.inner_ratio, "blind band")
+                return self._steer(blind, f"blind band, line {'right' if offset > 0 else 'left'}")
+            if verdict == "hold" and self._last_command is not None:
+                self.noise_frames += 1
+                return IRNavCommand(
+                    self._last_command.left,
+                    self._last_command.right,
+                    "all dark straight from centred: undulation, holding previous",
+                    IRNavState.FOLLOW,
+                )
             self._enter_search()
             return self._search_step(reading, 0.0)
 
-        err = reading.error_fraction
-        if abs(err) < self.policy.deadband:
-            return IRNavCommand(
-                self.policy.speed, self.policy.speed, f"centered err={err:+.2f}", IRNavState.FOLLOW
-            )
-
-        ratio = max(0.2, 1.0 - self.policy.turn_gain * abs(err))
-        if err > 0:
-            left, right = self.policy.speed, round(self.policy.speed * ratio)
-        else:
-            left, right = round(self.policy.speed * ratio), self.policy.speed
-        return IRNavCommand(left, right, f"steer err={err:+.2f} ratio={ratio:.2f}", IRNavState.FOLLOW)
+        # ON_LINE or DRIFT — the readings a single line can produce.
+        self._last_localising = state.bits
+        if state.kind is Kind.ON_LINE:
+            return self._steer(state, "centred")
+        return self._steer(state, f"{state.label}, offset {state.offset_cm:+.1f}cm")
 
     def _creep_step(self, dt: float) -> IRNavCommand:
         """Blind straight creep — ignores the sensor, only elapsed time matters.

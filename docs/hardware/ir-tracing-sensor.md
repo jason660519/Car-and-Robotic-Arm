@@ -48,6 +48,65 @@ This build uses these GPIO pins:
 | **Out3** | Pin 15 | GPIO 22 | Channel 3 digital out |
 | **Out4** | Pin 16 | GPIO 23 | Channel 4 digital out |
 
+### Physical Position ↔ Channel ↔ GPIO (verified 2026-08-19)
+
+**This table did not exist before 2026-08-19.** The wiring table above records
+which GPIO each header pin lands on, but nothing recorded which header pin
+belongs to which *physical sensor position* — and they are not in order.
+
+| Position | Sensor label | Channel | BCM GPIO | Pi header pin | Lateral offset |
+|---|---|---|---|---|---|
+| **Leftmost** | `P1` | `Out2` | GPIO 25 | Pin 22 | −3.2 cm |
+| Left-inner | `P2` | `Out1` | GPIO 24 | Pin 18 | −0.4 cm |
+| Right-inner | `P3` | `Out3` | GPIO 22 | Pin 15 | +0.4 cm |
+| **Rightmost** | `P4` | `Out4` | GPIO 23 | Pin 16 | +3.2 cm |
+
+So the physical left-to-right order is **`Out2, Out1, Out3, Out4`**.
+
+Measured with [examples/42_ir_geometry_sweep.py](../../examples/42_ir_geometry_sweep.py):
+a black card swept left to right tripped the channels in that order, and the
+card's *trailing* edge released them in the same order — two independent edges
+agreeing. The operator separately confirmed `Out4` is the rightmost sensor.
+
+`src/carbot/ir_line_nav.py` previously recorded the order as `Out4, Out3, Out1,
+Out2`, read off the potentiometer silkscreen on 2026-08-18. That is the exact
+mirror of the measured order, which means every steering correction was being
+applied to the wrong side. Corrected on 2026-08-19; the order now lives in
+`src/carbot/ir_geometry.PHYSICAL_ORDER`.
+
+### Spacing and the Blind Band
+
+Operator ruler measurement: `P1–P2 = 2.8 cm`, `P2–P3 = 0.8 cm`, `P3–P4 = 2.8 cm`
+— the bar spans **6.4 cm**, and the four sensors are **not** evenly spaced. The
+route line is 2.0 cm wide.
+
+A 2 cm line cannot cover two sensors 2.8 cm apart, so there is a band where the
+line is under the bar but **no channel sees it**:
+
+```
+blind band width = gap − line width = 2.8 − 2.0 = 0.8 cm, centred at ±1.8 cm
+```
+
+A car sitting squarely on the line reads `0000` inside that band. `0000`
+therefore does not mean "line lost". The two cases are separated by the previous
+reading, not a timer: the line can only leave the bar past an *outer* sensor, so
+`0000` after `0010`/`0100` is the blind band and `0000` after `0001`/`1000` is a
+real loss.
+
+Consequences worth knowing before tuning:
+
+- Only **`0110`** can light two sensors from a single line. `1100` and `0011`
+  require more than 2.8 cm of black, so on the track they mean a junction, or a
+  badly skewed pass over the roundabout curve — never a straight-line offset.
+- The warning window between centred (`0110`) and blind is only **0.8 cm** wide
+  (`0010` / `0100`), so corrections must be applied immediately at those
+  readings.
+- Ride height is ~1 cm, the **near** limit of the 1–3 cm detection range.
+  Undulating paper pushes sensors out of range in *both* directions, and an
+  out-of-range sensor reads the same as black — so surface texture produces
+  false **black**, never false white. Raising the bar to ~2 cm, the middle of
+  the range, is the cheapest fix available.
+
 ### Pin Conflict Resolution (HC-SR04)
 
 The original planned wiring conflicted with the HC-SR04 TRIG/ECHO pins (GPIO 17/27).
@@ -105,6 +164,31 @@ no-inversion result:
   black — expected, since both give a weak/no IR return. This is not a
   fault; it only matters if the sensor is ever truly airborne over the
   track, which does not happen during normal line-following.
+
+**Re-verified 2026-08-19 (still `invert={0, 1, 2, 3}`):** the sensor was
+adjusted again between sessions, so polarity was re-measured from scratch rather
+than assumed. Three conditions were logged in one continuous trace, and the
+operator reported the board LEDs at the same moment:
+
+| Condition | Board LED | Raw GPIO | Meaning |
+|---|---|---|---|
+| Plain white paper | **dark** | `1111` (HIGH) | strong IR return |
+| Black line | **lit** | LOW | weak return |
+| Held in the air | **lit** | LOW | no return, same as black |
+
+So `LED lit = LOW = black`, and `invert={0, 1, 2, 3}` remains correct.
+
+Two traps this session walked into, recorded so the next one does not:
+
+- **Single snapshots cannot settle polarity.** Readings taken before and after
+  moving the car were assigned to the wrong conditions and produced a confident
+  but wrong conclusion. Only a single continuous trace, with the conditions
+  changed *during* it, is safe.
+- **"All four channels reading nonsense" is a power or wiring fault, not a dead
+  sensor.** A run where the static read and the pull-up/pull-down diagnostic
+  disagreed within a minute turned out to be the Pi rebooting. A genuinely
+  failed channel sticks on its own; it does not take the other three with it.
+  Check VCC (Pin 1) and GND (Pin 14) first.
 
 Potentiometer polarity is sensitive to the CW/CCW sweep endpoint, not just a
 gradual gain change: turning **all the way CW** pinned every channel HIGH
