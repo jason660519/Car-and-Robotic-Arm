@@ -24,10 +24,12 @@ Steering (see `carbot.ir_geometry.STATE_TABLE`, total over all 16 readings):
     nothing. The previous reading decides: after `0010`/`0100` it is the blind
     band and steering continues; after `0001`/`1000` the line really has left
     the bar and the search starts
-  - `1111` sustained → the roundabout entry (the only unambiguous junction).
-    `0111` sustained → the roundabout exit while inside, the T junction while
-    outside, which is crossed straight through. One boolean sequences the loop
-    and re-synchronises on every `1111`
+  - A sustained junction reading only means "a junction is under the bar". Which
+    junction it is, and whether to turn or cross, comes from the route sequence
+    in `carbot.ir_route`, gated by distance since the previous one. The readings
+    themselves cannot tell the roundabout exit from the T junction — both are a
+    right branch — and the 2026-08-19 run showed `1111` appears at the T and on
+    the roundabout too, not only at the entry
   - Non-contiguous readings (`0101`, `1001`, `1010`, `1011`, `1101`) cannot come
     from a single 2cm line, so they never steer — the previous command is held
     and the frame is counted as noise
@@ -47,9 +49,7 @@ import time
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Map1 IR sensor line tracking (no camera)"
-    )
+    parser = argparse.ArgumentParser(description="Map1 IR sensor line tracking (no camera)")
     parser.add_argument("--dry-run", action="store_true", help="detection only, no motor")
     parser.add_argument(
         "--hz",
@@ -119,6 +119,19 @@ def main() -> int:
         "--creep-before-turn-cm into a drive duration (9.5cm at 10cm/s = 0.95s)",
     )
     parser.add_argument(
+        "--start-on-loop",
+        action="store_true",
+        help="car starts on the east-west line facing east, not in the start box, so the "
+        "one-time stem T junction is dropped and the first junction is the roundabout entry",
+    )
+    parser.add_argument(
+        "--laps",
+        type=int,
+        default=0,
+        help="stop at the T junction closing lap N (0 = lap forever). The stop is an entry "
+        "in the route sequence, so it only fires after every junction before it was reached",
+    )
+    parser.add_argument(
         "--search-sweep-deg",
         type=float,
         default=10.0,
@@ -180,7 +193,15 @@ def main() -> int:
 
     sensor = IRTracingSensor(pins, GPIO, invert=invert_set)
 
+    from carbot.ir_route import TASK1_LOOP_ONLY, TASK1_ROUTE, task1_route_for_laps
+
+    if args.laps > 0:
+        route = task1_route_for_laps(args.laps, start_on_loop=args.start_on_loop)
+    else:
+        route = TASK1_LOOP_ONLY if args.start_on_loop else TASK1_ROUTE
+
     nav_policy = IRNavPolicy(
+        route=route,
         speed=args.speed,
         turn_gain=args.turn_gain,
         junction_min_s=args.junction_min_s,
@@ -214,6 +235,7 @@ def main() -> int:
     line_found_count = 0
     search_entries = 0
     last_state = None
+    drive_error: NeZhaError | None = None
 
     period = 1.0 / args.hz if args.hz > 0 else 0.0
     last_logged: tuple | None = None
@@ -247,9 +269,14 @@ def main() -> int:
             else:
                 line_lost_count += 1
 
-            # Drive
+            # Drive. A bus error here must end the run through the normal path — letting it
+            # escape skips the stop and leaves the wheels turning.
             if car:
-                car.drive(command.left, command.right)
+                try:
+                    car.drive(command.left, command.right)
+                except NeZhaError as exc:
+                    drive_error = exc
+                    break
 
             # Log — bits are physical P1..P4, left to right along the bar.
             # Only on change by default: a car tracking a straight line holds
@@ -260,7 +287,7 @@ def main() -> int:
             if args.log_every or key != last_logged or stale:
                 ch_str = "".join(str(c) for c in reading.physical)
                 status = "OK" if reading.visible else "LOST"
-                where = "RND" if nav.in_roundabout else "   "
+                where = f"{nav.junctions.pending.name[:14]:14s}"
                 print(
                     f"[{elapsed:6.1f}s] #{frame_index:6d} "
                     f"{status:5s} P{ch_str} {reading.state.kind.value:9s} {where} -> "
@@ -271,6 +298,10 @@ def main() -> int:
                 last_log_time = now
                 logged_lines += 1
 
+            if command.state is IRNavState.STOPPED:
+                print(f"\nRoute complete: {command.reason}")
+                break
+
             if args.duration and elapsed >= args.duration:
                 print(f"\nDuration limit reached ({args.duration}s)")
                 break
@@ -279,7 +310,8 @@ def main() -> int:
         print("\nStopped by operator")
     finally:
         if car:
-            car.stop()
+            if not car.stop(best_effort=True):
+                print("\n*** WHEELS MAY STILL BE TURNING — CUT POWER NOW ***")
             car.close()
         GPIO.cleanup()
         elapsed = time.monotonic() - start
@@ -292,6 +324,12 @@ def main() -> int:
         print(f"  Line lost: {line_lost_count} cycles")
         print(f"  Line-recovery searches: {search_entries}")
         print(f"  Junctions taken: {nav.junctions_seen}  (last: {nav.last_junction or 'none'})")
+        print(f"  Junctions rejected by the distance gate: {nav.junctions_rejected}")
+        print(f"  Next junction expected: {nav.junctions.pending.name}")
+        if car:
+            print(f"  I2C writes retried: {car.board.write_retries}")
+        if drive_error:
+            print(f"  Run ended early on a bus error: {drive_error}")
         noise_pct = 100 * nav.noise_frames / frame_index if frame_index else 0.0
         print(f"  Noise/hold frames: {nav.noise_frames} ({noise_pct:.1f}%)")
         if noise_pct > 5.0:

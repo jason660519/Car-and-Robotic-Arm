@@ -70,13 +70,29 @@ PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py --dry-run --duration 6
 
 🔴 **操作者必須站在車旁，隨時能切斷主電源。**
 
+先跑這個 —— 車放在**東西向的線上、車頭朝東**，跳過發車區支線：
+
 ```bash
-PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py --duration 120
+PYTHONPATH=src python3 -u examples/39_map1_ir_line_follow.py --duration 120 --start-on-loop
 ```
 
-車放在發車區線上，車頭朝北。第一次 `1111`（T 路口）之後就進入連續繞圈，**不會回發車區**。
+先驗迴圈邏輯，不讓一次性的支線 T 路口攪進來。log 每行第三欄會印**下一個預期路口**，
+摘要會印被距離閘門擋掉的次數。一圈的順序應該是：
 
-隨時 `Ctrl+C` 停止。
+```
+roundabout entry (右轉) → roundabout exit (右轉) → T junction (直行) → 回到 entry
+```
+
+通過之後才換成從發車區起跑（車頭朝北）：
+
+```bash
+PYTHONPATH=src python3 -u examples/39_map1_ir_line_follow.py --duration 120
+```
+
+`-u` 不能省 —— 沒有它 stdout 會被 block buffer 住，程式跑完才吐 log，中途看不到任何東西。
+
+隨時 `Ctrl+C` 停止。如果收尾印出 `WHEELS MAY STILL BE TURNING`，**立刻切電源**：
+那代表停車指令沒能送到板子。
 
 ---
 

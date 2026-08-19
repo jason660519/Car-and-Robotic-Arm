@@ -33,11 +33,11 @@ than stopping — sweep `search_sweep_deg` left, sweep back through centre to th
 same angle right (watching for the line throughout), then creep forward in short
 steps until the line is seen again, or give up after `search_give_up_s`.
 
-Junctions on the continuous Task-1 loop are sequenced by one boolean, not a
-script: a symmetric ``1111`` is the roundabout entry and is unambiguous, so it
-re-synchronises the sequence every lap. The right-branch reading that follows it
-is the roundabout exit; the next one is the T junction, which is crossed
-straight through.
+Junctions are sequenced by :mod:`carbot.ir_route`, not by the reading. The reading only says
+*that* the bar is over a junction; which junction it is, and whether to turn or cross, comes
+from the route plan plus a distance gate. An earlier design keyed the action off ``1111`` vs
+``0111`` with one ``in_roundabout`` boolean, and the 2026-08-19 track run disproved every
+premise it rested on — see the module docstring in :mod:`carbot.ir_route`.
 """
 
 from __future__ import annotations
@@ -55,6 +55,7 @@ from carbot.ir_geometry import (
     to_physical,
     wheel_speeds,
 )
+from carbot.ir_route import TASK1_ROUTE, JunctionAction, JunctionSequencer, RoutePlan
 
 if TYPE_CHECKING:
     from carbot.ir_tracing import IRTracingSensor
@@ -106,6 +107,7 @@ class IRNavState(Enum):
     JUNCTION_CREEP = "junction_creep"  # committed to the junction; blind creep before pivoting
     JUNCTION_TURN = "junction_turn"  # spinning through a known, pre-planned turn
     SEARCH = "search"  # line lost; sweep ±search_sweep_deg, then creep forward step by step
+    STOPPED = "stopped"  # the route's planned laps are done; latched, wheels held at zero
 
 
 class IRSearchPhase(Enum):
@@ -276,6 +278,9 @@ class IRNavPolicy:
     # Stop the car after this many total seconds of searching.
     # 0 disables the timeout (not recommended — the car will wander).
     search_give_up_s: float = 30.0
+    # The junction sequence for the lap. `turn_direction` above is only the fallback used
+    # before the first junction is reached; each junction carries its own direction.
+    route: RoutePlan = TASK1_ROUTE
 
     def __post_init__(self) -> None:
         if not 0 <= self.speed <= 1000:
@@ -358,16 +363,31 @@ class IRLineNav:
         self._search_creep_steps = 0  # creep steps done in the current search cycle
         self._last_command: IRNavCommand | None = None
         self._last_localising: tuple[int, int, int, int] | None = None
-        #: True between the roundabout entry and its exit. Re-synchronised
-        #: every lap by the unambiguous symmetric crossbar reading.
-        self.in_roundabout = False
+        #: Which junction the route expects next, and how far since the last one. The action
+        #: comes from here rather than from the reading — see `carbot.ir_route`.
+        self.junctions = JunctionSequencer(self.policy.route)
+        #: Set while the car is inside the scripted turn, so the distance gate is not fed by
+        #: a pivot that covers no ground.
+        self._turn_direction = self.policy.turn_direction
         self.junctions_seen = 0
         self.last_junction: str | None = None
+        self.junctions_rejected = 0
         self.noise_frames = 0
+        #: True from a crossed junction until the bar clears it, so the same dark feature is
+        #: not re-detected and does not steer the car onto the branch it just declined.
+        self._crossing = False
 
     def step(self, reading: IRLineReading, dt: float) -> IRNavCommand:
         if dt < 0:
             raise ValueError("dt must be non-negative")
+        # Latched: once the route is complete nothing the sensor reports can start the
+        # wheels again. A stop that could be un-stopped by a stray reading is not a stop.
+        if self.state is IRNavState.STOPPED:
+            return self._halt("route complete")
+        # Feed the junction distance gate. A pivot covers no ground, so it must not count;
+        # everything else is close enough to forward motion at this resolution.
+        if self.state is not IRNavState.JUNCTION_TURN:
+            self.junctions.travel(dt * self.policy.forward_speed_cm_per_s)
         if self.state is IRNavState.JUNCTION_TURN:
             return self._turn_step(dt)
         if self.state is IRNavState.JUNCTION_CREEP:
@@ -376,13 +396,18 @@ class IRLineNav:
             return self._search_step(reading, dt)
         return self._follow_step(reading, dt)
 
+    def _halt(self, note: str) -> IRNavCommand:
+        cmd = IRNavCommand(0, 0, note, IRNavState.STOPPED)
+        self._last_command = cmd
+        return cmd
+
     def _steer(self, state: IRState, note: str) -> IRNavCommand:
         left, right = wheel_speeds(self.policy.speed, state.direction, state.inner_ratio)
         cmd = IRNavCommand(left, right, note, IRNavState.FOLLOW)
         self._last_command = cmd
         return cmd
 
-    def _commit_junction(self, label: str) -> IRNavCommand:
+    def _commit_junction(self, label: str, direction: int) -> IRNavCommand:
         """Confirmed junction: creep to put the axle on it, then turn.
 
         From here the car is blind to the sensor on purpose — verified
@@ -392,52 +417,75 @@ class IRLineNav:
         """
         self.junctions_seen += 1
         self.last_junction = label
+        self._turn_direction = direction
         self.state = IRNavState.JUNCTION_CREEP
         self._creep_elapsed = 0.0
         self._junction_elapsed = 0.0
         return self._creep_step(0.0)
 
-    def _junction_label(self, state: IRState) -> str | None:
-        """Name the junction, or None if this reading is not one to act on.
+    def _reach_junction(self, state: IRState) -> IRNavCommand:
+        """A junction has been held long enough. The route, not the reading, says what to do.
 
-        The loop passes three junctions per lap and only one of them is
-        unambiguous: a symmetric crossbar is the roundabout entry. The
-        right-branch reading means the roundabout exit while inside, and the T
-        junction while outside — identical signatures that only the sequence
-        separates. Anchoring on the symmetric reading means a mis-sequenced lap
-        re-synchronises at the next entry instead of staying wrong forever.
+        The distance gate comes first: a junction that turns up well before the route expects
+        the next one is the junction just handled being read a second time, or a curve taken at
+        a shallow enough angle to light the whole bar. Acting on it desynchronises the lap.
         """
-        if state.bits == (1, 1, 1, 1):
-            self.in_roundabout = True
-            return "roundabout entry"
-        if state.bits == (0, 1, 1, 1):
-            if self.in_roundabout:
-                self.in_roundabout = False
-                return "roundabout exit"
-            return None  # T junction: cross it, do not turn
-        return None
+        shortfall = self.junctions.shortfall_cm()
+        pending = self.junctions.pending
+        if shortfall > 0:
+            self.junctions_rejected += 1
+            # Rejected means "not the junction the route is waiting for", not "no information".
+            # What produces these is a curve lighting extra channels, and the state table's
+            # offset for them is that curve's direction. Steering must keep running on it:
+            # the 2026-08-19 two-lap run held straight here instead and drove off the paper
+            # in phase 2, with the line already hard left and `1100` rejected by the gate.
+            return self._steer(
+                state,
+                f"junction ignored, {shortfall:.0f}cm short of the {pending.name} gate; "
+                f"steering on {state.label}",
+            )
+
+        junction = self.junctions.accept()
+        if junction.action is JunctionAction.STOP:
+            self.junctions_seen += 1
+            self.last_junction = junction.name
+            self.state = IRNavState.STOPPED
+            return self._halt(f"route complete at {junction.name}")
+        if junction.action is JunctionAction.CROSS:
+            # Counted and consumed like any other junction — the lap position advances even
+            # though the wheels do not change. Holding straight keeps the branch off to one
+            # side from steering the car into it.
+            self.junctions_seen += 1
+            self.last_junction = junction.name
+            self._junction_elapsed = 0.0
+            self._crossing = True
+            return self._steer(
+                classify((0, 1, 1, 0), physical=True),
+                f"crossing {junction.name} straight through",
+            )
+        return self._commit_junction(junction.name, junction.turn_direction)
 
     def _follow_step(self, reading: IRLineReading, dt: float) -> IRNavCommand:
         state = reading.state
 
         if state.kind is Kind.JUNCTION:
-            self._junction_elapsed += dt
-            if self._junction_elapsed >= self.policy.junction_min_s:
-                label = self._junction_label(state)
-                if label is not None:
-                    return self._commit_junction(label)
-                # A branch we cross rather than turn at. Keep following; the
-                # extra black is off to one side and must not steer us into it.
+            if self._crossing:
+                # Still driving over the junction just crossed. Steering on this reading would
+                # pull the car onto the branch it decided not to take.
                 return self._steer(
                     classify((0, 1, 1, 0), physical=True),
-                    f"crossing {state.label}, holding straight",
+                    f"still over {self.last_junction}, holding straight",
                 )
+            self._junction_elapsed += dt
+            if self._junction_elapsed >= self.policy.junction_min_s:
+                return self._reach_junction(state)
             return self._steer(
                 state,
                 f"possible junction {state.label}: "
                 f"{self._junction_elapsed:.2f}/{self.policy.junction_min_s:.2f}s",
             )
         self._junction_elapsed = 0.0
+        self._crossing = False
 
         if state.kind is Kind.NOISE:
             # Non-contiguous black: one 2 cm line cannot produce it, so it is
@@ -450,7 +498,9 @@ class IRLineNav:
                     f"noise {state.label}: holding previous",
                     IRNavState.FOLLOW,
                 )
-            return self._steer(classify((0, 1, 1, 0), physical=True), f"noise {state.label}: no history")
+            return self._steer(
+                classify((0, 1, 1, 0), physical=True), f"noise {state.label}: no history"
+            )
 
         if state.kind is Kind.AMBIGUOUS:
             verdict, offset = resolve_blind(self._last_localising)
@@ -513,18 +563,22 @@ class IRLineNav:
             self.state = IRNavState.FOLLOW
             self._junction_elapsed = 0.0
             return IRNavCommand(
-                self.policy.speed, self.policy.speed, "junction turn done: nominal time reached", IRNavState.FOLLOW
+                self.policy.speed,
+                self.policy.speed,
+                "junction turn done: nominal time reached",
+                IRNavState.FOLLOW,
             )
 
         speed = self.policy.speed
-        if self.policy.turn_direction > 0:
+        if self._turn_direction > 0:
             left, right = speed, -speed
         else:
             left, right = -speed, speed
         return IRNavCommand(
             left,
             right,
-            f"junction turn: {self._turn_elapsed:.2f}/{self.policy.nominal_turn_s():.2f}s",
+            f"junction turn {'right' if self._turn_direction > 0 else 'left'}: "
+            f"{self._turn_elapsed:.2f}/{self.policy.nominal_turn_s():.2f}s",
             IRNavState.JUNCTION_TURN,
         )
 

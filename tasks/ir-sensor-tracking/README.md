@@ -27,16 +27,19 @@ Stable facts live outside this directory and are the source of truth:
 
 ## Status
 
-**Not yet driven under the corrected model.** Everything below is verified
-without motors; nothing has been run on the track since the channel order was
-fixed.
+**Driven on the track 2026-08-19.** The corrected channel order works: the car followed the
+line, and every steering correction slowed the wheel on the side the line was on. It completed
+the lap up to the return T junction, then turned right into the start box instead of crossing.
 
 | Item | State |
 |---|---|
 | Polarity `invert={0,1,2,3}` | ✅ measured 2026-08-19 |
 | Physical order `Out2 Out1 Out3 Out4` | ✅ measured 2026-08-19 |
+| Steering direction on a moving car | ✅ driven 2026-08-19 — `0100` slowed the left wheel, `0010` the right |
 | 16-state table | ✅ implemented, 42 unit tests |
-| Junction sequencing (1 boolean) | ✅ implemented |
+| Junction sequencing (1 boolean) | ❌ **replaced** — all three of its premises were false on the track, see design.md |
+| Junction sequencing (route + distance gate) | ⚠️ implemented and unit-tested, **not yet driven** |
+| Bus error leaves the wheels turning | ✅ fixed — retry in `nezha`, best-effort `Car.stop`, loud warning if it cannot confirm |
 | Spacing 2.8 / 0.8 / 2.8 cm | ⚠️ operator ruler measurement, not re-measured by sweep |
 | Wheel speeds 110 / 60 / 20 | ⚠️ proposed, never driven |
 | Roundabout speed | ❌ unknown — R=18cm is tight, may need to drop below 150 |

@@ -87,17 +87,46 @@ Counter-clockwise. Per lap the car passes three junctions:
 | 3 | T junction (crossed heading east) | `0111` | **straight through** |
 
 Junctions 2 and 3 have identical signatures — a right branch — and the map gives
-no way to tell them apart from a single reading. One boolean does it:
+no way to tell them apart from a single reading.
+
+The first attempt used one `in_roundabout` boolean, anchored on `1111` as "the
+roundabout entry, unambiguous, once per lap". **The 2026-08-19 track run
+disproved all three premises:**
+
+| Premise | What the run showed |
+|---|---|
+| The stem T junction reads `0111` | It reads **`1111`** — the crossbar runs east *and* west, so it is symmetric. The first junction of the run set the flag backwards |
+| The roundabout entry reads `1111` | It read **`0111`** — the car arrived skewed. The two signatures had swapped |
+| `1111` appears once per lap | **Four more** sustained `1111` events on the roundabout alone |
+
+Result: six junction events, six right turns, **zero** straight-through
+crossings, and the car finished by turning into the start box.
+
+So the action does not come from the reading. It comes from the route sequence
+in [`carbot.ir_route`](../../src/carbot/ir_route.py):
 
 ```
-1111 sustained          → in_roundabout = True,  creep → right 90°
-0111 sustained + True   → exit:  in_roundabout = False, creep → right 90°
-0111 sustained + False  → T junction: cross straight
+prologue:  start stem T junction  → right 90°   (gate 0 cm)
+loop:      roundabout entry       → right 90°   (gate 60 cm)
+           roundabout exit        → right 90°   (gate 40 cm)
+           T junction             → cross       (gate 10 cm)
 ```
 
-`1111` is unambiguous and appears once per lap, so a mis-sequenced lap
-**re-synchronises at the next entry** instead of staying wrong forever. This is
-deliberately not a counter: a counter that slips once stays wrong.
+The sensor's only job is "a junction is under the bar". A **distance gate**
+then rejects a junction that turns up before the route expects one — that is
+the junction just handled being read a second time, or a curve taken shallow
+enough to light the whole bar. Distance is time × the measured 10 cm/s, and a
+pivot is excluded because it covers no ground.
+
+This works only because the spacings differ by more than 6×: 23 cm from the
+roundabout exit to the T, ~150 cm from the T back to the entry. A coarse
+estimate is enough to keep the sequence in step.
+
+The trade against the old design is explicit: a counter that slips stays
+slipped, whereas the boolean could re-synchronise. The boolean's
+re-synchronisation was worth nothing here because its anchor was not unique,
+and the gate rejects the repeats that would slip the counter in the first
+place. `--start-on-loop` drops the prologue for starting on the east-west line.
 
 The three outer corners (ARC 1 SE, ARC 2 NE, ARC 3 NW) are **left** curves and
 are not junctions — they produce no `1111` and are followed by ordinary

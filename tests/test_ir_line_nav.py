@@ -224,3 +224,183 @@ def test_sweep_duration_uses_calibrated_spin_model():
     # 0.2s dead time + 10 deg / 40.5 deg/s
     assert policy.sweep_duration(10.0) == pytest.approx(0.2 + 10.0 / 40.5)
     assert policy.sweep_duration(20.0) == pytest.approx(0.2 + 20.0 / 40.5)
+
+
+# ------------------------------------------------- route-driven junctions
+#
+# The 2026-08-19 track run turned right at all six junctions it saw, including the return T
+# that has to be crossed, and ended up back in the start box. The action now comes from
+# `carbot.ir_route`, so these check the sequence rather than the reading.
+
+RIGHT_BRANCH = (1, 1, 1, 0)  # physical 0111 — the roundabout exit *and* the T junction
+
+
+def _drive(nav: IRLineNav, channels, seconds: float, dt: float = 0.01):
+    """Hold one reading for a while, returning every command produced."""
+    return [nav.step(make_reading(channels), dt) for _ in range(int(seconds / dt))]
+
+
+def _reach_junction(nav: IRLineNav, channels=CROSSBAR, *, run_up_cm: float = 200.0):
+    """Cover enough ground to open the gate, then hold a junction until it commits."""
+    _drive(nav, CENTRED, run_up_cm / 10.0)  # forward_speed_cm_per_s defaults to 10
+    return _drive(nav, channels, 0.5)
+
+
+def test_first_junction_out_of_the_start_box_turns_right():
+    nav = default_nav()
+    _reach_junction(nav, run_up_cm=1.0)
+    assert nav.last_junction == "start stem T junction"
+    assert nav.junctions_seen == 1
+
+
+def test_the_returning_t_junction_is_crossed_not_turned():
+    """The exact bug: the same 0111 that means "exit, turn" earlier means "straight" here."""
+    nav = default_nav()
+    for _ in range(3):  # prologue T, roundabout entry, roundabout exit
+        _reach_junction(nav)
+        _settle(nav)
+
+    cmds = _reach_junction(nav, RIGHT_BRANCH)
+    assert nav.last_junction == "T junction"
+    crossing = next(c for c in cmds if "crossing" in c.reason)
+    assert crossing.state is IRNavState.FOLLOW
+    assert crossing.left == crossing.right  # straight through, no pivot
+    # Still holding the same bar afterwards must not start a second junction.
+    assert all(c.left == c.right for c in cmds[cmds.index(crossing) :])
+    assert nav.state is IRNavState.FOLLOW
+
+
+def test_a_junction_read_again_immediately_is_rejected():
+    nav = default_nav()
+    _reach_junction(nav, run_up_cm=1.0)
+    _settle(nav)
+
+    cmds = _drive(nav, CROSSBAR, 0.5)  # no distance covered since the last one
+    assert nav.junctions_rejected > 0
+    assert nav.junctions_seen == 1
+    assert cmds[-1].left == cmds[-1].right
+    assert "short of the" in cmds[-1].reason
+
+
+def test_the_action_does_not_depend_on_which_junction_reading_appears():
+    """Entry read 0111 rather than 1111 on the real track; the lap must not care."""
+    by_crossbar = default_nav()
+    by_branch = default_nav()
+    for nav, channels in ((by_crossbar, CROSSBAR), (by_branch, RIGHT_BRANCH)):
+        for _ in range(2):
+            _reach_junction(nav, channels)
+            _settle(nav)
+    assert by_crossbar.last_junction == by_branch.last_junction == "roundabout entry"
+
+
+def test_a_pivot_does_not_count_toward_the_next_gate():
+    """A spin covers no ground, so feeding it to the odometer would open the gate early."""
+    nav = default_nav()
+    _reach_junction(nav, run_up_cm=1.0)
+    before = nav.junctions.cm_since_previous
+    while nav.state is IRNavState.JUNCTION_TURN:
+        nav.step(make_reading(CENTRED), 0.01)
+    assert nav.junctions.cm_since_previous == pytest.approx(before)
+
+
+def _settle(nav: IRLineNav):
+    """Run the creep and pivot out to completion."""
+    for _ in range(2000):
+        if nav.state is IRNavState.FOLLOW:
+            return
+        nav.step(make_reading(CENTRED), 0.01)
+    raise AssertionError("junction never finished")
+
+
+# ------------------------------------------------------------- route completion
+
+
+def _reach_next_junction(nav: IRLineNav) -> None:
+    """Drive far enough to clear the next distance gate, then hold the crossbar."""
+    gate = nav.junctions.pending.min_cm_since_previous
+    seconds = gate / nav.policy.forward_speed_cm_per_s + 1.0
+    steps = int(seconds / 0.01)
+    for _ in range(steps):
+        if nav.state is IRNavState.STOPPED:
+            return
+        nav.step(make_reading(CENTRED), dt=0.01)
+    while nav.state is IRNavState.FOLLOW:
+        cmd = nav.step(make_reading(CROSSBAR), dt=0.01)
+        if cmd.state is IRNavState.STOPPED:
+            return
+    # Run the scripted creep and turn out to completion.
+    for _ in range(2000):
+        if nav.state is IRNavState.FOLLOW or nav.state is IRNavState.STOPPED:
+            return
+        nav.step(make_reading(CENTRED), dt=0.01)
+
+
+def test_a_stop_junction_halts_the_wheels():
+    from carbot.ir_route import task1_route_for_laps
+
+    nav = default_nav(route=task1_route_for_laps(1))
+    for _ in range(4):
+        _reach_next_junction(nav)
+    assert nav.state is IRNavState.STOPPED
+    assert nav.last_junction == "final T junction"
+
+
+def test_the_stop_is_latched_against_further_readings():
+    from carbot.ir_route import task1_route_for_laps
+
+    nav = default_nav(route=task1_route_for_laps(1))
+    for _ in range(4):
+        _reach_next_junction(nav)
+    assert nav.state is IRNavState.STOPPED
+    for reading in (CENTRED, CROSSBAR, DRIFT_RIGHT, GAP):
+        cmd = nav.step(make_reading(reading), dt=0.01)
+        assert cmd.left == 0 and cmd.right == 0
+        assert cmd.state is IRNavState.STOPPED
+
+
+# ------------------------------------------------- gate rejection keeps steering
+
+SKEW_LEFT = (1, 1, 0, 0)  # physical 1100 — left pair, a curve read at a shallow angle
+SKEW_RIGHT = (0, 0, 1, 1)  # physical 0011 — right pair
+
+
+def _hold_junction(nav: IRLineNav, reading, seconds: float = 0.3):
+    cmd = None
+    steps = int(seconds / 0.01)
+    for _ in range(steps):
+        cmd = nav.step(make_reading(reading), dt=0.01)
+    return cmd
+
+
+def _gated_nav() -> IRLineNav:
+    """A nav whose next junction is 60cm away, so an immediate junction is gated out."""
+    from carbot.ir_route import TASK1_LOOP_ONLY
+
+    return default_nav(route=TASK1_LOOP_ONLY)
+
+
+def test_a_gated_out_junction_still_steers_toward_the_line():
+    """Regression: holding straight here drove the car off the paper on 2026-08-19.
+
+    The gate rejecting a reading means "not the junction the route wants", not "ignore
+    where the line is" — the curve that produced it still has to be steered on.
+    """
+    nav = _gated_nav()
+    cmd = _hold_junction(nav, SKEW_LEFT)
+    assert nav.junctions_rejected > 0
+    assert cmd.left < cmd.right, "1100 means the line is left; the left wheel must slow"
+
+
+def test_a_gated_out_junction_steers_the_other_way_too():
+    nav = _gated_nav()
+    cmd = _hold_junction(nav, SKEW_RIGHT)
+    assert nav.junctions_rejected > 0
+    assert cmd.right < cmd.left, "0011 means the line is right; the right wheel must slow"
+
+
+def test_a_gated_out_junction_does_not_advance_the_route():
+    nav = _gated_nav()
+    pending_before = nav.junctions.pending.name
+    _hold_junction(nav, SKEW_LEFT)
+    assert nav.junctions.pending.name == pending_before
+    assert nav.junctions_seen == 0
