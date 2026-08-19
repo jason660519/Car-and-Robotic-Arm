@@ -212,20 +212,31 @@ class IRNavPolicy:
     # actually takes (see spin_rate_deg_per_s/spin_dead_time_s below) — this
     # is the "what", those are the "how fast".
     turn_deg: float = 90.0
-    # Measured directly on the Task-1 map paper at speed=150 (verified
-    # 2026-08-18, examples/41_motor_spin_angle_sweep.py, 5-point sweep 2-10s,
-    # linear fit angle = rate*(duration - dead_time)): rate 40.5 deg/s,
-    # dead_time 0.2s. NOT extrapolated from the camera-based calibration
+    # Measured directly on the Task-1 map paper at speed=150, on carpet
+    # underneath the paper (verified 2026-08-20, examples/41_motor_spin_angle_sweep.py,
+    # 5-point sweep 2-10s, all 5 confirmed a true in-place pivot -- no chassis
+    # drift -- before being recorded; linear fit angle = rate*(duration -
+    # dead_time)): rate 42.0 deg/s, dead_time 0.41s. See
+    # docs/progress/2026-08-20-map1-spin-recalibration-carpet.md for the full
+    # sweep data, including an earlier same-day attempt discarded because a
+    # chassis/wheel issue was making the "pivot" drift sideways mid-spin.
+    # Supersedes the 2026-08-18 reading (40.5 deg/s, 0.2s dead_time) taken on
+    # the same paper -- the dead-time roughly doubled, most likely the surface
+    # underneath (carpet vs. whatever the 08-18 measurement sat on) or
+    # mechanical wear/realignment from the chassis issue above, not a fixed
+    # property of the car. NOT extrapolated from the camera-based calibration
     # (examples/23_cam_spin_rate_check.py, measured on a different, textured
     # surface elsewhere in the room) — friction differs by surface, so that
     # number does not transfer here. These two constants are only valid at
-    # `speed=150` on this paper; re-run the sweep before trusting them at a
-    # different speed or on a different print. nominal_turn_s() computes the
-    # actual spin duration from these two plus turn_deg — if the real turn
-    # over/undershoots, it's usually faster to re-run the sweep (gets both
-    # numbers at once, correctly) than to hand-tune turn_deg as a fudge factor.
-    spin_rate_deg_per_s: float = 40.5
-    spin_dead_time_s: float = 0.2
+    # `speed=150` on this paper, on this surface; re-run the sweep before
+    # trusting them at a different speed, print, or underlying floor.
+    # nominal_turn_s() computes the actual spin duration from these two plus
+    # turn_deg — if the real turn over/undershoots, it's usually faster to
+    # re-run the sweep (gets both numbers at once, correctly, and catches a
+    # non-pivot drift like 2026-08-20's) than to hand-tune turn_deg as a
+    # fudge factor.
+    spin_rate_deg_per_s: float = 42.0
+    spin_dead_time_s: float = 0.41
     # Straight-line creep after a junction is confirmed, before pivoting,
     # so the wheel axle (the real pivot point — NOT the forward-mounted
     # sensor, which detects the crossbar first because it sits ahead of the
@@ -339,7 +350,7 @@ class IRNavPolicy:
 
     def sweep_duration(self, deg: float) -> float:
         """Time to spin ``deg`` degrees, using the same calibrated spin model
-        as the junction turn (rate 40.5 deg/s, dead time 0.2s at speed 150)."""
+        as the junction turn (rate 42.0 deg/s, dead time 0.41s at speed 150)."""
         return self.spin_dead_time_s + deg / self.spin_rate_deg_per_s
 
 

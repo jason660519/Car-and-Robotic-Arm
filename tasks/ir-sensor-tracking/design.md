@@ -225,14 +225,36 @@ readings the nav loop is already interpreting.
    junction. Scale factors (0.6× speed, 0.5× inner_ratio) are a first
    estimate, not a measured constant.
 
+## 2026-08-20, third pass: chassis fault mid-sweep, then a clean recalibration
+
+The car undershot its first T-junction turn (~45° instead of 90°) on the third
+same-day track attempt. A spin-angle sweep to re-measure `spin_rate_deg_per_s`/
+`spin_dead_time_s` (`examples/41_motor_spin_angle_sweep.py`) turned up something
+the angle numbers alone would not have caught: partway through, the "in-place"
+pivot was not in place — the chassis translated ~15cm north-east while
+spinning, radius should have been zero. The operator checked the wheels/axles
+by hand (the likely cause: today's earlier off-map excursions and abrupt
+power cuts) before re-running the sweep; the second sweep confirmed a true
+zero-radius pivot on every one of its 5 readings and fit a linear
+angle-vs-duration model far more consistently than the first (residuals under
+11° vs. wildly inconsistent deg/s across the first sweep's readings). See
+[docs/progress/2026-08-20-map1-spin-recalibration-carpet.md](../../docs/progress/2026-08-20-map1-spin-recalibration-carpet.md)
+for both sweeps' raw data.
+
+This is the same lesson as the fabricated-distance bug above, one level up:
+a plausible-looking number (an angle reading, a deg/s rate) is not proof the
+underlying assumption (pure pivot, no chassis fault) held while it was taken.
+Re-running the *whole* sweep after the fix, not just patching the affected
+readings, is what caught it.
+
 ## Timing constants
 
 | Parameter | Value | Source |
 |---|---|---|
 | `speed` | 150 | verified |
-| Spin rate | 40.5 °/s | measured 2026-08-18, 5-point sweep |
-| Spin dead time | 0.2 s | measured 2026-08-18 |
-| **90° turn** | **2.42 s** | `0.2 + 90/40.5` |
+| Spin rate | 42.0 °/s | measured 2026-08-20, 5-point sweep, Map1 paper on carpet, all readings confirmed a true pivot (supersedes the 2026-08-18 value, 40.5 °/s) |
+| Spin dead time | 0.41 s | measured 2026-08-20 (supersedes 2026-08-18, 0.2 s) |
+| **90° turn** | **2.55 s** | `0.41 + 90/42.0` |
 | Creep before turn | 9.5 cm | sensor sits 9.5 cm ahead of the axle |
 | Forward speed | 10 cm/s | measured on the map paper |
 | **Creep duration** | **0.95 s** | `9.5 / 10.0` |

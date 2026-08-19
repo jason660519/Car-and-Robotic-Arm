@@ -150,15 +150,15 @@ def test_creep_duration_helper_uses_distance_and_speed():
 
 def test_search_sweeps_left_then_right_then_creeps():
     """Full phase sequence with the calibrated spin model (10 deg sweep =
-    0.2 + 10/40.5 = 0.447s; right sweep is 2x the angle = 0.694s)."""
+    0.41 + 10/42.0 = 0.648s; right sweep is 2x the angle = 0.886s)."""
     nav = default_nav()
     gap = make_reading(GAP)
     cmd = nav.step(gap, 0.1)
     assert "sweep left" in cmd.reason
-    cmd = nav.step(gap, 0.5)  # left sweep done -> sweep right
+    cmd = nav.step(gap, 0.7)  # left sweep done (0.8s total) -> sweep right
     assert cmd.left == 150 and cmd.right == -150
     assert "sweep right" in cmd.reason
-    cmd = nav.step(gap, 0.8)  # right sweep done -> creep
+    cmd = nav.step(gap, 1.0)  # right sweep done -> creep
     assert cmd.left == cmd.right == 75  # 150 * search_creep_speed_ratio 0.5
     assert "creep step 1/4" in cmd.reason
 
@@ -167,8 +167,8 @@ def test_search_creep_steps_then_restarts_sweep_cycle():
     nav = default_nav(search_creep_steps_per_cycle=2)
     gap = make_reading(GAP)
     nav.step(gap, 0.5)  # enters search (transition consumes no search time)
-    nav.step(gap, 0.5)  # finishes left sweep -> sweep right
-    nav.step(gap, 0.7)  # finishes right sweep -> creep step 1/2
+    nav.step(gap, 0.7)  # finishes left sweep (0.648s) -> sweep right
+    nav.step(gap, 1.0)  # finishes right sweep (0.886s) -> creep step 1/2
     cmd = nav.step(gap, 0.3)  # creep step 1 done -> creep step 2/2
     assert "creep step 2/2" in cmd.reason
     cmd = nav.step(gap, 0.3)  # step 2 done -> new sweep cycle from here
@@ -240,9 +240,9 @@ def test_invalid_search_policy_rejected(kwargs):
 
 def test_sweep_duration_uses_calibrated_spin_model():
     policy = IRNavPolicy()
-    # 0.2s dead time + 10 deg / 40.5 deg/s
-    assert policy.sweep_duration(10.0) == pytest.approx(0.2 + 10.0 / 40.5)
-    assert policy.sweep_duration(20.0) == pytest.approx(0.2 + 20.0 / 40.5)
+    # 0.41s dead time + 10 deg / 42.0 deg/s
+    assert policy.sweep_duration(10.0) == pytest.approx(0.41 + 10.0 / 42.0)
+    assert policy.sweep_duration(20.0) == pytest.approx(0.41 + 20.0 / 42.0)
 
 
 # ------------------------------------------------- route-driven junctions
