@@ -185,6 +185,46 @@ are not junctions — they produce no `1111` and are followed by ordinary
 steering. Together with the roundabout's 270°, roughly 43% of the route is a
 left-hand curve, which is why a blanket "turn right when lost" rule was rejected.
 
+## 2026-08-20, second pass: ran off the map at ARC 1, and a fabricated-distance bug
+
+A same-day retest (after the three fixes above) still did not survive one lap: the
+car ran off the map turning from Phase 2 (east) onto Phase 4 (north) at ARC 1.
+Two more findings, both from the operator watching the physical car, not from
+the log alone — the log alone had already produced a plausible-looking
+"route complete" trace for a run that did not physically happen; log
+self-consistency is not proof of physical correctness on this system, since
+nothing here corroborates position against the printed map except the sensor
+readings the nav loop is already interpreting.
+
+1. **`JunctionSequencer.travel()` credited SEARCH's sweep sub-phases as forward
+   motion.** Sweeping left/right is a pure rotation, exactly like
+   `JUNCTION_TURN` (already excluded) — but SEARCH itself was not excluded, so
+   a lost car spinning in place could rack up fabricated "distance since the
+   last junction" without moving, opening gates it had not physically reached
+   and letting the sequence drift arbitrarily far from the real map position.
+   Fix: `step()` now excludes the whole `SEARCH` state from distance credit,
+   not only `JUNCTION_TURN` — including the forward-creep sub-phase, since its
+   speed does not match `forward_speed_cm_per_s` either and the car's real
+   position is unknown while still lost.
+2. **ARC 1's turn is tighter than steady-state FOLLOW gains can track.**
+   Back-computing a radius from its ~3.6cm arc length over a 90° heading
+   change gives roughly **2.3cm** — smaller than the car's own footprint. At
+   full speed (150) and the STATE_TABLE's fixed `inner_ratio` values, the
+   proportional correction cannot turn tightly enough before the curve bends
+   away, so the car ran wide off the outside of the corner. This is not a
+   junction-style problem (there is one continuous printed line the whole way
+   through, no ambiguity for the sensor to resolve) and is **not** solved by a
+   scripted/blind turn like a T junction gets — that would throw away the
+   working sensor signal for no reason. Fix: `CornerWindow` in
+   `carbot.ir_route` — a stretch of `cm_since_previous` (while "roundabout
+   entry" is pending) over which `IRLineNav._steer` drives slower and
+   sharpens the correction, while continuing to read the line every cycle.
+   `TASK1_CORNER_WINDOWS` covers all three arcs; the cm ranges come from the
+   SSOT phase table, margins widen for later corners since the 10cm/s
+   distance estimate drifts further the longer since the last confirmed
+   junction. Scale factors (0.6× speed, 0.5× inner_ratio) are a first
+   estimate, not a measured constant.
+
 ## Timing constants
 
 | Parameter | Value | Source |

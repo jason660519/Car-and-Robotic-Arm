@@ -152,6 +152,52 @@ TASK1_ROUTE = RoutePlan(
 )
 
 
+@dataclass(frozen=True)
+class CornerWindow:
+    """A stretch of continuous curve too tight for the steady-state follow gains.
+
+    This is NOT a scripted/blind turn -- the sensor keeps reading the printed line the whole
+    way through. It only asks IRLineNav to drive slower and correct harder while the estimated
+    position falls inside the window, so the reactive proportional steering (carbot.ir_geometry)
+    can actually keep the bar on a curve tighter than its steady-state gains were tuned for.
+
+    ``start_cm``/``end_cm`` are cm since the *pending* junction's own last accept (i.e.
+    ``JunctionSequencer.cm_since_previous``), not since some junction named here -- the window
+    is keyed to ``while_pending`` (which junction is currently expected next) because the
+    physical stretch a corner sits on is walked once per lap while the junction the car most
+    recently left differs by lap (the start-stem T on lap 1's prologue, the crossed T junction
+    every lap after), whereas the pending one (roundabout entry) does not.
+    """
+
+    name: str
+    while_pending: str
+    start_cm: float
+    end_cm: float
+    speed_scale: float = 1.0
+    inner_ratio_scale: float = 1.0
+
+
+#: 2026-08-20: continuous proportional line-following was not tight enough to track these three
+#: corners -- ARC 1's radius (~2.3cm, back-computed from its 3.6cm arc length over a 90deg
+#: heading change) is smaller than the car's own footprint, so at full speed and steady-state
+#: gains the car ran wide off the curve and off the map before the correction caught up.
+#: These windows slow down and sharpen the correction for that stretch without ever stopping
+#: line tracking or scripting a blind turn -- unlike a T junction, a single continuous curve
+#: gives the sensor everything it needs; it just needs a tighter response to keep up.
+#:
+#: Distances (cm since the pending "roundabout entry" junction's last accept) are derived from
+#: docs/task1-single-source-of-truth.md section 3 (Phase 2 = 16.0, ARC 1 ~3.6, Phase 4 = 19.2,
+#: ARC 2 ~14.2, Phase 6 = 58.5, ARC 3 ~7.2, Phase 8 = 7.5), with a margin that widens for the
+#: later corners because the 10cm/s distance estimate drifts further from the real position the
+#: longer the car has driven since the last confirmed junction. The margins and scale factors
+#: are a first estimate, not a measured constant -- re-tune from real track logs.
+TASK1_CORNER_WINDOWS: tuple[CornerWindow, ...] = (
+    CornerWindow("ARC 1 SE corner", "roundabout entry", 12.0, 23.0, 0.6, 0.5),
+    CornerWindow("ARC 2 NE corner", "roundabout entry", 33.0, 58.0, 0.6, 0.5),
+    CornerWindow("ARC 3 NW corner", "roundabout entry", 102.0, 124.0, 0.6, 0.5),
+)
+
+
 #: The same lap without the one-time stem out of the start box, for starting the car already
 #: on the east-west line facing east. The prologue T is the junction that contaminated the
 #: 2026-08-19 run's sequence, so dropping it isolates the loop logic from that interaction.

@@ -496,3 +496,86 @@ def test_roundabout_exit_confirm_reading_still_holds_instead_of_steering_mid_dwe
     assert cmd.state is IRNavState.FOLLOW
     assert cmd.left == cmd.right == 150
     assert "roundabout exit" in cmd.reason
+
+
+# ------------------------------------------------- 2026-08-20 search distance + corner window
+#
+# The car reportedly ran off the map turning from Phase 2 onto Phase 4 (ARC 1). Two fixes:
+# (1) JunctionSequencer.travel() was crediting SEARCH's sweep sub-phases -- pure rotation,
+# like JUNCTION_TURN -- as forward progress, so a lost car could rack up fabricated distance
+# and desynchronise the route from the physical map. (2) ARC 1/2/3 are tight enough (~2.3cm
+# radius) that steady-state FOLLOW gains ran wide off the curve; corner windows slow down and
+# sharpen the correction for those stretches without ever stopping line tracking.
+
+
+def test_search_sweep_does_not_advance_the_distance_gate():
+    """Regression: SEARCH used to be credited as forward motion like ordinary FOLLOW, so a
+    lost car (spinning in place hunting for the line) could fabricate enough "distance" to
+    open a gate it never physically reached. The frame that transitions FOLLOW -> SEARCH is
+    still credited under the pre-transition state (the same rule JUNCTION_TURN already used);
+    what must not happen is *further* accrual on later frames while still in SEARCH."""
+    nav = default_nav()
+    nav.step(make_reading(GAP), 0.5)  # transition frame: credited once, enters SEARCH
+    assert nav.state is IRNavState.SEARCH
+    after_entry = nav.junctions.cm_since_previous
+    nav.step(make_reading(GAP), 0.5)  # still sweeping
+    nav.step(make_reading(GAP), 0.5)
+    assert nav.state is IRNavState.SEARCH
+    assert nav.junctions.cm_since_previous == pytest.approx(after_entry)
+
+
+def test_search_creep_sub_phase_also_does_not_advance_the_gate():
+    """Even the forward-creep sub-phase of SEARCH is excluded -- its speed differs from the
+    forward_speed_cm_per_s the gate assumes, and the car's real position is not known while
+    still lost, so no partial credit is given until the line is reacquired and FOLLOW resumes."""
+    nav = default_nav(search_creep_step_s=0.1)
+    nav.step(make_reading(GAP), 0.05)  # transition frame: one credit, enters SEARCH
+    assert nav.state is IRNavState.SEARCH
+    after_entry = nav.junctions.cm_since_previous
+    for _ in range(80):  # sweep left, sweep right, several creep steps
+        nav.step(make_reading(GAP), 0.05)
+        if nav.state is not IRNavState.SEARCH:
+            break
+    assert nav.state is IRNavState.SEARCH
+    assert nav.junctions.cm_since_previous == pytest.approx(after_entry)
+
+
+def _roundabout_entry_only_nav(cm_since_previous: float, **policy_kwargs) -> IRLineNav:
+    """A nav whose pending junction is "roundabout entry" with cm_since_previous set directly,
+    so a corner window's effect can be checked without driving through the whole approach."""
+    from carbot.ir_route import JunctionAction, RouteJunction, RoutePlan
+
+    entry_only = RoutePlan(
+        prologue=(),
+        loop=(RouteJunction("roundabout entry", JunctionAction.TURN_RIGHT, 0.0),),
+    )
+    nav = default_nav(route=entry_only, **policy_kwargs)
+    nav.junctions.travel(cm_since_previous)
+    return nav
+
+
+def test_corner_window_slows_down_and_sharpens_the_correction():
+    nav = _roundabout_entry_only_nav(cm_since_previous=18.0)  # inside ARC 1's 12-23cm window
+    cmd = nav.step(make_reading(DRIFT_RIGHT), 0.001)
+    assert cmd.state is IRNavState.FOLLOW
+    assert cmd.left == 90  # speed scaled 150 * 0.6
+    assert cmd.right == 33  # inner_ratio 0.73 * 0.5, off the scaled speed
+    assert "ARC 1 SE corner window" in cmd.reason
+
+
+def test_corner_window_does_not_apply_outside_its_range():
+    nav = _roundabout_entry_only_nav(cm_since_previous=5.0)  # Phase 2 straight, before ARC 1
+    cmd = nav.step(make_reading(DRIFT_RIGHT), 0.001)
+    assert cmd.left == 150
+    assert cmd.right == round(150 * 0.73)
+    assert "window" not in cmd.reason
+
+
+def test_corner_windows_do_not_apply_while_a_different_junction_is_pending():
+    """The windows are keyed to "roundabout entry" being pending -- the same cm_since_previous
+    range means nothing while approaching a different junction."""
+    nav = default_nav(junction_min_s=999.0)  # start stem T pending, never confirms
+    nav.junctions.travel(18.0)  # would be inside ARC 1's window if entry were pending
+    cmd = nav.step(make_reading(DRIFT_RIGHT), 0.001)
+    assert cmd.left == 150
+    assert "window" not in cmd.reason

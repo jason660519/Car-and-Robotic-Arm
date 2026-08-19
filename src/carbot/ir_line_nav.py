@@ -55,7 +55,14 @@ from carbot.ir_geometry import (
     to_physical,
     wheel_speeds,
 )
-from carbot.ir_route import TASK1_ROUTE, JunctionAction, JunctionSequencer, RoutePlan
+from carbot.ir_route import (
+    TASK1_CORNER_WINDOWS,
+    TASK1_ROUTE,
+    CornerWindow,
+    JunctionAction,
+    JunctionSequencer,
+    RoutePlan,
+)
 
 if TYPE_CHECKING:
     from carbot.ir_tracing import IRTracingSensor
@@ -281,6 +288,10 @@ class IRNavPolicy:
     # The junction sequence for the lap. `turn_direction` above is only the fallback used
     # before the first junction is reached; each junction carries its own direction.
     route: RoutePlan = TASK1_ROUTE
+    # Stretches of continuous curve too tight for the steady-state gains above -- see
+    # carbot.ir_route.CornerWindow. Applied only while FOLLOWing; never turns off line
+    # tracking, only drives slower and corrects harder for that stretch.
+    corner_windows: tuple[CornerWindow, ...] = TASK1_CORNER_WINDOWS
 
     def __post_init__(self) -> None:
         if not 0 <= self.speed <= 1000:
@@ -384,9 +395,14 @@ class IRLineNav:
         # wheels again. A stop that could be un-stopped by a stray reading is not a stop.
         if self.state is IRNavState.STOPPED:
             return self._halt("route complete")
-        # Feed the junction distance gate. A pivot covers no ground, so it must not count;
-        # everything else is close enough to forward motion at this resolution.
-        if self.state is not IRNavState.JUNCTION_TURN:
+        # Feed the junction distance gate. A pivot covers no ground, so it must not count --
+        # and neither does SEARCH: its sweep sub-phases are rotations too (like JUNCTION_TURN,
+        # not "close enough to forward motion"), and a search happening at all means the car's
+        # position is not actually known, so crediting assumed forward progress during it is
+        # exactly the kind of fabricated distance that let a lost car look, on paper, like it
+        # was still making planned progress -- see the carbot.ir_route module docstring,
+        # 2026-08-20. Distance resumes accruing once the line is reacquired and FOLLOW resumes.
+        if self.state not in (IRNavState.JUNCTION_TURN, IRNavState.SEARCH):
             self.junctions.travel(dt * self.policy.forward_speed_cm_per_s)
         if self.state is IRNavState.JUNCTION_TURN:
             return self._turn_step(dt)
@@ -401,8 +417,24 @@ class IRLineNav:
         self._last_command = cmd
         return cmd
 
+    def _active_corner_window(self) -> CornerWindow | None:
+        """The corner window covering the route's current estimated position, if any."""
+        pending = self.junctions.pending
+        cm = self.junctions.cm_since_previous
+        for window in self.policy.corner_windows:
+            if pending.name == window.while_pending and window.start_cm <= cm <= window.end_cm:
+                return window
+        return None
+
     def _steer(self, state: IRState, note: str) -> IRNavCommand:
-        left, right = wheel_speeds(self.policy.speed, state.direction, state.inner_ratio)
+        speed = self.policy.speed
+        inner_ratio = state.inner_ratio
+        window = self._active_corner_window()
+        if window is not None:
+            speed = round(speed * window.speed_scale)
+            inner_ratio = max(0.0, min(1.0, inner_ratio * window.inner_ratio_scale))
+            note = f"{note} [{window.name} window]"
+        left, right = wheel_speeds(speed, state.direction, inner_ratio)
         cmd = IRNavCommand(left, right, note, IRNavState.FOLLOW)
         self._last_command = cmd
         return cmd
