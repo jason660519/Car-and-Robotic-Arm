@@ -105,3 +105,46 @@ real track logs, the same way the spin calibration itself was re-measured in
 - The 2026-08-20 "second pass" fixes this session's rewrite absorbs rather than reverts:
   SEARCH not fabricating distance credit, and the post-turn `_last_localising` reset (still
   present in `_turn_step`, both completion paths).
+
+## 6. First real-track run of the rewrite: a launch-time regression, then a real-track refinement
+
+`--laps 1` on the rewritten code steered left at ~0.2s into the run (`P1110`, "branch or
+curve on the left") and never recovered — 0 junctions taken in 37s, a wandering
+search/drift loop, and the run ended on an unrelated I2C bus fault (operator cut power; see
+the safety note below, not a code issue).
+
+Root cause: the rewrite dropped the old blanket "a `Kind.JUNCTION` reading never steers"
+rule when it replaced the dwell timer with `_approach_step`, and nothing took its place — a
+reading that didn't match the pending junction's current approach step fell all the way
+through to the generic offset-based steer, exactly the class of bug the 2026-08-20 "second
+pass" had already fixed once for the dwell-timer design.
+
+The immediate fix (blanket "any unmatched `Kind.JUNCTION` reading holds") turned out to be
+wrong too, once the operator supplied a further real-track observation: `0111`/`1110`
+commonly appear **just before** a real `1111` crossbar (and, symmetrically, just before the
+post-crossbar `0000`) — an ordinary skewed-approach reading, not noise. Holding here would
+have reintroduced the 2026-08-19 regression from the *other* direction: `Kind.JUNCTION` also
+covers "badly skewed pass over a curve" (see `carbot.ir_geometry`), and that case has to keep
+steering or the car drives off the map.
+
+The two are told apart by whether any progress has actually been made on the pending
+junction's approach sequence yet (`started`: this step's `min_cm` partly satisfied, or
+already past step 0):
+
+- **Not started** — indistinguishable from an ordinary curve; keep steering on it.
+- **Started** — close to a real, mostly-confirmed junction; an unrelated `Kind.JUNCTION`
+  reading here is far more likely crossbar shoulder noise than a genuine curve, so it holds
+  instead, without losing the progress already made.
+
+A related bug surfaced while implementing this: the "fast transition" allowance (skip
+straight to the next approach step if the reading matches it, in case a frame was missed)
+was checking the next step's target even from a completely fresh, unstarted sequence —
+meaning an ordinary `0000` (the blind band, or any real line loss, common everywhere) would
+instantly "complete" any junction whose *last* approach step happens to be `0000` (both the
+start-stem T and the roundabout entry), with zero persistence ever actually checked. Fixed
+by requiring `started` before the fast-transition check runs at all.
+
+See `IRLineNav._approach_step`'s docstring for the final logic, and
+`test_a_skewed_approach_reading_before_the_first_step_still_steers` /
+`test_a_junction_shaped_reading_that_breaks_a_started_sequence_holds` in
+`tests/test_ir_line_nav.py` for the two cases as regression tests.

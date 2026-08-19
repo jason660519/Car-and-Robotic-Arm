@@ -441,36 +441,62 @@ class IRLineNav:
     ) -> IRNavCommand | None:
         """(a/e/f/g/h) Advance `pending`'s ordered approach sequence
         (`carbot.ir_route.RouteJunction.approach`) if `reading` matches the step currently
-        being tracked -- or the sequence's first step, after a reset.
+        being tracked, or the next one (a fast transition).
 
         Returns a hold command while still mid-sequence, the arrival command
         (`_reach_junction`) once the last step completes, or ``None`` if this reading is not
-        part of the sequence at all — the caller falls through to normal steering. A reading
-        that matches neither the current nor the next expected step resets tracking to the
-        first step (tried once more this same frame) rather than getting stuck partway
-        through a stale match.
+        part of the sequence at all — the caller falls through to normal steering.
+
+        A reading that matches neither the current nor the next expected step is handled by
+        whether any progress has actually been made yet (``started``: this step's own
+        ``min_cm`` partly satisfied, or already past step 0):
+
+        * **Not started** (index 0, no distance accumulated) — `Kind.JUNCTION` readings here
+          are exactly the "badly skewed pass over a curve" case `carbot.ir_geometry` already
+          warns about (2026-08-20 real-track: `0111`/`1110` commonly appear just *before* a
+          real crossbar too, as a skewed approach) — indistinguishable from an ordinary curve
+          at this point, so it must keep steering on it (2026-08-19 regression: holding
+          straight here drove the car off the paper).
+        * **Started** — real progress has been made on a specific junction's sequence, so an
+          unrelated `Kind.JUNCTION` reading here is far more likely a shoulder around the
+          crossbar than a genuine curve; steering on it risks throwing off an approach that
+          is mostly confirmed, so it holds instead and progress resets (2026-08-20 real-track
+          regression: a bare mid-sequence blip steered the car off course before it ever
+          reached the actual junction).
         """
         approach = pending.approach
-        for _ in range(2):  # one reset-and-retry from step 0, for a stray mid-sequence frame
-            step = approach[self._approach_index]
-            if reading.physical == step.bits:
-                self._approach_cm += dt * self.policy.forward_speed_cm_per_s
-                if self._approach_cm < step.min_cm:
-                    return self._hold(
-                        f"approaching {pending.name}, step {self._approach_index + 1}/"
-                        f"{len(approach)} ({reading.summary}) "
-                        f"{self._approach_cm:.2f}/{step.min_cm:.2f}cm"
-                    )
-                if self._approach_index == len(approach) - 1:
-                    return self._reach_junction(reading)
-                self._approach_index += 1
-                self._approach_cm = 0.0
+        index = self._approach_index
+        step = approach[index]
+        if reading.physical == step.bits:
+            self._approach_cm += dt * self.policy.forward_speed_cm_per_s
+            if self._approach_cm < step.min_cm:
                 return self._hold(
-                    f"approaching {pending.name}, step {self._approach_index + 1}/"
-                    f"{len(approach)} ({reading.summary})"
+                    f"approaching {pending.name}, step {index + 1}/{len(approach)} "
+                    f"({reading.summary}) {self._approach_cm:.2f}/{step.min_cm:.2f}cm"
                 )
-            if self._approach_index == 0:
-                return None
+            if index == len(approach) - 1:
+                return self._reach_junction(reading)
+            self._approach_index += 1
+            self._approach_cm = 0.0
+            return self._hold(
+                f"approaching {pending.name}, step {self._approach_index + 1}/"
+                f"{len(approach)} ({reading.summary})"
+            )
+        started = index > 0 or self._approach_cm > 0
+        if started and index + 1 < len(approach) and reading.physical == approach[index + 1].bits:
+            # Fast transition: real progress had already been made (step 0 at least partly
+            # matched), and the sensor jumped straight to the next step's reading without a
+            # frame catching the one in between. NOT applied from a completely fresh state
+            # (started False) -- otherwise an ordinary 0000 (the blind band, or a genuine
+            # line loss, common everywhere) would instantly "complete" any junction whose
+            # last approach step happens to be 0000, with zero persistence ever checked.
+            self._approach_index += 1
+            self._approach_cm = 0.0
+            return self._approach_step(pending, reading, dt)
+
+        if reading.state.kind is Kind.JUNCTION and started:
+            return self._hold(f"broke {pending.name}'s approach mid-sequence ({reading.summary})")
+        if started:
             self._approach_index = 0
             self._approach_cm = 0.0
         return None
@@ -560,11 +586,6 @@ class IRLineNav:
             self._crossing = False
 
         pending = self.junctions.pending
-        # Captured before _approach_step runs (which may reset these to 0): distinguishes
-        # "we hadn't started matching pending's approach at all" from "we were partway
-        # through it and this reading broke the sequence" -- the two need opposite handling
-        # just below.
-        was_mid_approach = self._approach_index > 0 or self._approach_cm > 0
         approached = self._approach_step(pending, reading, dt)
         if approached is not None:
             return approached
@@ -574,24 +595,6 @@ class IRLineNav:
             # undulation, a mis-tuned pot, or a second feature. Never steer.
             self.noise_frames += 1
             return self._hold(f"noise {state.label}")
-
-        if state.kind is Kind.JUNCTION and was_mid_approach:
-            # A second dark feature that broke a sequence already partway matched (real-track
-            # 2026-08-20: interrupted mid-approach by a reading the sequence did not expect).
-            # Unlike an ordinary curve, this one is close to a real junction and about to
-            # commit to an action -- steering hard on its offset here risks throwing off an
-            # approach that was already most of the way confirmed. Hold instead.
-            #
-            # NOT held when approach tracking hadn't started yet (was_mid_approach False):
-            # 0111/1110 before a symmetric 1111, and 0001/1000 before the post-crossbar 0000,
-            # are the ordinary signature of approaching a real crossbar from a skewed angle
-            # (2026-08-20 real-track observation) -- exactly like any other curve, and must
-            # keep steering, same as the 2026-08-19 "gated-out junction still steers"
-            # regression this preserves (see test_a_gated_out_junction_still_steers_toward_the_line).
-            self.noise_frames += 1
-            return self._hold(
-                f"junction-shaped ({state.label}) broke {pending.name}'s approach mid-sequence"
-            )
 
         if state.kind is Kind.AMBIGUOUS:
             verdict, offset = resolve_blind(self._last_localising)
