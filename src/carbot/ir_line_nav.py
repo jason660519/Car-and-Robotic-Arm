@@ -407,6 +407,22 @@ class IRLineNav:
         self._last_command = cmd
         return cmd
 
+    def _hold(self, base_reason: str) -> IRNavCommand:
+        """Keep driving the last steady command instead of correcting on this reading.
+
+        Used for genuine noise (impossible from one line) and for a junction reading still
+        short of its confirm dwell: neither should feed the generic offset-based correction,
+        which is only valid for a single straight line under the bar.
+        """
+        if self._last_command is not None:
+            return IRNavCommand(
+                self._last_command.left,
+                self._last_command.right,
+                f"{base_reason}: holding previous",
+                IRNavState.FOLLOW,
+            )
+        return self._steer(classify((0, 1, 1, 0), physical=True), f"{base_reason}: no history")
+
     def _commit_junction(self, label: str, direction: int) -> IRNavCommand:
         """Confirmed junction: creep to put the axle on it, then turn.
 
@@ -468,39 +484,43 @@ class IRLineNav:
     def _follow_step(self, reading: IRLineReading, dt: float) -> IRNavCommand:
         state = reading.state
 
-        if state.kind is Kind.JUNCTION:
-            if self._crossing:
+        if self._crossing:
+            if state.kind is Kind.JUNCTION:
                 # Still driving over the junction just crossed. Steering on this reading would
                 # pull the car onto the branch it decided not to take.
                 return self._steer(
                     classify((0, 1, 1, 0), physical=True),
                     f"still over {self.last_junction}, holding straight",
                 )
+            self._crossing = False
+
+        # Confirmation is keyed on the pending junction's own signature set, not the generic
+        # Kind.JUNCTION classification -- a junction can widen past that default (see
+        # carbot.ir_route.ROUNDABOUT_EXIT_SIGNATURES) when a real run showed it producing a
+        # reading the default set does not cover.
+        pending = self.junctions.pending
+        if reading.physical in pending.confirm_signatures:
             self._junction_elapsed += dt
             if self._junction_elapsed >= self.policy.junction_min_s:
                 return self._reach_junction(state)
-            return self._steer(
-                state,
-                f"possible junction {state.label}: "
-                f"{self._junction_elapsed:.2f}/{self.policy.junction_min_s:.2f}s",
+            # Hold the last steady command rather than steer on this reading's offset: that
+            # offset is derived from a single straight 2cm line and does not describe a
+            # junction feature (a curve, branch, or crossbar). Steering on it here is what
+            # pulled the car off its approach before the route-driven turn/cross ever started
+            # -- see the carbot.ir_route module docstring, 2026-08-20 fix. The distance-gate
+            # rejection path inside _reach_junction is unaffected: that one has to keep
+            # steering, for a different and already-fixed failure (see its own comment).
+            return self._hold(
+                f"possible junction ({pending.name}, {reading.summary}) "
+                f"{self._junction_elapsed:.2f}/{self.policy.junction_min_s:.2f}s"
             )
         self._junction_elapsed = 0.0
-        self._crossing = False
 
         if state.kind is Kind.NOISE:
             # Non-contiguous black: one 2 cm line cannot produce it, so it is
             # undulation, a mis-tuned pot, or a second feature. Never steer.
             self.noise_frames += 1
-            if self._last_command is not None:
-                return IRNavCommand(
-                    self._last_command.left,
-                    self._last_command.right,
-                    f"noise {state.label}: holding previous",
-                    IRNavState.FOLLOW,
-                )
-            return self._steer(
-                classify((0, 1, 1, 0), physical=True), f"noise {state.label}: no history"
-            )
+            return self._hold(f"noise {state.label}")
 
         if state.kind is Kind.AMBIGUOUS:
             verdict, offset = resolve_blind(self._last_localising)
@@ -562,6 +582,14 @@ class IRLineNav:
         if self._turn_elapsed >= self.policy.nominal_turn_s():
             self.state = IRNavState.FOLLOW
             self._junction_elapsed = 0.0
+            # The pivot is timed, not angle-verified (see the docstring above), so the real
+            # turn lands anywhere around turn_deg -- 85-93 deg measured on the real track, not
+            # a clean 90. A 0000 right after landing is common and must not be resolved with
+            # the line position from before the turn: that geometry belongs to the old
+            # heading and says nothing about where the line is on the new one. Clearing this
+            # forces resolve_blind() to return "lost" instead of guessing "blind band",
+            # so the car searches instead of driving straight on a stale assumption.
+            self._last_localising = None
             return IRNavCommand(
                 self.policy.speed,
                 self.policy.speed,

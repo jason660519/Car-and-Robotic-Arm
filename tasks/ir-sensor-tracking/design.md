@@ -128,6 +128,58 @@ re-synchronisation was worth nothing here because its anchor was not unique,
 and the gate rejects the repeats that would slip the counter in the first
 place. `--start-on-loop` drops the prologue for starting on the east-west line.
 
+**2026-08-20 correction: `1111` is not unique either, anywhere in the lap.**
+An earlier version of this doc (and the top of
+[docs/task1-single-source-of-truth.md](../../docs/task1-single-source-of-truth.md))
+described the roundabout entry's `1111` as an "unambiguous" signal used to
+sync each lap. That is wrong in the same way the retired boolean design was
+wrong: `1111` reads at the start stem T, the roundabout entry, *and* the
+roundabout exit, and a flat straight section can spuriously produce a
+junction-shaped reading (e.g. `0111`) from paper unevenness or a sensor
+misread. Nothing about `1111` (or any single reading) is unique — the system
+works despite that, purely from the three layers already described above:
+sequence position, the dwell timer filtering brief noise, and the distance
+gate filtering real features that turn up too early. The roundabout entry has
+no special status beyond being node 2 of a fixed, known order.
+
+## 2026-08-20 two-lap track run: two more failures, both fixed
+
+Running the two-lap plan end to end did not complete. Root cause both times:
+the nav layer treated a junction-shaped reading as if it were still a normal
+line-following reading, either for classification or for steering.
+
+1. **Roundabout exit dwell timer reset by noise.** The exit produced `0111`,
+   `1001`, `1111`, `1110` in no fixed order. `0111`/`1111`/`1110` are
+   `Kind.JUNCTION` and fed the dwell counter; `1001` is `Kind.NOISE` (no
+   single 2cm line can produce it) and fell outside it. Every `1001` frame
+   between qualifying ones reset the counter to zero, so the sustained bar
+   never got confirmed. Fix: `RouteJunction.confirm_signatures` — each
+   junction now declares its own accepted reading set instead of relying on
+   the generic `Kind.JUNCTION` classification; the roundabout exit's set adds
+   `1001` (`ROUNDABOUT_EXIT_SIGNATURES` in
+   [`carbot.ir_route`](../../src/carbot/ir_route.py)). No other junction
+   showed this problem, so their sets stayed at the default.
+2. **Steering did not stop for a junction-shaped reading mid-dwell.** Before
+   the dwell timer finished, `IRLineNav` was still steering proportionally on
+   the confirming reading's `offset_cm` — a number derived from where a
+   single straight line sits under the bar, meaningless for a curve, branch,
+   or crossbar. Correcting on it pulled the car off its approach before the
+   route-driven turn/cross ever ran. Fix: hold the last steady line-following
+   command during that dwell window instead (`IRLineNav._hold`); the
+   distance-gate-rejected path is unchanged, since that one has to keep
+   steering for a different, already-fixed failure (see its own comment in
+   `ir_line_nav.py`).
+3. **A related latent bug found while diagnosing the above: post-turn `0000`
+   used stale pre-turn line position.** The pivot (`_turn_step`) is a pure
+   timed spin, not angle-verified — measured 85-93° on the real track, not a
+   clean 90. A `0000` right after landing is therefore common, and
+   `resolve_blind()` was still consulting `_last_localising` from *before*
+   the turn to decide "blind band" vs "lost". That geometry belongs to the
+   old heading and says nothing about the new one. Fix: `_turn_step` clears
+   `_last_localising` when the turn completes, so a post-turn `0000` always
+   resolves to "lost" (search) instead of a stale "keep going straight"
+   guess.
+
 The three outer corners (ARC 1 SE, ARC 2 NE, ARC 3 NW) are **left** curves and
 are not junctions — they produce no `1111` and are followed by ordinary
 steering. Together with the roundabout's 270°, roughly 43% of the route is a

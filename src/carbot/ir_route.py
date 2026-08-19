@@ -23,6 +23,29 @@ reading's only job here is "a junction is under the bar"; the action comes from 
 and a distance gate rejects re-reads of the junction just handled. The gaps between junctions
 differ by more than 6x, which is what makes a coarse distance estimate enough to hold the
 sequence together.
+
+2026-08-20 two-lap track run: still failed, two more premises down
+--------------------------------------------------------------------
+Running the two-lap plan end to end on real hardware did not complete. Two more assumptions
+this design still leaned on turned out false:
+
+* **The roundabout exit's dwell timer never completed.** The exit produced ``0111``, ``1001``,
+  ``1111`` and ``1110`` across the approach, in no fixed order. ``0111``/``1111``/``1110`` are
+  ``Kind.JUNCTION`` and fed the dwell counter; ``1001`` is ``Kind.NOISE`` (not a signature one
+  2cm line can produce) and was outside it. Every time a ``1001`` frame landed between
+  qualifying ones, ``IRLineNav._follow_step`` reset the dwell counter to zero (the same "not a
+  junction reading, reset" branch that normally protects against noise mid-line). The sustained
+  bar was real; the counter just never survived long enough to see it. ``ROUNDABOUT_EXIT_SIGNATURES``
+  below widens the confirm set for this one junction so ``1001`` no longer interrupts it.
+* **Steering did not stop just because a reading was junction-shaped.** Before the dwell timer
+  finishes (and, separately, whenever the distance gate rejects an early reading), the nav layer
+  was still steering proportionally on the confirming reading's ``offset_cm``. That offset is
+  derived from where a single straight 2cm line sits under the bar; it does not describe a
+  roundabout exit curve or a T-junction crossbar, so correcting on it pulled the car off its
+  approach before the route-driven turn/cross ever got to run. ``carbot.ir_line_nav.IRLineNav``
+  now holds the last steady line-following command instead of steering during that dwell window
+  (the distance-gate-rejected case is unchanged — see its own comment, that one has to keep
+  steering to avoid a different, already-fixed failure).
 """
 
 from __future__ import annotations
@@ -40,6 +63,21 @@ class JunctionAction(Enum):
     STOP = "stop"  # the planned lap count ends here; halt
 
 
+#: Physical P1..P4 readings that count as "this junction has arrived", for junctions that
+#: have not shown a real-hardware anomaly. Every signature carbot.ir_geometry classifies
+#: Kind.JUNCTION -- the symmetric crossbar plus a curve/branch read from either side or at
+#: too shallow an angle to separate the sensor pairs.
+DEFAULT_JUNCTION_SIGNATURES: frozenset[tuple[int, int, int, int]] = frozenset(
+    {
+        (1, 1, 1, 1),
+        (0, 1, 1, 1),
+        (1, 1, 1, 0),
+        (0, 0, 1, 1),
+        (1, 1, 0, 0),
+    }
+)
+
+
 @dataclass(frozen=True)
 class RouteJunction:
     name: str
@@ -48,6 +86,10 @@ class RouteJunction:
     #: accepted. Set to roughly half the true spacing so a slow or wandering lap still clears
     #: it, while a second reading of the junction just handled does not.
     min_cm_since_previous: float
+    #: Physical readings that confirm this specific junction. Defaults to
+    #: DEFAULT_JUNCTION_SIGNATURES; widen only where a real track run showed this junction
+    #: producing a reading outside that default (see ROUNDABOUT_EXIT_SIGNATURES).
+    confirm_signatures: frozenset[tuple[int, int, int, int]] = DEFAULT_JUNCTION_SIGNATURES
 
     @property
     def turn_direction(self) -> int:
@@ -84,6 +126,14 @@ class RoutePlan:
 #:
 #:   start box --10cm--> T (right) --~150cm--> roundabout entry (right)
 #:     --~85cm arc--> roundabout exit (right) --23cm--> T (cross) --~150cm--> ...
+#: 2026-08-20 track run: the roundabout exit produced (1,0,0,1) alongside the expected
+#: junction signatures. carbot.ir_geometry classifies it Kind.NOISE (no single 2cm line can
+#: produce it), so left out of this set it was resetting the dwell counter every time it
+#: landed between qualifying frames -- see the module docstring above.
+ROUNDABOUT_EXIT_SIGNATURES: frozenset[tuple[int, int, int, int]] = DEFAULT_JUNCTION_SIGNATURES | {
+    (1, 0, 0, 1)
+}
+
 TASK1_ROUTE = RoutePlan(
     # No gate on the first one: there is no previous junction to mistake it for, and the
     # sensor sits 9.5cm ahead of the axle, so it can be over the T almost as soon as the car
@@ -91,7 +141,12 @@ TASK1_ROUTE = RoutePlan(
     prologue=(RouteJunction("start stem T junction", JunctionAction.TURN_RIGHT, 0.0),),
     loop=(
         RouteJunction("roundabout entry", JunctionAction.TURN_RIGHT, 60.0),
-        RouteJunction("roundabout exit", JunctionAction.TURN_RIGHT, 40.0),
+        RouteJunction(
+            "roundabout exit",
+            JunctionAction.TURN_RIGHT,
+            40.0,
+            confirm_signatures=ROUNDABOUT_EXIT_SIGNATURES,
+        ),
         RouteJunction("T junction", JunctionAction.CROSS, 10.0),
     ),
 )
@@ -116,7 +171,10 @@ def task1_route_for_laps(laps: int, *, start_on_loop: bool = False) -> RoutePlan
         raise ValueError("laps must be at least 1")
     base = TASK1_LOOP_ONLY if start_on_loop else TASK1_ROUTE
     final_t = RouteJunction(
-        "final T junction", JunctionAction.STOP, base.loop[-1].min_cm_since_previous
+        "final T junction",
+        JunctionAction.STOP,
+        base.loop[-1].min_cm_since_previous,
+        confirm_signatures=base.loop[-1].confirm_signatures,
     )
     return RoutePlan(
         prologue=base.prologue + base.loop * (laps - 1) + base.loop[:-1],

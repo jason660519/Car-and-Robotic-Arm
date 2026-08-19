@@ -70,6 +70,25 @@ def test_line_lost_enters_search_with_left_sweep():
     assert "sweep left" in cmd.reason
 
 
+def test_post_turn_0000_starts_a_search_not_a_stale_pre_turn_blind_band():
+    """The pivot is timed, not angle-verified (85-93 deg measured on the real track, not a
+    clean 90), so a 0000 right after landing is common. The line position from before the
+    turn belongs to the old heading and must not decide whether this is the "blind band":
+    that only makes sense while still on the same line the reading was taken from."""
+    nav = default_nav(junction_min_s=0.05, creep_before_turn_cm=1.0)  # 1cm @ 10cm/s = 0.1s
+    # DRIFT_RIGHT is in ir_geometry.BLIND_AFTER_RIGHT -- if this survived the turn, the
+    # post-turn 0000 below would be misread as "blind band, keep going" instead of "lost".
+    nav.step(make_reading(DRIFT_RIGHT), 0.01)
+    on_line = make_reading(CROSSBAR)
+    nav.step(on_line, 0.1)  # junction confirmed -> JUNCTION_CREEP
+    nav.step(on_line, 0.2)  # creep done -> JUNCTION_TURN
+    cmd = nav.step(on_line, 5.0)  # nominal turn time done -> FOLLOW
+    assert cmd.state is IRNavState.FOLLOW
+    cmd = nav.step(make_reading(GAP), dt=0.1)  # 0000 immediately after landing
+    assert cmd.state is IRNavState.SEARCH
+    assert "sweep left" in cmd.reason
+
+
 def test_line_lost_after_junction_turn_enters_search():
     """The reported failure: after the T-junction the car faces the ~2.4cm
     gap between the sensor pairs and reads nothing — it must search, not stop."""
@@ -404,3 +423,76 @@ def test_a_gated_out_junction_does_not_advance_the_route():
     _hold_junction(nav, SKEW_LEFT)
     assert nav.junctions.pending.name == pending_before
     assert nav.junctions_seen == 0
+
+
+# ------------------------------------------------- 2026-08-20 real-track dwell fix
+#
+# Two failures on the two-lap track run: (1) the roundabout exit's dwell timer kept getting
+# reset by an interleaved NOISE-classified reading the default signature set did not cover,
+# so the sustained bar was never confirmed; (2) while still dwelling toward a confirmed
+# junction, steering kept correcting on that reading's offset -- valid for a single straight
+# line, not for a curve/branch/crossbar -- pulling the car off its approach before the
+# route-driven action ever ran. See carbot.ir_route module docstring for the full diagnosis.
+
+ROUNDABOUT_EXIT_NOISE = (0, 1, 0, 1)  # raw Out-order for physical 1001, seen mid-exit on track
+
+
+def _exit_only_nav(**policy_kwargs) -> IRLineNav:
+    """A nav whose only pending junction is the roundabout exit (0cm gate), so the dwell
+    fix can be checked in isolation from the rest of the lap."""
+    from carbot.ir_route import ROUNDABOUT_EXIT_SIGNATURES, JunctionAction, RouteJunction, RoutePlan
+
+    exit_only = RoutePlan(
+        prologue=(),
+        loop=(
+            RouteJunction(
+                "roundabout exit",
+                JunctionAction.TURN_RIGHT,
+                0.0,
+                confirm_signatures=ROUNDABOUT_EXIT_SIGNATURES,
+            ),
+        ),
+    )
+    return default_nav(route=exit_only, **policy_kwargs)
+
+
+def test_dwelling_on_a_pending_junction_holds_instead_of_steering_on_its_offset():
+    """Before the dwell reaches junction_min_s, the car must hold its last steady command,
+    not correct on the confirming reading's offset (RIGHT_BRANCH here would otherwise steer
+    hard toward one side purely because of how the generic table's offset happens to read)."""
+    nav = default_nav(junction_min_s=1.0, speed=150)
+    nav.step(make_reading(CENTRED), 0.01)  # establish a steady last-good command
+    cmd = nav.step(make_reading(RIGHT_BRANCH), 0.1)  # 0.1s < 1.0s min_s: still dwelling
+    assert cmd.state is IRNavState.FOLLOW
+    assert cmd.left == cmd.right == 150  # held the centred command, not steered on the offset
+    assert "possible junction" in cmd.reason
+    assert "holding previous" in cmd.reason
+
+
+def test_dwelling_with_no_history_yet_holds_centred_not_the_offset():
+    nav = default_nav(junction_min_s=1.0)
+    cmd = nav.step(make_reading(RIGHT_BRANCH), 0.1)
+    assert cmd.left == cmd.right == 150
+    assert "no history" in cmd.reason
+
+
+def test_roundabout_exit_dwell_survives_the_noise_reading_seen_on_track():
+    """1001 (Kind.NOISE) appeared between qualifying frames on the real exit and used to
+    reset the dwell counter every time it did -- the sustained bar never registered. Four
+    frames at dt=0.1s each interleave a NOISE-classified read with junction-shaped ones; the
+    total (0.4s) clears junction_min_s only if none of them resets the counter."""
+    nav = _exit_only_nav(junction_min_s=0.3)
+    sequence = [RIGHT_BRANCH, ROUNDABOUT_EXIT_NOISE, CROSSBAR, ROUNDABOUT_EXIT_NOISE]
+    cmd = None
+    for reading in sequence:
+        cmd = nav.step(make_reading(reading), 0.1)
+    assert cmd.state is IRNavState.JUNCTION_CREEP
+
+
+def test_roundabout_exit_confirm_reading_still_holds_instead_of_steering_mid_dwell():
+    nav = _exit_only_nav(junction_min_s=1.0)
+    nav.step(make_reading(CENTRED), 0.01)  # steady last-good command
+    cmd = nav.step(make_reading(ROUNDABOUT_EXIT_NOISE), 0.1)  # under min_s: still dwelling
+    assert cmd.state is IRNavState.FOLLOW
+    assert cmd.left == cmd.right == 150
+    assert "roundabout exit" in cmd.reason

@@ -9,6 +9,8 @@ from __future__ import annotations
 import pytest
 
 from carbot.ir_route import (
+    DEFAULT_JUNCTION_SIGNATURES,
+    ROUNDABOUT_EXIT_SIGNATURES,
     TASK1_LOOP_ONLY,
     TASK1_ROUTE,
     JunctionAction,
@@ -186,3 +188,36 @@ def test_lap_count_must_be_positive():
 def test_the_stop_keeps_the_t_junction_distance_gate():
     plan = task1_route_for_laps(2)
     assert plan.at(6).min_cm_since_previous == TASK1_ROUTE.loop[-1].min_cm_since_previous
+
+
+# --------------------------------------------------- 2026-08-20 real-track signature fix
+
+
+def test_roundabout_exit_accepts_the_noise_classified_reading_seen_on_track():
+    """1001 showed up interleaved with the junction-shaped readings on the real exit and is
+    Kind.NOISE, not Kind.JUNCTION -- it must still be in this junction's confirm set."""
+    exit_junction = TASK1_ROUTE.loop[1]
+    assert exit_junction.name == "roundabout exit"
+    assert (1, 0, 0, 1) in exit_junction.confirm_signatures
+    assert (1, 0, 0, 1) not in DEFAULT_JUNCTION_SIGNATURES
+
+
+def test_roundabout_exit_signatures_still_include_the_default_set():
+    assert DEFAULT_JUNCTION_SIGNATURES <= ROUNDABOUT_EXIT_SIGNATURES
+
+
+def test_other_junctions_keep_the_default_signature_set():
+    """No anomaly was reported at the start stem, roundabout entry, or the T junction --
+    only the exit's confirm set should be widened past the default."""
+    assert TASK1_ROUTE.prologue[0].confirm_signatures == DEFAULT_JUNCTION_SIGNATURES
+    assert TASK1_ROUTE.loop[0].confirm_signatures == DEFAULT_JUNCTION_SIGNATURES  # entry
+    assert TASK1_ROUTE.loop[2].confirm_signatures == DEFAULT_JUNCTION_SIGNATURES  # T junction
+
+
+def test_the_stop_keeps_the_widened_signatures_when_the_loop_ends_on_the_exit():
+    """task1_route_for_laps only ever stops on the T junction today, but the STOP synthesis
+    must carry whichever confirm set the closing junction actually has."""
+    plan = task1_route_for_laps(2)
+    stop = plan.at(6)
+    assert stop.action is JunctionAction.STOP
+    assert stop.confirm_signatures == TASK1_ROUTE.loop[-1].confirm_signatures
