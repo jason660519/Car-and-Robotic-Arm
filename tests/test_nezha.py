@@ -296,3 +296,36 @@ class TestCar:
         with Car(board):
             pass
         assert not bus.closed
+
+
+class FlakyBus(FakeBus):
+    """Fails the first `fail_times` writes of each kind with the errno the board produced."""
+
+    def __init__(self, fail_times: int) -> None:
+        super().__init__()
+        self.remaining = fail_times
+
+    def write_byte_data(self, addr, reg, value):
+        if self.remaining > 0:
+            self.remaining -= 1
+            raise OSError(121, "Remote I/O error")
+        super().write_byte_data(addr, reg, value)
+
+
+def test_transient_write_error_is_retried():
+    bus = FlakyBus(fail_times=2)
+    board = NeZha(bus, init_motors=False)
+    assert bus.calls == [("write_byte_data", 0x40, 0x00, 0xFF)]
+    assert board.write_retries == 2
+
+
+def test_write_error_raises_once_retries_are_exhausted():
+    bus = FlakyBus(fail_times=99)
+    with pytest.raises(NeZhaError, match="after 3 attempts"):
+        NeZha(bus, init_motors=False)
+
+
+def test_close_can_skip_stopping_motors(board: NeZha, bus: FakeBus):
+    """`Car.close` uses this after its own best-effort stop, so it must send nothing."""
+    board.close(stop_motors=False)
+    assert bus.calls == []

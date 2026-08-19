@@ -13,6 +13,8 @@ import time
 from typing import TYPE_CHECKING, Self
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from smbus2 import SMBus
 
 DEFAULT_ADDRESS = 0x40
@@ -44,6 +46,13 @@ SERVO_PWM_MAX = 250
 # Power-up delays marked as required by the vendor implementation
 RESET_DELAY_S = 0.1
 INIT_DELAY_S = 0.5
+
+# A write to this board sets state rather than advancing it — re-sending a motor speed, an init,
+# or a reset lands on the same result — so a transient bus error is safe to retry. Errno 121
+# (Remote I/O error) was observed on 2026-08-19 during a line-follow run with all four motors
+# driving; without a retry it killed the run and the stop path with it.
+WRITE_RETRIES = 2
+WRITE_RETRY_DELAY_S = 0.002
 
 # The vendor manual and source comments disagree on whether motor_a or motor_b is "forward".
 # Flip this constant only after verifying against real hardware.
@@ -87,19 +96,36 @@ class NeZha:
             self._owns_bus = False
 
         self.address = address
+        #: Transient bus writes that needed a retry. A run that ends with this well above zero is
+        #: reporting a marginal bus, even though nothing raised.
+        self.write_retries = 0
         time.sleep(INIT_DELAY_S)
         self.reset()
         if init_motors:
             self.init_motors()
 
     # ---------------------------------------------------------------- Low level
+    def _retry_write(self, write: Callable[[], None]) -> None:
+        """Run a bus write, retrying transient errors. Raises the last `OSError` if all fail."""
+        for attempt in range(WRITE_RETRIES + 1):
+            try:
+                write()
+            except OSError:
+                if attempt == WRITE_RETRIES:
+                    raise
+                self.write_retries += 1
+                time.sleep(WRITE_RETRY_DELAY_S)
+            else:
+                return
+
     def _command(self, command: int) -> None:
         """Write the command register. Mirrors vendor `NeZha_WriteCommand()`."""
         try:
-            self._bus.write_byte_data(self.address, REG_COMMAND, command)
+            self._retry_write(lambda: self._bus.write_byte_data(self.address, REG_COMMAND, command))
         except OSError as exc:
             raise NeZhaError(
-                f"Failed to write command 0x{command:02X} to address 0x{self.address:02X}. "
+                f"Failed to write command 0x{command:02X} to address 0x{self.address:02X} "
+                f"after {WRITE_RETRIES + 1} attempts. "
                 "Check wiring, power, and whether the I2C clock exceeds 200kHz."
             ) from exc
 
@@ -107,7 +133,7 @@ class NeZha:
         """Send the command register write, then the data frame in a second transfer."""
         self._command(command)
         try:
-            self._bus.write_i2c_block_data(self.address, command, data)
+            self._retry_write(lambda: self._bus.write_i2c_block_data(self.address, command, data))
         except OSError as exc:
             raise NeZhaError(f"Failed to send data for command 0x{command:02X}.") from exc
 

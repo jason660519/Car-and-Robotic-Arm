@@ -17,16 +17,25 @@ If motor wiring changes, lift the car and rerun `examples/02_motor_check.py`.
 from __future__ import annotations
 
 import time
+import warnings
 from typing import TYPE_CHECKING, Self
 
 from carbot import config
-from carbot.nezha import MAX_SPEED, NeZha
+from carbot.nezha import MAX_SPEED, NeZha, NeZhaError
 
 if TYPE_CHECKING:
     from smbus2 import SMBus
 
 LEFT_WHEELS = ("front_left", "rear_left")
 RIGHT_WHEELS = ("front_right", "rear_right")
+
+# Attempts per motor on the best-effort stop path, on top of the driver's own write retries.
+STOP_ATTEMPTS = 3
+STOP_RETRY_DELAY_S = 0.01
+
+WHEELS_MAY_BE_TURNING = (
+    "Could not confirm every motor stopped — the wheels may still be turning. Cut power."
+)
 
 
 class Car:
@@ -57,8 +66,30 @@ class Car:
             for n in motors:
                 self._board.motor(n, -speed if n in config.INVERTED_MOTORS else speed)
 
-    def stop(self) -> None:
-        self.drive(0, 0)
+    def stop(self, *, best_effort: bool = False) -> bool:
+        """Set both sides to zero. Returns whether every motor accepted the command.
+
+        With `best_effort`, keep trying the remaining motors after one fails and return `False`
+        instead of raising. A cleanup path must not abandon three motors because the first one
+        would not answer, and must not mask the exception that sent it there — but a caller that
+        gets `False` back has wheels that may still be turning, and must say so.
+        """
+        if not best_effort:
+            self.drive(0, 0)
+            return True
+
+        stopped = True
+        for n in self._left + self._right:
+            for attempt in range(STOP_ATTEMPTS):
+                try:
+                    self._board.motor(n, 0)
+                except NeZhaError:
+                    if attempt == STOP_ATTEMPTS - 1:
+                        stopped = False
+                    time.sleep(STOP_RETRY_DELAY_S)
+                else:
+                    break
+        return stopped
 
     # ------------------------------------------------------------- Movements
     def forward(self, speed: int = config.SAFE_TEST_SPEED) -> None:
@@ -87,15 +118,19 @@ class Car:
             self.drive(left, right)
             time.sleep(seconds)
         finally:
-            self.stop()
+            if not self.stop(best_effort=True):
+                warnings.warn(WHEELS_MAY_BE_TURNING, RuntimeWarning, stacklevel=2)
 
     # --------------------------------------------------------------- Cleanup
     def close(self) -> None:
         try:
-            self.stop()
+            if not self.stop(best_effort=True):
+                warnings.warn(WHEELS_MAY_BE_TURNING, RuntimeWarning, stacklevel=2)
         finally:
             if self._owns_board:
-                self._board.close()
+                # The board's own close() would stop the motors again through the same failing
+                # bus; we have already tried that as hard as we are going to.
+                self._board.close(stop_motors=False)
 
     def __enter__(self) -> Self:
         return self
