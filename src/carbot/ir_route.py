@@ -174,12 +174,20 @@ ROUNDABOUT_EXIT_SIGNATURES: frozenset[tuple[int, int, int, int]] = DEFAULT_JUNCT
 #      執行：IRLineNav._reach_junction 的 STOP 分支 -> _halt（ir_line_nav.py）。
 # ---------------------------------------------------------------------------------------
 TASK1_ROUTE = RoutePlan(
-    # No gate on the first one: there is no previous junction to mistake it for, and the
-    # sensor sits 9.5cm ahead of the axle, so it can be over the T almost as soon as the car
-    # leaves the start box.
+    # 2026-08-20 correction: this used to be 0.0 with the reasoning "no previous junction to
+    # mistake it for" -- true, but that only rules out *re-reading* a junction, not a spurious
+    # trigger before the car has gone anywhere (e.g. noise off the departure-box printing, or a
+    # motor-start electrical transient). A gate of 0 accepts either the instant the dwell timer
+    # clears, with no distance requirement at all. Photo evidence (2026-08-20) put the sensor
+    # roughly 6cm from the T at rest -- half of that, ~3cm, follows the same "half the real
+    # distance" rule used for every other gate below.
+    # 2026-08-20 修正：原本是 0.0，理由「沒有上一個路口可搞混」沒錯，但那只防得住「重複讀到
+    # 同一個路口」，防不住車子還沒真的往前走、就被雜訊（發車區印刷邊框、馬達啟動電氣雜訊）
+    # 誤判成路口——0 公分的距離要求形同虛設。實測（2026-08-20 照片）感測器靜止時離 T 路口約
+    # 6cm，取一半約 3cm，跟下面其他路口「取實際距離一半」的規則一致。
     prologue=(
         # (a) Start~T junction, ~90° right / 發車區~T路口，右轉約90度 -- lap 1 only, 僅第一圈
-        RouteJunction("start stem T junction", JunctionAction.TURN_RIGHT, 0.0),
+        RouteJunction("start stem T junction", JunctionAction.TURN_RIGHT, 3.0),
     ),
     loop=(
         # (e) Phase 8 entry -> roundabout, right / 圓環入口，右轉

@@ -76,6 +76,7 @@ def test_post_turn_0000_starts_a_search_not_a_stale_pre_turn_blind_band():
     turn belongs to the old heading and must not decide whether this is the "blind band":
     that only makes sense while still on the same line the reading was taken from."""
     nav = default_nav(junction_min_s=0.05, creep_before_turn_cm=1.0)  # 1cm @ 10cm/s = 0.1s
+    nav.step(make_reading(CENTRED), 0.35)  # clear the start stem T's 3cm distance gate
     # DRIFT_RIGHT is in ir_geometry.BLIND_AFTER_RIGHT -- if this survived the turn, the
     # post-turn 0000 below would be misread as "blind band, keep going" instead of "lost".
     nav.step(make_reading(DRIFT_RIGHT), 0.01)
@@ -93,6 +94,7 @@ def test_line_lost_after_junction_turn_enters_search():
     """The reported failure: after the T-junction the car faces the ~2.4cm
     gap between the sensor pairs and reads nothing — it must search, not stop."""
     nav = default_nav(junction_min_s=0.05, creep_before_turn_cm=1.0)  # 1cm @ 10cm/s = 0.1s
+    nav.step(make_reading(CENTRED), 0.35)  # clear the start stem T's 3cm distance gate
     on_line = make_reading(CROSSBAR)
     nav.step(on_line, 0.1)  # junction confirmed -> JUNCTION_CREEP
     nav.step(on_line, 0.2)  # creep done -> JUNCTION_TURN
@@ -108,6 +110,7 @@ def test_line_lost_after_junction_turn_enters_search():
 
 def test_junction_commits_creep_then_timed_turn():
     nav = default_nav(junction_min_s=0.15, creep_before_turn_cm=4.0)  # 4cm @ 10cm/s = 0.4s
+    nav.step(make_reading(CENTRED), 0.35)  # clear the start stem T's 3cm distance gate
     on_line = make_reading(CROSSBAR)
     cmd = nav.step(on_line, 0.1)
     assert cmd.state is IRNavState.FOLLOW  # still confirming
@@ -128,6 +131,7 @@ def test_junction_creep_duration_is_distance_over_speed():
     0.3s time-based creep turned ~3cm short of the crossbar and the car
     exited the turn onto the 2.4cm gap between the sensor pairs)."""
     nav = default_nav(junction_min_s=0.05)
+    nav.step(make_reading(CENTRED), 0.35)  # clear the start stem T's 3cm distance gate
     on_line = make_reading(CROSSBAR)
     nav.step(on_line, 0.1)  # junction confirmed -> JUNCTION_CREEP
     cmd = nav.step(on_line, 0.9)  # 0.9s < 0.95s -> still creeping
@@ -188,6 +192,10 @@ def test_search_reacquired_junction_crossbar_is_still_a_junction():
     """Reacquiring the line as a full all-4-black bar must be treated as a
     junction, not just plain follow — the search delegates back to follow."""
     nav = default_nav(junction_min_s=0.05)
+    # Clear the start stem T's 3cm distance gate directly -- stepping a CENTRED reading first
+    # would set _last_localising and change how the GAP below resolves (blind band/hold
+    # instead of a real loss), which is exactly the bug this test guards against elsewhere.
+    nav.junctions.travel(4.0)
     nav.step(make_reading(GAP), 0.1)  # into search
     cmd = nav.step(make_reading(CROSSBAR), 0.1)  # reacquired as crossbar
     assert cmd.state is IRNavState.FOLLOW
@@ -267,7 +275,7 @@ def _reach_junction(nav: IRLineNav, channels=CROSSBAR, *, run_up_cm: float = 200
 
 def test_first_junction_out_of_the_start_box_turns_right():
     nav = default_nav()
-    _reach_junction(nav, run_up_cm=1.0)
+    _reach_junction(nav, run_up_cm=4.0)  # clear the start stem T's 3cm distance gate
     assert nav.last_junction == "start stem T junction"
     assert nav.junctions_seen == 1
 
@@ -291,7 +299,7 @@ def test_the_returning_t_junction_is_crossed_not_turned():
 
 def test_a_junction_read_again_immediately_is_rejected():
     nav = default_nav()
-    _reach_junction(nav, run_up_cm=1.0)
+    _reach_junction(nav, run_up_cm=4.0)  # clear the start stem T's 3cm distance gate
     _settle(nav)
 
     cmds = _drive(nav, CROSSBAR, 0.5)  # no distance covered since the last one
@@ -315,7 +323,7 @@ def test_the_action_does_not_depend_on_which_junction_reading_appears():
 def test_a_pivot_does_not_count_toward_the_next_gate():
     """A spin covers no ground, so feeding it to the odometer would open the gate early."""
     nav = default_nav()
-    _reach_junction(nav, run_up_cm=1.0)
+    _reach_junction(nav, run_up_cm=4.0)  # clear the start stem T's 3cm distance gate
     before = nav.junctions.cm_since_previous
     while nav.state is IRNavState.JUNCTION_TURN:
         nav.step(make_reading(CENTRED), 0.01)

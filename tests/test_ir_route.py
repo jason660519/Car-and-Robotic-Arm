@@ -190,6 +190,15 @@ def test_the_stop_keeps_the_t_junction_distance_gate():
     assert plan.at(6).min_cm_since_previous == TASK1_ROUTE.loop[-1].min_cm_since_previous
 
 
+def test_start_stem_t_junction_has_a_distance_gate():
+    """2026-08-20 correction: this used to be 0.0 with the reasoning "no previous junction to
+    mistake it for" -- true, but that only rules out re-reading a junction, not a spurious
+    trigger before the car has gone anywhere (departure-box print noise, a motor-start
+    electrical transient). Photo evidence put the sensor ~6cm from the T at rest; half of
+    that, matching every other gate's "half the real distance" rule."""
+    assert TASK1_ROUTE.prologue[0].min_cm_since_previous == 3.0
+
+
 # --------------------------------------------------- 2026-08-20 real-track signature fix
 
 
