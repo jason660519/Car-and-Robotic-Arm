@@ -6,7 +6,9 @@ This document records the I2C command set for the Yourfun NeZha bus driver board
 the official user manual in `vendor/yourfun-nezha/manual/` (V1.0.0, 2023-11-27). The vendor does
 not provide a standalone protocol specification, so this file is reconstructed from the shipped code.
 
-The Python implementation lives in [`src/carbot/nezha.py`](../../src/carbot/nezha.py).
+The Python implementation lives in [`src/carbot/nezha.py`](../../src/carbot/nezha.py). The decision
+to reimplement the vendor C SDK in Python, and the translation choices it required, are recorded in
+[ADR 0004](../adr/0004-nezha-python-driver-port.md).
 
 ## Addressing
 

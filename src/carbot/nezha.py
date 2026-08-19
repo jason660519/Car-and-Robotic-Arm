@@ -1,7 +1,8 @@
 """I2C driver for the Yourfun NeZha bus driver board.
 
 Protocol notes are derived from the vendor SDK in `vendor/yourfun-nezha/sdk/`.
-See `docs/hardware/nezha-i2c-protocol.md` for the reconstructed command reference.
+See `docs/hardware/nezha-i2c-protocol.md` for the reconstructed command reference, and
+`docs/adr/0004-nezha-python-driver-port.md` for why the vendor C SDK was reimplemented here.
 
 The board is an I2C slave at 7-bit address `0x40`. All commands are written to command register
 `0x00` first. Commands with arguments then send a second data frame, matching the vendor behavior.
