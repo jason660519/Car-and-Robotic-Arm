@@ -56,6 +56,13 @@ The chassis and arm are controlled by the **Yourfun NeZha bus driver board**. A 
 communicates with the board over I2C at address `0x40` to drive four DC motors, four servo
 channels, the onboard LEDs, and optional encoder inputs.
 
+The board ships with Arduino, STM32, and C51 driver code and no protocol specification. This
+project has no microcontroller, so the command set was reconstructed from those three vendor SDKs
+and reimplemented in Python against the Pi's hardware I2C — see
+[ADR 0004](docs/adr/0004-nezha-python-driver-port.md) for the decision and its translation
+tradeoffs, and [docs/hardware/nezha-i2c-protocol.md](docs/hardware/nezha-i2c-protocol.md) for the
+resulting command reference.
+
 ## Hardware
 
 | Item | Model |
@@ -243,6 +250,7 @@ operator standing within reach of the main power switch.
 | [CONVENTIONS.md](CONVENTIONS.md) | File placement and naming rules for this repository |
 | [docs/hardware/](docs/hardware/) | NeZha protocol notes, Raspberry Pi pinout, integration notes |
 | [docs/setup/](docs/setup/) | Setup and bring-up guides |
+| [docs/adr/](docs/adr/) | Architecture decision records — site architecture, SfM mapping route, landmark localization, the NeZha driver port |
 | [src/carbot/](src/carbot/) | Python driver and control code |
 | [examples/](examples/) | Runnable hardware verification scripts |
 | [site/](site/) | Astro source for the project website |
