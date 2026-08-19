@@ -42,3 +42,6 @@ JLinkLog.txt
 # Reasonix 本地工具狀態（含命令歷史，不進版控）
 .reasonix/
 reasonix.toml
+
+# 口試準備稿 — repo 是公開的，這份只留本地
+docs/Mechatronics Folio and Journal/viva-qa-model-answers.md
