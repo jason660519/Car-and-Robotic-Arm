@@ -559,7 +559,13 @@ class IRLineNav:
                 )
             self._crossing = False
 
-        approached = self._approach_step(self.junctions.pending, reading, dt)
+        pending = self.junctions.pending
+        # Captured before _approach_step runs (which may reset these to 0): distinguishes
+        # "we hadn't started matching pending's approach at all" from "we were partway
+        # through it and this reading broke the sequence" -- the two need opposite handling
+        # just below.
+        was_mid_approach = self._approach_index > 0 or self._approach_cm > 0
+        approached = self._approach_step(pending, reading, dt)
         if approached is not None:
             return approached
 
@@ -568,6 +574,24 @@ class IRLineNav:
             # undulation, a mis-tuned pot, or a second feature. Never steer.
             self.noise_frames += 1
             return self._hold(f"noise {state.label}")
+
+        if state.kind is Kind.JUNCTION and was_mid_approach:
+            # A second dark feature that broke a sequence already partway matched (real-track
+            # 2026-08-20: interrupted mid-approach by a reading the sequence did not expect).
+            # Unlike an ordinary curve, this one is close to a real junction and about to
+            # commit to an action -- steering hard on its offset here risks throwing off an
+            # approach that was already most of the way confirmed. Hold instead.
+            #
+            # NOT held when approach tracking hadn't started yet (was_mid_approach False):
+            # 0111/1110 before a symmetric 1111, and 0001/1000 before the post-crossbar 0000,
+            # are the ordinary signature of approaching a real crossbar from a skewed angle
+            # (2026-08-20 real-track observation) -- exactly like any other curve, and must
+            # keep steering, same as the 2026-08-19 "gated-out junction still steers"
+            # regression this preserves (see test_a_gated_out_junction_still_steers_toward_the_line).
+            self.noise_frames += 1
+            return self._hold(
+                f"junction-shaped ({state.label}) broke {pending.name}'s approach mid-sequence"
+            )
 
         if state.kind is Kind.AMBIGUOUS:
             verdict, offset = resolve_blind(self._last_localising)

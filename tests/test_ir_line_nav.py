@@ -165,6 +165,45 @@ def test_a_reading_matching_neither_step_resets_and_falls_through():
     assert "step 2/2" in cmd.reason
 
 
+def test_a_skewed_approach_reading_before_the_first_step_still_steers():
+    """2026-08-20 real-track observation: 0111/1110 commonly appear just BEFORE a symmetric
+    1111 (and 0001/1000 just before the post-crossbar 0000) as the car approaches a real
+    crossbar from a skewed angle -- an ordinary, expected transitional reading, not noise.
+    Before any approach progress has been made (index still 0) it must keep steering on it,
+    same as any other curve -- see test_a_gated_out_junction_still_steers_toward_the_line for
+    the 2026-08-19 regression this preserves."""
+    junction = RouteJunction(
+        "x", JunctionAction.TURN_RIGHT, 0.0,
+        approach=(SequenceStep((1, 1, 1, 1), min_cm=2.0), SequenceStep((0, 0, 0, 0))),
+        creep_cm=5.0, turn_deg=90.0,
+    )
+    nav = _single_junction_nav(junction)
+    # 1110 ("branch or curve on the left") is Kind.JUNCTION but not this junction's step 0 --
+    # no approach progress has been made yet, so it must still steer.
+    cmd = nav.step(make_reading((1, 1, 1, 0)), 0.1)
+    assert cmd.state is IRNavState.FOLLOW
+    assert cmd.left < cmd.right  # "branch or curve on the left" steers left: right wheel faster
+
+
+def test_a_junction_shaped_reading_that_breaks_a_started_sequence_holds():
+    """Unlike the skewed-approach case above, a reading that interrupts a sequence already
+    partway matched is close to a real junction and about to commit to an action -- hold
+    instead of steering hard on an offset that risks throwing off an approach already mostly
+    confirmed (2026-08-20 real-track regression, distinct from the case above)."""
+    junction = RouteJunction(
+        "x", JunctionAction.TURN_RIGHT, 0.0,
+        approach=(SequenceStep((1, 1, 1, 1), min_cm=2.0), SequenceStep((0, 0, 0, 0))),
+        creep_cm=5.0, turn_deg=90.0,
+    )
+    nav = _single_junction_nav(junction)
+    nav.step(make_reading(CROSSBAR), 0.1)  # step 0 (1111) partway satisfied: index/cm > 0
+    # An unrelated junction-shaped reading now breaks the in-progress sequence.
+    cmd = nav.step(make_reading((1, 1, 1, 0)), 0.1)
+    assert cmd.state is IRNavState.FOLLOW
+    assert cmd.left == cmd.right  # held, not steered left on the -1.6cm offset
+    assert "broke x's approach mid-sequence" in cmd.reason
+
+
 def test_roundabout_entry_shoulder_1001_is_part_of_the_sequence_not_noise():
     """1001 is Kind.NOISE under carbot.ir_geometry, but as the roundabout entry's own 2nd
     approach step it must advance the sequence, not get held as generic noise."""
@@ -589,39 +628,41 @@ SKEW_LEFT = (1, 1, 0, 0)  # physical 1100 — left pair, a curve read at a shall
 SKEW_RIGHT = (0, 0, 1, 1)  # physical 0011 — right pair
 
 
-def _gated_nav() -> IRLineNav:
-    """A nav whose next junction is 60cm away, so an immediate junction is gated out."""
-    from carbot.ir_route import TASK1_LOOP_ONLY
-
-    return default_nav(route=TASK1_LOOP_ONLY)
+def _gated_directional_nav() -> IRLineNav:
+    """A nav whose only junction has a 60cm gate and an approach that completes in a single,
+    directional reading -- isolates the gate-rejection path (which must keep steering, see
+    the 2026-08-19 regression below) from the mid-sequence-interrupt path above (which must
+    not, since none of the real Task-1 junctions' final steps carry directional offset:
+    0000/0110 both resolve to direction 0)."""
+    junction = RouteJunction("x", JunctionAction.TURN_RIGHT, 60.0, approach=(SequenceStep(SKEW_LEFT),))
+    return _single_junction_nav(junction)
 
 
 def test_a_gated_out_junction_still_steers_toward_the_line():
     """Regression: holding straight here drove the car off the paper on 2026-08-19.
 
     The gate rejecting a reading means "not the junction the route wants", not "ignore
-    where the line is" — a reading that completes the approach sequence early still has to
-    be steered on if the gate rejects it.
+    where the line is" — the approach sequence completing early still has to be steered on
+    if the gate then rejects it.
     """
-    nav = _gated_nav()  # pending: roundabout entry, approach ends on 0000
-    nav.step(make_reading(CROSSBAR), 0.5)  # step 1 (1111, 1.65cm) satisfied
-    nav.step(make_reading(ROUNDABOUT_ENTRY_SHOULDER), 0.5)  # step 2 (1001, 0.2cm) satisfied
-    cmd = nav.step(make_reading(SKEW_LEFT), 0.01)  # not part of the sequence -> falls through
+    nav = _gated_directional_nav()
+    cmd = nav.step(make_reading(SKEW_LEFT), 0.01)  # completes the approach; gate rejects it
+    assert nav.junctions_rejected > 0
     assert cmd.left < cmd.right, "1100 means the line is left; the left wheel must slow"
 
 
 def test_a_gated_out_junction_steers_the_other_way_too():
-    nav = _gated_nav()
+    junction = RouteJunction("x", JunctionAction.TURN_RIGHT, 60.0, approach=(SequenceStep(SKEW_RIGHT),))
+    nav = _single_junction_nav(junction)
     cmd = nav.step(make_reading(SKEW_RIGHT), 0.01)
+    assert nav.junctions_rejected > 0
     assert cmd.right < cmd.left, "0011 means the line is right; the right wheel must slow"
 
 
 def test_a_gated_out_junction_does_not_advance_the_route():
-    nav = _gated_nav()
+    nav = _gated_directional_nav()
     pending_before = nav.junctions.pending.name
-    nav.step(make_reading(CROSSBAR), 0.5)
-    nav.step(make_reading(ROUNDABOUT_ENTRY_SHOULDER), 0.5)
-    nav.step(make_reading(GAP), 0.1)  # completes the approach sequence, but gate isn't clear
+    nav.step(make_reading(SKEW_LEFT), 0.01)
     assert nav.junctions.pending.name == pending_before
     assert nav.junctions_seen == 0
     assert nav.junctions_rejected > 0
