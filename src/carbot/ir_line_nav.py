@@ -33,11 +33,12 @@ than stopping — sweep `search_sweep_deg` left, sweep back through centre to th
 same angle right (watching for the line throughout), then creep forward in short
 steps until the line is seen again, or give up after `search_give_up_s`.
 
-Junctions are sequenced by :mod:`carbot.ir_route`, not by the reading. The reading only says
-*that* the bar is over a junction; which junction it is, and whether to turn or cross, comes
-from the route plan plus a distance gate. An earlier design keyed the action off ``1111`` vs
-``0111`` with one ``in_roundabout`` boolean, and the 2026-08-19 track run disproved every
-premise it rested on — see the module docstring in :mod:`carbot.ir_route`.
+Junctions are sequenced by :mod:`carbot.ir_route`, not by the reading — the reading only
+says *that* a junction feature is under the bar, matched against an ordered signal sequence
+specific to each junction (:class:`carbot.ir_route.SequenceStep`); which junction it is, and
+whether to turn or cross, comes from the route plan plus a distance gate. See the
+:mod:`carbot.ir_route` module docstring for the two earlier designs (a shared boolean, then a
+single-reading dwell timer) this replaced and why each one broke on real track data.
 """
 
 from __future__ import annotations
@@ -58,9 +59,11 @@ from carbot.ir_geometry import (
 from carbot.ir_route import (
     TASK1_CORNER_WINDOWS,
     TASK1_ROUTE,
+    TURN_COMPLETE_READING,
     CornerWindow,
     JunctionAction,
     JunctionSequencer,
+    RouteJunction,
     RoutePlan,
 )
 
@@ -110,9 +113,10 @@ def detect_ir_line(sensor: IRTracingSensor, speed: int = 200) -> IRLineReading:
 class IRNavState(Enum):
     """Where the car is in the scripted-route plan."""
 
-    FOLLOW = "follow"  # proportional steering on the line
+    FOLLOW = "follow"  # proportional steering on the line (includes matching a junction's
+    # approach sequence -- see IRLineNav._approach_step)
     JUNCTION_CREEP = "junction_creep"  # committed to the junction; blind creep before pivoting
-    JUNCTION_TURN = "junction_turn"  # spinning through a known, pre-planned turn
+    JUNCTION_TURN = "junction_turn"  # spinning right, closed-loop until 0110 or a timeout
     SEARCH = "search"  # line lost; sweep ±search_sweep_deg, then creep forward step by step
     STOPPED = "stopped"  # the route's planned laps are done; latched, wheels held at zero
 
@@ -129,50 +133,45 @@ class IRSearchPhase(Enum):
 class IRNavPolicy:
     """Tunables for :class:`IRLineNav`.
 
-    The Task-1 route is a fixed, known path (see Map1-Task1 route plan), not a
-    maze to be explored — so a junction does not need to be *classified*
-    left/right by sensor pattern (a symmetric T looks the same from either
-    branch with only 4 channels spanning ~10mm). Instead the sensor's job is
-    only to detect *that* a junction was reached (a wide dark crossbar lights
-    every channel, vs. the narrow line during normal follow lighting only the
-    middle two — verified 2026-08-18: normal follow reads physical
-    [0,1,1,0], never [1,1,1,1]), and the turn direction/duration comes from
-    the pre-known route.
+    The Task-1 route is a fixed, known path (see :mod:`carbot.ir_route`), not a maze to be
+    explored, so a junction does not need to be *classified* left/right by sensor pattern —
+    the route already knows the action. What the sensor does need to do, per junction, is
+    recognise its own **ordered signal sequence** (``RouteJunction.approach``, from real-track
+    tracing 2026-08-20) — most of these readings are not even junction-shaped in isolation
+    (e.g. the roundabout exit's sequence includes ``0101``, which
+    :data:`carbot.ir_geometry.STATE_TABLE` classifies as noise, and ends on ``0110``, ordinary
+    centred FOLLOW); only the *order* they arrive in is the real signal.
     """
 
     # ------------------------------------------------------------------
     # TUNING GUIDE — symptom observed on the real car -> field to change.
-    # Change ONE field at a time and re-test; several of these interact
-    # (e.g. creep_before_turn_cm and junction_min_s both shift *when* the
-    # turn starts, for different reasons) so isolate which one is wrong.
+    # Change ONE field at a time and re-test; several of these interact so isolate which one
+    # is wrong. Per-junction approach sequences, creep distances, and turn magnitudes live in
+    # carbot.ir_route (RouteJunction.approach/.creep_cm/.turn_deg), not here — this table only
+    # covers the policy-wide knobs below.
     #
     #   Symptom                                    -> Field to adjust
     #   ------------------------------------------------------------------
-    #   Spins before reaching the junction centre  -> creep_before_turn_cm ^
-    #     (axle is still short of the crossbar when the turn starts)
-    #   Spins well past the junction centre         -> creep_before_turn_cm v
-    #     (car has already driven onto the far branch before it turns)
-    #   The creep distance looks right but the car  -> forward_speed_cm_per_s
-    #     consistently travels short/long of it         (re-measure the on-paper
-    #     forward speed and update the constant; do
-    #     not silently bump creep_before_turn_cm)
-    #   Never detects the junction at all,           -> junction_min_s v
-    #   drives straight through onto blank paper        (the crossbar may
-    #                                                      cross the sensor
-    #                                                      faster than the
-    #                                                      current dwell
-    #                                                      requirement)
-    #   Falsely "sees" a junction on the normal line -> junction_min_s ^
-    #     (mid-follow all 4 channels blip black briefly, e.g. paper fold
-    #     or sensor bounce, and it commits to a turn that shouldn't happen)
-    #   Turn stops short of 90° (or the target angle) -> turn_deg ^, OR
-    #                                                     spin_rate_deg_per_s v
-    #   Turn overshoots past 90°                       -> turn_deg v, OR
-    #                                                     spin_rate_deg_per_s ^
-    #     (re-run examples/41_motor_spin_angle_sweep.py if unsure which one moved —
-    #     it re-measures spin_rate_deg_per_s/spin_dead_time_s directly; do not
-    #     guess-scale them, this project already got burned assuming a
-    #     camera-measured rate would transfer to this paper — see below)
+    #   Never detects a junction, drives straight    -> a RouteJunction.approach step's min_cm
+    #   through onto blank paper                        in ir_route.py, v (persistence
+    #                                                     requirement outlasting the real hold)
+    #   Falsely "arrives" at a junction mid-line      -> that step's min_cm ^, or re-check the
+    #                                                     approach sequence against a fresh
+    #                                                     real-track log (see examples/39's
+    #                                                     per-frame P1..P4 log)
+    #   Turn stops short of the new heading            -> shouldn't happen -- the turn is
+    #                                                     closed-loop on 0110 now, not timed.
+    #                                                     If it does, spin_rate_deg_per_s/
+    #                                                     spin_dead_time_s are themselves off;
+    #                                                     re-run examples/41_motor_spin_angle_sweep.py
+    #   Turn never ends, runs to the timeout           -> turn_timeout_scale ^ (if a slow but
+    #     ("... timeout, 0110 never seen" in the log)      genuine turn just needs longer), OR
+    #                                                     check wheel/axle alignment -- a
+    #                                                     chassis fault can stop the car from
+    #                                                     ever reacquiring 0110 at all (see
+    #                                                     docs/progress/2026-08-20-map1-spin-
+    #                                                     recalibration-carpet.md for the kind
+    #                                                     of fault to look for)
     #   Wheel speeds during FOLLOW oscillate/snake     -> turn_gain v
     #   Car drifts off-centre before correcting         -> turn_gain ^
     #   Car "hunts" on an already-centred line          -> deadband ^
@@ -197,21 +196,10 @@ class IRNavPolicy:
     # no correction. Too high -> ignores real small offsets; too low ->
     # constantly makes tiny corrections even when already centred.
     deadband: float = 0.15
-    # All 4 channels must read black for AT LEAST this long (seconds)
-    # before it's trusted as a real junction crossbar and not a momentary
-    # coincidence (e.g. a paper fold or a single noisy sample). Too high
-    # relative to how fast the car crosses the actual crossbar at `speed`
-    # -> the crossbar passes under the sensor before this timer finishes,
-    # and the car never registers the junction at all (drives straight
-    # through). Too low -> false positives from brief noise on the normal
-    # line trigger an unwanted turn.
-    junction_min_s: float = 0.15
-    # +1 = right turn, -1 = left turn. Task-1's first T-junction is a right turn.
+    # +1 = right turn, -1 = left turn. Only a fallback used before the first junction commits
+    # (every real junction sets its own direction from the route -- see
+    # carbot.ir_route.RouteJunction.turn_direction) -- Task-1 never actually reaches this.
     turn_direction: int = 1
-    # Target rotation for the scripted turn. Independent of how long it
-    # actually takes (see spin_rate_deg_per_s/spin_dead_time_s below) — this
-    # is the "what", those are the "how fast".
-    turn_deg: float = 90.0
     # Measured directly on the Task-1 map paper at speed=150, on carpet
     # underneath the paper (verified 2026-08-20, examples/41_motor_spin_angle_sweep.py,
     # 5-point sweep 2-10s, all 5 confirmed a true in-place pivot -- no chassis
@@ -230,38 +218,20 @@ class IRNavPolicy:
     # number does not transfer here. These two constants are only valid at
     # `speed=150` on this paper, on this surface; re-run the sweep before
     # trusting them at a different speed, print, or underlying floor.
-    # nominal_turn_s() computes the actual spin duration from these two plus
-    # turn_deg — if the real turn over/undershoots, it's usually faster to
-    # re-run the sweep (gets both numbers at once, correctly, and catches a
-    # non-pivot drift like 2026-08-20's) than to hand-tune turn_deg as a
-    # fudge factor.
     spin_rate_deg_per_s: float = 42.0
     spin_dead_time_s: float = 0.41
-    # Straight-line creep after a junction is confirmed, before pivoting,
-    # so the wheel axle (the real pivot point — NOT the forward-mounted
-    # sensor, which detects the crossbar first because it sits ahead of the
-    # axle) is over the junction centre. Expressed as a DISTANCE, because
-    # the offset it compensates for is physical: the sensor bar mounts
-    # ~9.5cm ahead of the axle, so once the sensor is fully on the crossbar
-    # (all 4 black), the axle is still ~9.5cm short of the crossbar centre.
-    # The car is blind during this creep by design — only elapsed time
-    # decides when the turn starts. `creep_duration_s()` converts the
-    # distance to time using `forward_speed_cm_per_s`.
-    #
-    # Verified 2026-08-18 on the Map1 paper at speed=150 with the old
-    # time-based creep (0.3s ≈ 3cm): the turn started with the axle short
-    # of the crossbar, the car pivoted onto the ~2.4cm gap between the
-    # sensor pairs, read nothing, and spent the rest of the run in
-    # line-recovery search (22 searches in 60s) until the operator picked
-    # it up. 9.5cm puts the axle on the crossbar so the turn exits onto
-    # the line, not the gap.
-    creep_before_turn_cm: float = 9.5
-    # Forward speed used to convert `creep_before_turn_cm` into a drive
-    # duration. Floor reference was 11.7 cm/s at speed=200 (see
-    # docs/progress/2026-08-14-travel-speed-and-coverage.md); on the Map1
-    # paper at speed=150 the operator picked 10 cm/s (≈0.95s for 9.5cm).
-    # Re-measure on the paper and update this constant if the creep
-    # consistently travels short/long of the target distance.
+    # Closed-loop junction turns (2026-08-20, see IRLineNav._turn_step) end on
+    # TURN_COMPLETE_READING (0110), not a fixed duration, but still need a safety ceiling in
+    # case that reading never comes back (misalignment, a genuine sensor fault) -- without
+    # one a lost car here would spin forever. turn_timeout_s() multiplies the nominal timed
+    # duration for a junction's expected turn_deg (RouteJunction.turn_deg) by this scale.
+    turn_timeout_scale: float = 2.0
+    # Forward speed used to convert a RouteJunction's per-junction creep_cm (see
+    # carbot.ir_route) into a drive duration. Floor reference was 11.7 cm/s at speed=200 (see
+    # docs/progress/2026-08-14-travel-speed-and-coverage.md); on the Map1 paper at speed=150
+    # the operator picked 10 cm/s. Re-measure on the paper and update this constant if a
+    # creep consistently travels short/long of its target distance -- also used to convert
+    # a RouteJunction.approach step's min_cm into elapsed-time terms.
     forward_speed_cm_per_s: float = 10.0
     # ------------------------------------------------------------------
     # LINE-RECOVERY SEARCH — what to do when no channel sees black.
@@ -311,20 +281,16 @@ class IRNavPolicy:
             raise ValueError("turn_gain must be positive")
         if not 0.0 <= self.deadband < 1.0:
             raise ValueError("deadband must be in [0, 1)")
-        if self.junction_min_s < 0:
-            raise ValueError("junction_min_s must be non-negative")
         if self.turn_direction not in (1, -1):
             raise ValueError("turn_direction must be 1 (right) or -1 (left)")
-        if self.turn_deg <= 0:
-            raise ValueError("turn_deg must be positive")
-        if self.creep_before_turn_cm < 0:
-            raise ValueError("creep_before_turn_cm must be non-negative")
-        if self.forward_speed_cm_per_s <= 0:
-            raise ValueError("forward_speed_cm_per_s must be positive")
         if self.spin_rate_deg_per_s <= 0:
             raise ValueError("spin_rate_deg_per_s must be positive")
         if self.spin_dead_time_s < 0:
             raise ValueError("spin_dead_time_s must be non-negative")
+        if self.turn_timeout_scale <= 0:
+            raise ValueError("turn_timeout_scale must be positive")
+        if self.forward_speed_cm_per_s <= 0:
+            raise ValueError("forward_speed_cm_per_s must be positive")
         if self.search_sweep_deg < 0:
             raise ValueError("search_sweep_deg must be non-negative")
         if self.search_creep_step_s < 0:
@@ -336,17 +302,11 @@ class IRNavPolicy:
         if self.search_give_up_s < 0:
             raise ValueError("search_give_up_s must be non-negative")
 
-    def nominal_turn_s(self) -> float:
-        return self.spin_dead_time_s + self.turn_deg / self.spin_rate_deg_per_s
-
-    def creep_duration_s(self) -> float:
-        """Blind straight creep after a junction is confirmed, in seconds.
-
-        Converts the sensor-to-axle offset (`creep_before_turn_cm`) to time
-        with the measured on-paper forward speed. The car is blind during
-        this creep — only elapsed time decides when the turn starts.
-        """
-        return self.creep_before_turn_cm / self.forward_speed_cm_per_s
+    def turn_timeout_s(self, turn_deg: float) -> float:
+        """Safety ceiling for a closed-loop junction turn (see `IRLineNav._turn_step`) --
+        `turn_timeout_scale` times the nominal timed duration for `turn_deg`, generous enough
+        that a turn genuinely slower than calibrated still gets to finish."""
+        return self.turn_timeout_scale * (self.spin_dead_time_s + turn_deg / self.spin_rate_deg_per_s)
 
     def sweep_duration(self, deg: float) -> float:
         """Time to spin ``deg`` degrees, using the same calibrated spin model
@@ -365,20 +325,26 @@ class IRNavCommand:
 
 
 class IRLineNav:
-    """Tracks state across cycles: follow the line, then a scripted turn at a junction.
+    """Tracks state across cycles: follow the line, matching a junction's ordered approach
+    sequence as it comes into range, then creep + a closed-loop turn (or an immediate
+    cross/stop) once that sequence completes.
 
-    Call :meth:`step` once per IR read with the cycle-to-cycle ``dt`` in
-    seconds. A junction is *detected* (all 4 channels black, sustained) but
-    not *classified* — the turn direction is a policy setting, since the
-    route is known in advance.
+    Call :meth:`step` once per IR read with the cycle-to-cycle ``dt`` in seconds. A junction
+    is *detected* by matching its specific ``RouteJunction.approach`` sequence (see
+    :mod:`carbot.ir_route`) but not *classified* by the reading alone — the turn direction,
+    creep distance, and action all come from the pre-known route.
     """
 
     def __init__(self, policy: IRNavPolicy | None = None) -> None:
         self.policy = policy or IRNavPolicy()
         self.state = IRNavState.FOLLOW
-        self._junction_elapsed = 0.0
+        #: Progress through the pending junction's approach sequence -- see `_approach_step`.
+        self._approach_index = 0
+        self._approach_cm = 0.0
         self._creep_elapsed = 0.0
+        self._creep_target_cm = 0.0  # set by _commit_junction before JUNCTION_CREEP is entered
         self._turn_elapsed = 0.0
+        self._turn_target_deg = 0.0  # set by _commit_junction before JUNCTION_TURN is entered
         self._search_phase = IRSearchPhase.SWEEP_LEFT
         self._search_elapsed = 0.0  # time in the current search sub-phase
         self._search_total = 0.0  # total time spent searching
@@ -416,9 +382,9 @@ class IRLineNav:
         if self.state not in (IRNavState.JUNCTION_TURN, IRNavState.SEARCH):
             self.junctions.travel(dt * self.policy.forward_speed_cm_per_s)
         if self.state is IRNavState.JUNCTION_TURN:
-            return self._turn_step(dt)
+            return self._turn_step(reading, dt)
         if self.state is IRNavState.JUNCTION_CREEP:
-            return self._creep_step(dt)
+            return self._creep_step(reading, dt)
         if self.state is IRNavState.SEARCH:
             return self._search_step(reading, dt)
         return self._follow_step(reading, dt)
@@ -457,9 +423,9 @@ class IRLineNav:
     def _hold(self, base_reason: str) -> IRNavCommand:
         """Keep driving the last steady command instead of correcting on this reading.
 
-        Used for genuine noise (impossible from one line) and for a junction reading still
-        short of its confirm dwell: neither should feed the generic offset-based correction,
-        which is only valid for a single straight line under the bar.
+        Used for genuine noise (impossible from one line) and while still mid-way through a
+        junction's approach sequence: neither should feed the generic offset-based
+        correction, which is only valid for a single straight line under the bar.
         """
         if self._last_command is not None:
             return IRNavCommand(
@@ -470,35 +436,78 @@ class IRLineNav:
             )
         return self._steer(classify((0, 1, 1, 0), physical=True), f"{base_reason}: no history")
 
-    def _commit_junction(self, label: str, direction: int) -> IRNavCommand:
-        """(a/e/f) The ~90° turn shared by the start-stem T, roundabout entry, and roundabout
-        exit / 發車區T路口、圓環入口、圓環出口共用的約90度轉彎. Confirmed junction: creep to
-        put the axle on it, then turn. 判定成立後：先直行讓輪軸對齊路口中心，再原地轉彎。
+    def _approach_step(
+        self, pending: RouteJunction, reading: IRLineReading, dt: float
+    ) -> IRNavCommand | None:
+        """(a/e/f/g/h) Advance `pending`'s ordered approach sequence
+        (`carbot.ir_route.RouteJunction.approach`) if `reading` matches the step currently
+        being tracked -- or the sequence's first step, after a reset.
 
-        From here the car is blind to the sensor on purpose — verified
-        2026-08-18 that a single noisy frame mid-crossbar (one channel dropping
-        out, e.g. 1111->1110) fed back into normal steering and yanked the car
-        off the junction before the creep even finished.
+        Returns a hold command while still mid-sequence, the arrival command
+        (`_reach_junction`) once the last step completes, or ``None`` if this reading is not
+        part of the sequence at all — the caller falls through to normal steering. A reading
+        that matches neither the current nor the next expected step resets tracking to the
+        first step (tried once more this same frame) rather than getting stuck partway
+        through a stale match.
+        """
+        approach = pending.approach
+        for _ in range(2):  # one reset-and-retry from step 0, for a stray mid-sequence frame
+            step = approach[self._approach_index]
+            if reading.physical == step.bits:
+                self._approach_cm += dt * self.policy.forward_speed_cm_per_s
+                if self._approach_cm < step.min_cm:
+                    return self._hold(
+                        f"approaching {pending.name}, step {self._approach_index + 1}/"
+                        f"{len(approach)} ({reading.summary}) "
+                        f"{self._approach_cm:.2f}/{step.min_cm:.2f}cm"
+                    )
+                if self._approach_index == len(approach) - 1:
+                    return self._reach_junction(reading)
+                self._approach_index += 1
+                self._approach_cm = 0.0
+                return self._hold(
+                    f"approaching {pending.name}, step {self._approach_index + 1}/"
+                    f"{len(approach)} ({reading.summary})"
+                )
+            if self._approach_index == 0:
+                return None
+            self._approach_index = 0
+            self._approach_cm = 0.0
+        return None
+
+    def _commit_junction(
+        self, label: str, direction: int, creep_cm: float, turn_deg: float, reading: IRLineReading
+    ) -> IRNavCommand:
+        """(a/e/f) The turn shared by the start-stem T, roundabout entry, and roundabout exit
+        / 發車區T路口、圓環入口、圓環出口共用的轉彎. Approach sequence confirmed: creep to put
+        the axle on it, then turn closed-loop. 判定成立後：先直行讓輪軸對齊路口中心，再原地
+        轉彎（閉環，見 `_turn_step`）。
         """
         self.junctions_seen += 1
         self.last_junction = label
         self._turn_direction = direction
+        self._creep_target_cm = creep_cm
+        self._turn_target_deg = turn_deg
         self.state = IRNavState.JUNCTION_CREEP
         self._creep_elapsed = 0.0
-        self._junction_elapsed = 0.0
-        return self._creep_step(0.0)
+        return self._creep_step(reading, 0.0)
 
-    def _reach_junction(self, state: IRState) -> IRNavCommand:
-        """A junction has been held long enough. The route, not the reading, says what to do.
+    def _reach_junction(self, reading: IRLineReading) -> IRNavCommand:
+        """This junction's approach sequence has completed. The route, not the reading, says
+        what to do.
 
         The distance gate comes first: a junction that turns up well before the route expects
         the next one is the junction just handled being read a second time, or a curve taken at
-        a shallow enough angle to light the whole bar. Acting on it desynchronises the lap.
+        a shallow enough angle to coincidentally match part of a sequence. Acting on it
+        desynchronises the lap.
         """
+        state = reading.state
         shortfall = self.junctions.shortfall_cm()
         pending = self.junctions.pending
         if shortfall > 0:
             self.junctions_rejected += 1
+            self._approach_index = 0
+            self._approach_cm = 0.0
             # Rejected means "not the junction the route is waiting for", not "no information".
             # What produces these is a curve lighting extra channels, and the state table's
             # offset for them is that curve's direction. Steering must keep running on it:
@@ -511,6 +520,8 @@ class IRLineNav:
             )
 
         junction = self.junctions.accept()
+        self._approach_index = 0
+        self._approach_cm = 0.0
         if junction.action is JunctionAction.STOP:
             # (h) Final lap: car stops centred on the T junction, task complete.
             # 最後一圈：車身中心停在 T 路口，任務結束。
@@ -519,20 +530,21 @@ class IRLineNav:
             self.state = IRNavState.STOPPED
             return self._halt(f"route complete at {junction.name}")
         if junction.action is JunctionAction.CROSS:
-            # (g) Lap 2+: no turn, straight through into the next lap's Phase 2.
-            # 第二圈起：T路口不轉彎，直行接下一圈的 Phase 2。
-            # Counted and consumed like any other junction — the lap position advances even
-            # though the wheels do not change. Holding straight keeps the branch off to one
-            # side from steering the car into it.
+            # (g) Lap 2+: no turn, straight through into the next lap's Phase 2. The approach
+            # sequence's last step (0110) already means the car is centred on the new line,
+            # so there is nothing further to creep or turn through.
+            # 第二圈起：T路口不轉彎，直行接下一圈的 Phase 2。approach 序列跑到最後一步
+            # (0110) 時車身已經置中，不需要再直行對齊或轉彎。
             self.junctions_seen += 1
             self.last_junction = junction.name
-            self._junction_elapsed = 0.0
             self._crossing = True
             return self._steer(
                 classify((0, 1, 1, 0), physical=True),
                 f"crossing {junction.name} straight through",
             )
-        return self._commit_junction(junction.name, junction.turn_direction)
+        return self._commit_junction(
+            junction.name, junction.turn_direction, junction.creep_cm, junction.turn_deg, reading
+        )
 
     def _follow_step(self, reading: IRLineReading, dt: float) -> IRNavCommand:
         state = reading.state
@@ -547,27 +559,9 @@ class IRLineNav:
                 )
             self._crossing = False
 
-        # Confirmation is keyed on the pending junction's own signature set, not the generic
-        # Kind.JUNCTION classification -- a junction can widen past that default (see
-        # carbot.ir_route.ROUNDABOUT_EXIT_SIGNATURES) when a real run showed it producing a
-        # reading the default set does not cover.
-        pending = self.junctions.pending
-        if reading.physical in pending.confirm_signatures:
-            self._junction_elapsed += dt
-            if self._junction_elapsed >= self.policy.junction_min_s:
-                return self._reach_junction(state)
-            # Hold the last steady command rather than steer on this reading's offset: that
-            # offset is derived from a single straight 2cm line and does not describe a
-            # junction feature (a curve, branch, or crossbar). Steering on it here is what
-            # pulled the car off its approach before the route-driven turn/cross ever started
-            # -- see the carbot.ir_route module docstring, 2026-08-20 fix. The distance-gate
-            # rejection path inside _reach_junction is unaffected: that one has to keep
-            # steering, for a different and already-fixed failure (see its own comment).
-            return self._hold(
-                f"possible junction ({pending.name}, {reading.summary}) "
-                f"{self._junction_elapsed:.2f}/{self.policy.junction_min_s:.2f}s"
-            )
-        self._junction_elapsed = 0.0
+        approached = self._approach_step(self.junctions.pending, reading, dt)
+        if approached is not None:
+            return approached
 
         if state.kind is Kind.NOISE:
             # Non-contiguous black: one 2 cm line cannot produce it, so it is
@@ -597,56 +591,70 @@ class IRLineNav:
             return self._steer(state, "centred")
         return self._steer(state, f"{state.label}, offset {state.offset_cm:+.1f}cm")
 
-    def _creep_step(self, dt: float) -> IRNavCommand:
+    def _creep_step(self, reading: IRLineReading, dt: float) -> IRNavCommand:
         """Blind straight creep — ignores the sensor, only elapsed time matters.
 
         Moves the wheel axle (not just the forward-mounted sensor) over the
-        junction centre before the turn starts — the sensor detects the
-        crossbar ~9.5cm before the axle reaches it, so the creep duration is
-        `creep_before_turn_cm / forward_speed_cm_per_s`. See `_follow_step`
-        for why this must not react to sensor readings mid-creep.
+        junction centre before the turn starts, for `_creep_target_cm` (set per-junction by
+        `_commit_junction` from `RouteJunction.creep_cm`) at `forward_speed_cm_per_s`. See
+        `_follow_step` for why this must not react to sensor readings mid-creep.
         """
         self._creep_elapsed += dt
-        if self._creep_elapsed >= self.policy.creep_duration_s():
+        duration = self._creep_target_cm / self.policy.forward_speed_cm_per_s
+        if self._creep_elapsed >= duration:
             self.state = IRNavState.JUNCTION_TURN
             self._turn_elapsed = 0.0
-            return self._turn_step(0.0)
+            return self._turn_step(reading, 0.0)
         return IRNavCommand(
             self.policy.speed,
             self.policy.speed,
-            f"junction confirmed; creeping {self.policy.creep_before_turn_cm:.1f}cm "
-            f"to centre: {self._creep_elapsed:.2f}/{self.policy.creep_duration_s():.2f}s",
+            f"junction confirmed; creeping {self._creep_target_cm:.1f}cm "
+            f"to centre: {self._creep_elapsed:.2f}/{duration:.2f}s",
             IRNavState.JUNCTION_CREEP,
         )
 
-    def _turn_step(self, dt: float) -> IRNavCommand:
-        """Pure timed spin — never exit early on "line reacquired".
+    def _turn_step(self, reading: IRLineReading, dt: float) -> IRNavCommand:
+        """Closed-loop spin: keep turning until the sensor reads `TURN_COMPLETE_READING`
+        (0110), not a pure timed spin.
 
-        The junction crossbar itself reads black while the car pivots on top
-        of it, so a handful of degrees into the turn a channel goes black
-        again well before the car has actually turned to face the new
-        heading; an early "any channel visible" exit fires almost
-        immediately (verified 2026-08-18: 0.30s of a 2.24s nominal 90° turn,
-        ~12°) and the car re-enters FOLLOW still pointed the old way. Turn
-        for the full nominal time, same as the camera-based
-        `LineNav._right_turn_step`.
+        2026-08-18's original design deliberately ignored the sensor mid-turn ("never exit
+        early on line reacquired") because the junction crossbar itself reads black while the
+        car pivots on top of it, so checking for *any visible channel* fired almost
+        immediately (0.30s into a 2.24s nominal 90° turn, ~12°) — the crossbar, not the new
+        line, tripped it. This does not reintroduce that bug: real-track tracing (2026-08-20)
+        showed the turn ending in one specific, late-arriving reading (0110, ordinary centred
+        FOLLOW) reached only once the car has swept far enough that the outer sensors have
+        cleared the old crossbar/curve entirely — checking for that ONE reading, not "any
+        channel visible", is what makes closing the loop here safe.
+
+        Two guards: `spin_dead_time_s` as a minimum elapsed time before a 0110 read is trusted
+        (the same "motor hasn't really started moving yet" floor the spin calibration itself
+        uses — guards against a coincidental 0110 in the very first instant), and
+        `turn_timeout_s` as a ceiling in case 0110 never comes back at all (misalignment, a
+        genuine sensor fault) — without it a lost car here would spin forever.
         """
         self._turn_elapsed += dt
-        if self._turn_elapsed >= self.policy.nominal_turn_s():
+        timeout_s = self.policy.turn_timeout_s(self._turn_target_deg)
+        if self._turn_elapsed >= self.policy.spin_dead_time_s and reading.physical == TURN_COMPLETE_READING:
             self.state = IRNavState.FOLLOW
-            self._junction_elapsed = 0.0
-            # The pivot is timed, not angle-verified (see the docstring above), so the real
-            # turn lands anywhere around turn_deg -- 85-93 deg measured on the real track, not
-            # a clean 90. A 0000 right after landing is common and must not be resolved with
-            # the line position from before the turn: that geometry belongs to the old
-            # heading and says nothing about where the line is on the new one. Clearing this
-            # forces resolve_blind() to return "lost" instead of guessing "blind band",
-            # so the car searches instead of driving straight on a stale assumption.
+            # The pivot's real angle is not otherwise verified, so a 0000 immediately after
+            # this must not be resolved with the line position from before the turn: that
+            # geometry belongs to the old heading. See the 2026-08-20 fix this line preserves.
             self._last_localising = None
             return IRNavCommand(
                 self.policy.speed,
                 self.policy.speed,
-                "junction turn done: nominal time reached",
+                "junction turn done: line reacquired (0110)",
+                IRNavState.FOLLOW,
+            )
+        if self._turn_elapsed >= timeout_s:
+            self.state = IRNavState.FOLLOW
+            self._last_localising = None
+            return IRNavCommand(
+                self.policy.speed,
+                self.policy.speed,
+                f"junction turn done: {timeout_s:.2f}s timeout, 0110 never seen -- "
+                "check wheel/axle alignment",
                 IRNavState.FOLLOW,
             )
 
@@ -659,7 +667,7 @@ class IRLineNav:
             left,
             right,
             f"junction turn {'right' if self._turn_direction > 0 else 'left'}: "
-            f"{self._turn_elapsed:.2f}/{self.policy.nominal_turn_s():.2f}s",
+            f"watching for 0110, {self._turn_elapsed:.2f}/{timeout_s:.2f}s timeout",
             IRNavState.JUNCTION_TURN,
         )
 
@@ -681,8 +689,8 @@ class IRLineNav:
 
         The sensor is checked every cycle, so the moment any channel sees
         black the search ends and normal follow resumes. Delegating back
-        into `_follow_step` means a reacquired reading that is really a
-        junction crossbar (all 4 black) is still handled as one.
+        into `_follow_step` means a reacquired reading that is really the start of a
+        junction's approach sequence is still handled as one.
 
         Sweep timing uses the same calibrated spin model as the junction
         turn; the right sweep rotates 2x the left-sweep angle so the bar
@@ -691,7 +699,6 @@ class IRLineNav:
         """
         if reading.visible:
             self.state = IRNavState.FOLLOW
-            self._junction_elapsed = 0.0
             return self._follow_step(reading, 0.0)
 
         self._search_total += dt

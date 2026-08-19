@@ -247,20 +247,31 @@ underlying assumption (pure pivot, no chassis fault) held while it was taken.
 Re-running the *whole* sweep after the fix, not just patching the affected
 readings, is what caught it.
 
+## 2026-08-20, fourth pass: junction detection rewritten to ordered signal sequences
+
+Same-day track attempts kept failing even after the spin recalibration above. Direct
+signal tracing (operator watching the real per-frame `P1..P4` log) showed the whole
+single-reading-sustained-for-a-time-threshold model was wrong at the root: every real
+junction produces an **ordered sequence** of distinct readings, several of which
+(`0101`, `0110`) are not junction-shaped at all in isolation. `junction_min_s` and the
+single global `creep_before_turn_cm` are gone — each junction now carries its own
+`approach` sequence and `creep_cm`, and junction turns are closed-loop (watch for `0110`)
+instead of a fixed duration. Full writeup:
+[docs/progress/2026-08-20-map1-junction-signal-sequences.md](../../docs/progress/2026-08-20-map1-junction-signal-sequences.md).
+
 ## Timing constants
 
 | Parameter | Value | Source |
 |---|---|---|
 | `speed` | 150 | verified |
 | Spin rate | 42.0 °/s | measured 2026-08-20, 5-point sweep, Map1 paper on carpet, all readings confirmed a true pivot (supersedes the 2026-08-18 value, 40.5 °/s) |
-| Spin dead time | 0.41 s | measured 2026-08-20 (supersedes 2026-08-18, 0.2 s) |
-| **90° turn** | **2.55 s** | `0.41 + 90/42.0` |
-| Creep before turn | 9.5 cm | sensor sits 9.5 cm ahead of the axle |
+| Spin dead time | 0.41 s | measured 2026-08-20 (supersedes 2026-08-18, 0.2 s); also the closed-loop turn's minimum time before trusting `0110` |
+| `turn_timeout_scale` | 2.0 | safety ceiling multiplier on a closed-loop turn's nominal duration |
 | Forward speed | 10 cm/s | measured on the map paper |
-| **Creep duration** | **0.95 s** | `9.5 / 10.0` |
-| `junction_min_s` | 0.15 s | verified |
+| Creep per junction | a=8.5cm, e=8.0cm, f=6.5cm, g/h=0 (no turn) | operator-estimated ranges, midpoint — see the ordered-sequence writeup above |
+| Turn magnitude per junction | a=90°, e=42.5°, f=90°, g/h=0 (no turn) | used only to bound the closed-loop turn's timeout, not as the stop condition |
 
-The creep exists because the sensor detects the crossbar 9.5 cm before the axle
+The creep exists because the sensor detects the crossbar/curve well before the axle
 reaches it. Turning immediately was measured on 2026-08-18 to leave the axle
 short of the junction: the car pivoted onto the gap, read nothing, and spent the
 rest of the run searching — 22 searches in 60 s.

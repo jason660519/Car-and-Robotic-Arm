@@ -1,7 +1,10 @@
-"""The junction sequence and its distance gate.
+"""The junction sequence, its ordered approach sequences, and the distance gate.
 
-These encode the 2026-08-19 track failure: six junction events, six right turns, and not one
-of the straight-through crossings the lap needs. See `carbot.ir_route` for the diagnosis.
+These encode three real-track failures in order: the 2026-08-19 run (six junction events, six
+right turns, none of the straight-through crossings the lap needs -- see `carbot.ir_route` for
+the diagnosis), the 2026-08-20 dwell-timer fixes, and the 2026-08-20 rewrite to ordered signal
+sequences from direct real-track tracing (see the module docstring's "third pass" section and
+docs/progress/2026-08-20-map1-junction-signal-sequences.md).
 """
 
 from __future__ import annotations
@@ -9,14 +12,14 @@ from __future__ import annotations
 import pytest
 
 from carbot.ir_route import (
-    DEFAULT_JUNCTION_SIGNATURES,
-    ROUNDABOUT_EXIT_SIGNATURES,
     TASK1_LOOP_ONLY,
     TASK1_ROUTE,
+    TURN_COMPLETE_READING,
     JunctionAction,
     JunctionSequencer,
     RouteJunction,
     RoutePlan,
+    SequenceStep,
     task1_route_for_laps,
 )
 
@@ -124,9 +127,9 @@ def test_travel_rejects_reverse():
 
 
 def test_turn_direction_maps_to_the_wheel_speed_convention():
-    assert RouteJunction("x", JunctionAction.TURN_RIGHT, 0.0).turn_direction == 1
-    assert RouteJunction("x", JunctionAction.TURN_LEFT, 0.0).turn_direction == -1
-    assert RouteJunction("x", JunctionAction.CROSS, 0.0).turn_direction == 0
+    assert RouteJunction("x", JunctionAction.TURN_RIGHT, 0.0, approach=()).turn_direction == 1
+    assert RouteJunction("x", JunctionAction.TURN_LEFT, 0.0, approach=()).turn_direction == -1
+    assert RouteJunction("x", JunctionAction.CROSS, 0.0, approach=()).turn_direction == 0
 
 
 def test_loop_only_route_starts_at_the_roundabout_entry():
@@ -199,34 +202,78 @@ def test_start_stem_t_junction_has_a_distance_gate():
     assert TASK1_ROUTE.prologue[0].min_cm_since_previous == 3.0
 
 
-# --------------------------------------------------- 2026-08-20 real-track signature fix
+# --------------------------------------------------- 2026-08-20 third pass: signal sequences
+#
+# Direct real-track tracing (operator watching the per-frame P1..P4 log) showed every real
+# junction produces an ORDERED sequence of readings, several of which are not junction-shaped
+# in isolation at all -- see the carbot.ir_route module docstring's "third pass" section.
+
+START_T = TASK1_ROUTE.prologue[0]
+ROUNDABOUT_ENTRY = TASK1_ROUTE.loop[0]
+ROUNDABOUT_EXIT = TASK1_ROUTE.loop[1]
+T_JUNCTION = TASK1_ROUTE.loop[2]
 
 
-def test_roundabout_exit_accepts_the_noise_classified_reading_seen_on_track():
-    """1001 showed up interleaved with the junction-shaped readings on the real exit and is
-    Kind.NOISE, not Kind.JUNCTION -- it must still be in this junction's confirm set."""
-    exit_junction = TASK1_ROUTE.loop[1]
-    assert exit_junction.name == "roundabout exit"
-    assert (1, 0, 0, 1) in exit_junction.confirm_signatures
-    assert (1, 0, 0, 1) not in DEFAULT_JUNCTION_SIGNATURES
+def test_start_stem_t_approach_is_crossbar_then_clear():
+    assert [s.bits for s in START_T.approach] == [(1, 1, 1, 1), (0, 0, 0, 0)]
+    assert START_T.approach[0].min_cm == 2.0
+    assert START_T.creep_cm == 8.5
+    assert START_T.turn_deg == 90.0
 
 
-def test_roundabout_exit_signatures_still_include_the_default_set():
-    assert DEFAULT_JUNCTION_SIGNATURES <= ROUNDABOUT_EXIT_SIGNATURES
+def test_roundabout_entry_approach_has_the_1001_shoulder():
+    assert [s.bits for s in ROUNDABOUT_ENTRY.approach] == [
+        (1, 1, 1, 1),
+        (1, 0, 0, 1),
+        (0, 0, 0, 0),
+    ]
+    assert ROUNDABOUT_ENTRY.approach[0].min_cm == pytest.approx(1.65)
+    assert ROUNDABOUT_ENTRY.approach[1].min_cm == pytest.approx(0.2)
+    assert ROUNDABOUT_ENTRY.creep_cm == 8.0
+    assert ROUNDABOUT_ENTRY.turn_deg == pytest.approx(42.5)
 
 
-def test_other_junctions_keep_the_default_signature_set():
-    """No anomaly was reported at the start stem, roundabout entry, or the T junction --
-    only the exit's confirm set should be widened past the default."""
-    assert TASK1_ROUTE.prologue[0].confirm_signatures == DEFAULT_JUNCTION_SIGNATURES
-    assert TASK1_ROUTE.loop[0].confirm_signatures == DEFAULT_JUNCTION_SIGNATURES  # entry
-    assert TASK1_ROUTE.loop[2].confirm_signatures == DEFAULT_JUNCTION_SIGNATURES  # T junction
+def test_roundabout_exit_approach_is_the_four_step_sweep():
+    """0101 is Kind.NOISE and 0100/0110 are ordinary DRIFT/ON_LINE under
+    carbot.ir_geometry -- only the order carries the signal, which is exactly why the old
+    single-reading confirm_signatures design could never represent this junction."""
+    assert [s.bits for s in ROUNDABOUT_EXIT.approach] == [
+        (0, 1, 1, 1),
+        (0, 1, 0, 1),
+        (0, 1, 0, 0),
+        (0, 1, 1, 0),
+    ]
+    assert ROUNDABOUT_EXIT.creep_cm == 6.5
+    assert ROUNDABOUT_EXIT.turn_deg == 90.0
 
 
-def test_the_stop_keeps_the_widened_signatures_when_the_loop_ends_on_the_exit():
-    """task1_route_for_laps only ever stops on the T junction today, but the STOP synthesis
-    must carry whichever confirm set the closing junction actually has."""
+def test_t_junction_approach_is_asymmetric_not_the_stems_crossbar():
+    """The lap-crossing T reads 0111 (asymmetric, approached off-centre from Phase 10), not
+    the start stem's symmetric 1111 -- same physical junction, different approach angle."""
+    assert [s.bits for s in T_JUNCTION.approach] == [(0, 1, 1, 1), (0, 1, 1, 0)]
+    assert T_JUNCTION.approach[0].min_cm == 2.0
+
+
+def test_t_junction_has_no_turn():
+    """(g/h) Reaching the approach sequence's last step (0110) IS arrival -- no creep, no
+    turn, unlike every other junction in the route."""
+    assert T_JUNCTION.creep_cm == 0.0
+    assert T_JUNCTION.turn_deg == 0.0
+
+
+def test_turn_complete_reading_is_ordinary_centred_on_line():
+    """The closed-loop turn's stop condition is literally the same reading normal FOLLOW
+    treats as "centred, drive straight" -- see IRLineNav._turn_step for why checking this one
+    specific reading (not "any channel visible") avoids the original false-early-exit bug."""
+    assert TURN_COMPLETE_READING == (0, 1, 1, 0)
+
+
+def test_final_t_junction_reuses_the_t_junctions_approach_sequence():
     plan = task1_route_for_laps(2)
     stop = plan.at(6)
     assert stop.action is JunctionAction.STOP
-    assert stop.confirm_signatures == TASK1_ROUTE.loop[-1].confirm_signatures
+    assert stop.approach == T_JUNCTION.approach
+
+
+def test_sequence_step_default_min_cm_is_zero():
+    assert SequenceStep((1, 1, 1, 1)).min_cm == 0.0

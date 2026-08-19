@@ -24,15 +24,18 @@ Steering (see `carbot.ir_geometry.STATE_TABLE`, total over all 16 readings):
     nothing. The previous reading decides: after `0010`/`0100` it is the blind
     band and steering continues; after `0001`/`1000` the line really has left
     the bar and the search starts
-  - A sustained junction reading only means "a junction is under the bar". Which
-    junction it is, and whether to turn or cross, comes from the route sequence
-    in `carbot.ir_route`, gated by distance since the previous one. The readings
-    themselves cannot tell the roundabout exit from the T junction — both are a
-    right branch — and the 2026-08-19 run showed `1111` appears at the T and on
-    the roundabout too, not only at the entry
+  - Each junction is matched against its own ordered signal sequence (real-track
+    tracing, 2026-08-20 — see `carbot.ir_route.RouteJunction.approach`), not a
+    single sustained reading. Which junction it is, whether to turn or cross,
+    and the turn/creep distances all come from the route sequence, gated by
+    distance since the previous one — the readings alone cannot tell the
+    roundabout exit from the T junction, and several of an approach sequence's
+    own steps (e.g. the exit's `0101`) are not junction-shaped in isolation at all
   - Non-contiguous readings (`0101`, `1001`, `1010`, `1011`, `1101`) cannot come
-    from a single 2cm line, so they never steer — the previous command is held
-    and the frame is counted as noise
+    from a single 2cm line on their own, so outside an approach sequence they
+    never steer — the previous command is held and the frame is counted as noise
+  - Junction turns are closed-loop, watching for `0110` (not a fixed duration) —
+    see `IRLineNav._turn_step`
 
 Usage (wheels lifted, operator ready):
     PYTHONPATH=src python3 examples/39_map1_ir_line_follow.py --duration 120
@@ -86,37 +89,25 @@ def main() -> int:
         "after potentiometer retuning; re-check with examples/36 if pots are touched again",
     )
     parser.add_argument(
-        "--junction-min-s",
-        type=float,
-        default=0.15,
-        help="all 4 channels must read black this long before it counts as a junction",
-    )
-    parser.add_argument(
-        "--turn-deg",
-        type=float,
-        default=90.0,
-        help="nominal turn angle at the junction (default 90, a T-junction)",
-    )
-    parser.add_argument(
         "--turn-direction",
         choices=("right", "left"),
         default="right",
-        help="scripted turn direction at the junction (Task-1 first T-junction: right)",
+        help="fallback scripted turn direction before the first junction commits (every "
+        "real junction sets its own direction from the route; Task-1 never reaches this)",
     )
     parser.add_argument(
-        "--creep-before-turn-cm",
+        "--turn-timeout-scale",
         type=float,
-        default=9.5,
-        help="straight creep distance after junction confirmed, before pivoting, "
-        "so the axle (not just the forward-mounted sensor ~9.5cm ahead of it) "
-        "centres on the junction",
+        default=2.0,
+        help="safety ceiling for a closed-loop junction turn (watches for 0110), as a "
+        "multiple of the nominal timed duration for that junction's expected turn angle",
     )
     parser.add_argument(
         "--forward-speed-cm-per-s",
         type=float,
         default=10.0,
-        help="on-paper forward speed at --speed, used to convert "
-        "--creep-before-turn-cm into a drive duration (9.5cm at 10cm/s = 0.95s)",
+        help="on-paper forward speed at --speed, used to convert each junction's "
+        "creep_cm/approach-sequence min_cm (carbot.ir_route) into drive durations",
     )
     parser.add_argument(
         "--start-on-loop",
@@ -204,10 +195,8 @@ def main() -> int:
         route=route,
         speed=args.speed,
         turn_gain=args.turn_gain,
-        junction_min_s=args.junction_min_s,
         turn_direction=1 if args.turn_direction == "right" else -1,
-        turn_deg=args.turn_deg,
-        creep_before_turn_cm=args.creep_before_turn_cm,
+        turn_timeout_scale=args.turn_timeout_scale,
         forward_speed_cm_per_s=args.forward_speed_cm_per_s,
         search_sweep_deg=args.search_sweep_deg,
         search_creep_step_s=args.search_creep_step_s,
