@@ -134,19 +134,67 @@ ROUNDABOUT_EXIT_SIGNATURES: frozenset[tuple[int, int, int, int]] = DEFAULT_JUNCT
     (1, 0, 0, 1)
 }
 
+# ---------------------------------------------------------------------------------------
+# Task-1 junction map / 任務一路口對照表
+#
+# Where each named corner/junction of the lap lives in code, and how it's decided.
+# 每個轉角/路口的邏輯寫在哪裡、怎麼判定。
+#
+#   a. Start~T junction, ~90 deg right turn / 發車區~T路口，右轉約90度
+#      -> TASK1_ROUTE.prologue[0] below. Runs once, lap 1 only.
+#      執行一次，僅第一圈。confirm_signatures 用 DEFAULT_JUNCTION_SIGNATURES。
+#      Turn itself: IRLineNav._commit_junction -> _creep_step -> _turn_step
+#      (src/carbot/ir_line_nav.py) 實際轉彎動作在 ir_line_nav.py。
+#
+#   b/c/d. ARC 1 SE / ARC 2 NE / ARC 3 NW corners / 三個轉角弧線
+#      NOT a junction -- continuous printed curve, sensor tracks it the whole way.
+#      不是路口，是連續黑色弧線，感測器全程持續讀線，不會停下來判定。
+#      -> TASK1_CORNER_WINDOWS below (temporary speed/gain boost, never a blind turn).
+#      執行：IRLineNav._active_corner_window / IRLineNav._steer (ir_line_nav.py)。
+#
+#   e. Phase 8 entry into the roundabout, right turn / 圓環入口，右轉
+#      -> TASK1_ROUTE.loop[0] below ("roundabout entry").
+#      confirm_signatures 用 DEFAULT_JUNCTION_SIGNATURES（未回報異常，沿用預設）。
+#
+#   f. Roundabout exit into Phase 10, right turn / 離開圓環進入 Phase 10，右轉
+#      -> TASK1_ROUTE.loop[1] below ("roundabout exit").
+#      confirm_signatures 額外加了 (1,0,0,1)，見 ROUNDABOUT_EXIT_SIGNATURES 下方註解。
+#
+#   g. Lap 2+: Start~T junction, NO turn, straight through into Phase 2
+#      第二圈起：Start~T路口不轉彎，直行接 Phase 2
+#      -> TASK1_ROUTE.loop[2] below ("T junction"), JunctionAction.CROSS.
+#      執行：IRLineNav._reach_junction 的 CROSS 分支（ir_line_nav.py）。
+#
+#   h. Final lap: car stops centred on the T junction, task complete
+#      最後一圈：車身中心停在 T 路口，任務結束
+#      -> task1_route_for_laps() below synthesizes a JunctionAction.STOP entry
+#      from loop[2] ("T junction" -> "final T junction"). Same confirm_signatures
+#      as g, since it's physically the same junction, just the last time through.
+#      跟 g 是同一個實體路口，只是最後一次經過，共用同一組 confirm_signatures。
+#      執行：IRLineNav._reach_junction 的 STOP 分支 -> _halt（ir_line_nav.py）。
+# ---------------------------------------------------------------------------------------
 TASK1_ROUTE = RoutePlan(
     # No gate on the first one: there is no previous junction to mistake it for, and the
     # sensor sits 9.5cm ahead of the axle, so it can be over the T almost as soon as the car
     # leaves the start box.
-    prologue=(RouteJunction("start stem T junction", JunctionAction.TURN_RIGHT, 0.0),),
+    prologue=(
+        # (a) Start~T junction, ~90° right / 發車區~T路口，右轉約90度 -- lap 1 only, 僅第一圈
+        RouteJunction("start stem T junction", JunctionAction.TURN_RIGHT, 0.0),
+    ),
     loop=(
+        # (e) Phase 8 entry -> roundabout, right / 圓環入口，右轉
         RouteJunction("roundabout entry", JunctionAction.TURN_RIGHT, 60.0),
+        # (f) roundabout exit -> Phase 10, right / 圓環出口，右轉
         RouteJunction(
             "roundabout exit",
             JunctionAction.TURN_RIGHT,
             40.0,
             confirm_signatures=ROUNDABOUT_EXIT_SIGNATURES,
         ),
+        # (g on lap 2+, h on the final lap) T junction: cross straight through, or --
+        # on the last lap -- stop here. Which one applies is decided by
+        # task1_route_for_laps() below, not by this entry itself.
+        # (g/h) T路口：直行穿越，或在最後一圈停在這裡；由下面 task1_route_for_laps() 決定。
         RouteJunction("T junction", JunctionAction.CROSS, 10.0),
     ),
 )
@@ -192,9 +240,9 @@ class CornerWindow:
 #: longer the car has driven since the last confirmed junction. The margins and scale factors
 #: are a first estimate, not a measured constant -- re-tune from real track logs.
 TASK1_CORNER_WINDOWS: tuple[CornerWindow, ...] = (
-    CornerWindow("ARC 1 SE corner", "roundabout entry", 12.0, 23.0, 0.6, 0.5),
-    CornerWindow("ARC 2 NE corner", "roundabout entry", 33.0, 58.0, 0.6, 0.5),
-    CornerWindow("ARC 3 NW corner", "roundabout entry", 102.0, 124.0, 0.6, 0.5),
+    CornerWindow("ARC 1 SE corner", "roundabout entry", 12.0, 23.0, 0.6, 0.5),  # (b)
+    CornerWindow("ARC 2 NE corner", "roundabout entry", 33.0, 58.0, 0.6, 0.5),  # (c)
+    CornerWindow("ARC 3 NW corner", "roundabout entry", 102.0, 124.0, 0.6, 0.5),  # (d)
 )
 
 
@@ -216,6 +264,10 @@ def task1_route_for_laps(laps: int, *, start_on_loop: bool = False) -> RoutePlan
     if laps < 1:
         raise ValueError("laps must be at least 1")
     base = TASK1_LOOP_ONLY if start_on_loop else TASK1_ROUTE
+    # (h) Final lap: the T junction that would normally CROSS (g) becomes a STOP instead --
+    # same physical junction, same confirm_signatures, just the last time through.
+    # 第二圈以後每次經過 T 路口都是 (g) 直行(CROSS)；最後一圈的這一次改成 (h) STOP 停車，
+    # 是同一個實體路口、同一組 confirm_signatures，只差在這是最後一次。
     final_t = RouteJunction(
         "final T junction",
         JunctionAction.STOP,

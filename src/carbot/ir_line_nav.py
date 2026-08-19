@@ -429,7 +429,11 @@ class IRLineNav:
         return cmd
 
     def _active_corner_window(self) -> CornerWindow | None:
-        """The corner window covering the route's current estimated position, if any."""
+        """(b/c/d) ARC 1/2/3 corners / 三個轉角弧線. Not a junction -- the pending junction
+        (window.while_pending) stays "roundabout entry" for all three; this only says whether
+        the current estimated position falls inside one of them.
+        不是路口，pending 路口在這三段期間都還是「roundabout entry」；這裡只是判斷目前估計
+        位置有沒有落在其中一段弧線的距離區間內。"""
         pending = self.junctions.pending
         cm = self.junctions.cm_since_previous
         for window in self.policy.corner_windows:
@@ -467,7 +471,9 @@ class IRLineNav:
         return self._steer(classify((0, 1, 1, 0), physical=True), f"{base_reason}: no history")
 
     def _commit_junction(self, label: str, direction: int) -> IRNavCommand:
-        """Confirmed junction: creep to put the axle on it, then turn.
+        """(a/e/f) The ~90° turn shared by the start-stem T, roundabout entry, and roundabout
+        exit / 發車區T路口、圓環入口、圓環出口共用的約90度轉彎. Confirmed junction: creep to
+        put the axle on it, then turn. 判定成立後：先直行讓輪軸對齊路口中心，再原地轉彎。
 
         From here the car is blind to the sensor on purpose — verified
         2026-08-18 that a single noisy frame mid-crossbar (one channel dropping
@@ -506,11 +512,15 @@ class IRLineNav:
 
         junction = self.junctions.accept()
         if junction.action is JunctionAction.STOP:
+            # (h) Final lap: car stops centred on the T junction, task complete.
+            # 最後一圈：車身中心停在 T 路口，任務結束。
             self.junctions_seen += 1
             self.last_junction = junction.name
             self.state = IRNavState.STOPPED
             return self._halt(f"route complete at {junction.name}")
         if junction.action is JunctionAction.CROSS:
+            # (g) Lap 2+: no turn, straight through into the next lap's Phase 2.
+            # 第二圈起：T路口不轉彎，直行接下一圈的 Phase 2。
             # Counted and consumed like any other junction — the lap position advances even
             # though the wheels do not change. Holding straight keeps the branch off to one
             # side from steering the car into it.
