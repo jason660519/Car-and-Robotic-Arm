@@ -249,17 +249,24 @@ TASK1_ROUTE = RoutePlan(
             "start stem T junction",
             JunctionAction.TURN_RIGHT,
             3.0,
-            # 2026-08-20, sixth pass, real-track: the two-step (1111, then 0000) sequence let
-            # sensor flicker between the two mid-crossbar reset the 1111 accumulation on every
+            # 2026-08-20, sixth pass, real-track: the original two-step (1111, then 0000)
+            # sequence let sensor flicker mid-crossbar reset the 1111 accumulation on every
             # stray 0000 blip -- exactly the readings the 2-second off-track dwell timer was
             # also counting, so the car oscillated forward/backward at the junction instead of
-            # committing to the turn. Single-step now: 1.5cm of (mostly) sustained 1111 commits
-            # immediately to creep+turn, no longer waiting on a subsequent 0000 at all. Stray
-            # 0000 seen while still accumulating this step is ignored, not a reset -- see
-            # IRLineNav._approach_step. Deliberately NOT the same value as the roundabout
-            # entry's 1.65cm below -- different approach geometry (head-on stem vs. the
-            # entry's own angle), the operator measured them separately.
-            approach=(SequenceStep((1, 1, 1, 1), min_cm=1.5),),
+            # committing to the turn. Fixed at the mechanism level instead of dropping the
+            # 0000 step: IRLineNav._approach_step now ignores the sensor reading entirely once
+            # a step has genuinely started, until the last 0.1s of that step's window -- so a
+            # stray blip mid-accumulation no longer resets anything.
+            # 2026-08-20, eighth pass: back to two steps with that fix in place -- sustained
+            # 1111 for 0.15-0.19s (1.5-1.9cm at 10cm/s, the operator's measured range), then a
+            # confirmed 0000 for more than 0.05s (0.5cm), before committing to creep+turn.
+            # Deliberately NOT the same 1111 value as the roundabout entry's 1.65cm below --
+            # different approach geometry (head-on stem vs. the entry's own angle), the
+            # operator measured them separately.
+            approach=(
+                SequenceStep((1, 1, 1, 1), min_cm=1.7),
+                SequenceStep((0, 0, 0, 0), min_cm=0.5),
+            ),
             creep_cm=8.5,
             turn_deg=90.0,
         ),
