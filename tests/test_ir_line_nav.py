@@ -340,6 +340,30 @@ def test_roundabout_entry_shoulder_1001_is_part_of_the_sequence_not_noise():
     assert cmd.state is IRNavState.JUNCTION_CREEP
 
 
+def test_arc_trigger_cm_bypasses_the_approach_sequence_once_the_arc_is_long_enough():
+    """2026-08-20, twelfth pass, real-track: Phase 8 barely exists as a straight for the real
+    roundabout entry -- ARC 3 blends directly into the roundabout's own curve, so the
+    approach's symmetric 1111 crossbar is never reliably produced (a real run rode 287.5cm of
+    continuous arc without ever seeing one). A junction with `arc_trigger_cm` set commits once
+    the phase tracker's continuous arc accumulation reaches it, without ever needing the
+    approach sequence to match at all."""
+    junction = RouteJunction(
+        "roundabout entry", JunctionAction.TURN_RIGHT, 0.0,
+        approach=(SequenceStep((1, 1, 1, 1), min_cm=1.0),),  # never fed, never matches
+        creep_cm=8.0, turn_deg=42.5,
+        arc_trigger_cm=20.0,
+    )
+    nav = _single_junction_nav(junction)
+    for _ in range(9):  # 0.9s of DRIFT: past phase_transition_dwell_s (0.8s) -> mode flips to arc
+        cmd = nav.step(make_reading(DRIFT_RIGHT), 0.1)
+    assert cmd.state is IRNavState.FOLLOW  # not yet 20cm into the arc
+    for _ in range(25):  # one-frame lag on the check, plus 20cm more, past arc_trigger_cm
+        cmd = nav.step(make_reading(DRIFT_RIGHT), 0.1)
+        if cmd.state is IRNavState.JUNCTION_CREEP:
+            break
+    assert cmd.state is IRNavState.JUNCTION_CREEP
+
+
 def test_roundabout_exit_four_step_sweep_including_noise_classified_reading():
     """0101 is Kind.NOISE, 0100/0110 are ordinary DRIFT/ON_LINE -- none look like a junction
     in isolation, only the order matters."""

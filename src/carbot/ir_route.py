@@ -157,8 +157,19 @@ class RouteJunction:
     #: accepted junction -- for a junction reached only after one long continuous curve (the
     #: roundabout traversal), where mode-flip counting doesn't apply (it never flips back to
     #: straight until the exit). 0.0 = no precondition. Only "roundabout exit" uses this today
-    #: (Phase 9's ~84.8cm traversal).
+    #: (Phase 9's ~78.9cm traversal).
     min_arc_cm: float = 0.0
+    #: 2026-08-20, twelfth pass, real-track: the operator confirmed Phase 8 barely exists as a
+    #: straight -- ARC 3 blends almost directly into the roundabout's own curve, so the car
+    #: physically never gets a chance to produce the `approach` sequence's symmetric 1111
+    #: crossbar (a real run accumulated 287.5cm of continuous arc, ~3.6x the roundabout's own
+    #: circumference, before ever seeing one). If > 0, IRLineNav._approach_step bypasses
+    #: `approach` bit-matching for this junction entirely once `min_phase_transitions` is
+    #: satisfied and the phase tracker's continuous accumulated arc distance reaches this --
+    #: a real arc that long cannot still be ARC 3 (~12cm), so it must already be the
+    #: roundabout. 0.0 = no such trigger (matching stays purely sequence-based). Only
+    #: "roundabout entry" uses this today.
+    arc_trigger_cm: float = 0.0
 
     @property
     def turn_direction(self) -> int:
@@ -286,9 +297,17 @@ TASK1_ROUTE = RoutePlan(
             turn_deg=42.5,
             # Phase 2 -> ARC1 -> Phase4 -> ARC2 -> Phase6 -> ARC3 -> Phase8 is 6 straight/arc
             # mode flips since the start-stem T (or the previous lap's T-junction cross) --
-            # reaching flip 6 means the tracker is back in straight mode on Phase 8, i.e.
-            # Phase 6 and ARC 3 are both confirmed done. See the 2026-08-20 planning doc.
+            # reaching flip 6 means Phase 6 and ARC 3 are both confirmed done. See the
+            # 2026-08-20 planning doc.
             min_phase_transitions=6,
+            # 2026-08-20, twelfth pass: Phase 8 does not exist as a real straight -- ARC 3
+            # blends directly into the roundabout's own curve, so `approach`'s symmetric 1111
+            # crossbar is never reliably produced (a real run rode 287.5cm of continuous arc,
+            # ~3.6x the roundabout's own circumference, without ever seeing one). 20.0cm is
+            # comfortably past any single arc's real length (~12cm each) but well short of a
+            # full lap of the roundabout -- see RouteJunction.arc_trigger_cm and
+            # IRLineNav._approach_step. First estimate, re-tune from real track logs.
+            arc_trigger_cm=20.0,
         ),
         # (f) roundabout exit -> Phase 10, right / 圓環出口，右轉
         RouteJunction(

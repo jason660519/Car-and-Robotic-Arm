@@ -692,6 +692,17 @@ class IRLineNav:
             # leg is actually done; a coincidental early reading otherwise risks the same
             # premature-match class of bug the distance gate exists to prevent.
             return None
+        if (
+            pending.arc_trigger_cm > 0
+            and self._phase_mode == "arc"
+            and self._arc_cm >= pending.arc_trigger_cm
+        ):
+            # 2026-08-20, twelfth pass, real-track: Phase 8 does not exist as a real straight
+            # for "roundabout entry" -- ARC 3 blends directly into the roundabout's own curve,
+            # so the approach sequence's symmetric 1111 crossbar below is never reliably
+            # produced. A continuous arc this long cannot still be ARC 3 (~12cm); it must
+            # already be the roundabout. See RouteJunction.arc_trigger_cm.
+            return self._reach_junction(reading)
         approach = pending.approach
         index = self._approach_index
         step = approach[index]

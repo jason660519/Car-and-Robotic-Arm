@@ -241,6 +241,13 @@ def test_roundabout_entry_approach_has_the_1001_shoulder():
     assert ROUNDABOUT_ENTRY.turn_deg == pytest.approx(42.5)
 
 
+def test_roundabout_entry_has_an_arc_length_trigger():
+    """2026-08-20, twelfth pass: Phase 8 barely exists as a straight -- ARC 3 blends directly
+    into the roundabout, so the crossbar above is a fallback, not the primary trigger. 20cm is
+    well past any single arc's real length (~12cm each)."""
+    assert ROUNDABOUT_ENTRY.arc_trigger_cm == pytest.approx(20.0)
+
+
 def test_roundabout_exit_approach_is_the_four_step_sweep():
     """0101 is Kind.NOISE and 0100/0110 are ordinary DRIFT/ON_LINE under
     carbot.ir_geometry -- only the order carries the signal, which is exactly why the old
