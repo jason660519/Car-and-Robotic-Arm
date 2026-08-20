@@ -43,6 +43,7 @@ single-reading dwell timer) this replaced and why each one broke on real track d
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -118,6 +119,7 @@ class IRNavState(Enum):
     JUNCTION_CREEP = "junction_creep"  # committed to the junction; blind creep before pivoting
     JUNCTION_TURN = "junction_turn"  # spinning right, closed-loop until 0110 or a timeout
     SEARCH = "search"  # line lost; sweep ±search_sweep_deg, then creep forward step by step
+    REVERSE = "reverse"  # off-track (0000/1111 sustained); replaying recent commands backward
     STOPPED = "stopped"  # the route's planned laps are done; latched, wheels held at zero
 
 
@@ -273,6 +275,35 @@ class IRNavPolicy:
     # carbot.ir_route.CornerWindow. Applied only while FOLLOWing; never turns off line
     # tracking, only drives slower and corrects harder for that stretch.
     corner_windows: tuple[CornerWindow, ...] = TASK1_CORNER_WINDOWS
+    # ------------------------------------------------------------------
+    # PHASE TRACKER — 2026-08-20, see tasks/ir-sensor-tracking/
+    # phase-tracking-and-junction-detection-plan.md. Distinguishes "on a straight phase"
+    # (sustained 0110) from "on an arc" (a repeating 0110/0100-style correction rhythm), to
+    # gate RouteJunction.min_phase_transitions/.min_arc_cm preconditions -- e.g. the
+    # roundabout entry's approach sequence is not even attempted until the tracker confirms
+    # Phase 6 and ARC 3 are actually done, not just "the distance gate is open".
+    # ------------------------------------------------------------------
+    # A non-"0110" reading must persist this long before it counts as a real correction event
+    # (flips straight<->arc mode) -- shorter blips are noise (paper texture, a single-frame
+    # misread) and must not flip the mode. Deliberately longer than the old junction_min_s
+    # (0.15s, filtered single-sample paper-fold noise for a *sustained crossbar* check) --
+    # this filters shorter single-frame misreads without confusing them for the genuine,
+    # repeating arc-correction rhythm.
+    phase_transition_dwell_s: float = 0.8
+    # ------------------------------------------------------------------
+    # OFF-TRACK RECOVERY — 2026-08-20, see the planning doc above.
+    #
+    # A junction's own 1111 hold is well under 1s (1.65-1.9cm at ~10cm/s); 1111 sustained for
+    # a full off_track_dwell_s cannot be a junction, only carpet beyond the paper's edge (see
+    # docs/hardware/ir-tracing-sensor.md -- no return reads the same as black). 0000 sustained
+    # that long means blank paper, off any line. Either one triggers reverse-replay: pop the
+    # last reverse_replay_window_s of actually-commanded (left, right, dt) history and re-issue
+    # each entry sign-flipped, newest first -- retracing the real path back, not a freshly
+    # guessed reverse manoeuvre. Falls through to the existing sweep SEARCH only if the full
+    # replay finishes and the sensor still reads 0000/1111.
+    # ------------------------------------------------------------------
+    off_track_dwell_s: float = 2.0
+    reverse_replay_window_s: float = 2.0
 
     def __post_init__(self) -> None:
         if not 0 <= self.speed <= 1000:
@@ -301,6 +332,12 @@ class IRNavPolicy:
             raise ValueError("search_creep_steps_per_cycle must be >= 1")
         if self.search_give_up_s < 0:
             raise ValueError("search_give_up_s must be non-negative")
+        if self.phase_transition_dwell_s < 0:
+            raise ValueError("phase_transition_dwell_s must be non-negative")
+        if self.off_track_dwell_s <= 0:
+            raise ValueError("off_track_dwell_s must be positive")
+        if self.reverse_replay_window_s <= 0:
+            raise ValueError("reverse_replay_window_s must be positive")
 
     def turn_timeout_s(self, turn_deg: float) -> float:
         """Safety ceiling for a closed-loop junction turn (see `IRLineNav._turn_step`) --
@@ -364,6 +401,21 @@ class IRLineNav:
         #: True from a crossed junction until the bar clears it, so the same dark feature is
         #: not re-detected and does not steer the car onto the branch it just declined.
         self._crossing = False
+        #: Straight/arc phase tracker (see IRNavPolicy.phase_transition_dwell_s) -- reset
+        #: whenever a junction is accepted, since each leg starts a fresh straight/arc
+        #: sequence. "straight" is the default starting assumption for every leg.
+        self._phase_mode = "straight"
+        self._straight_cm = 0.0
+        self._arc_cm = 0.0
+        self._phase_transitions = 0
+        self._phase_candidate_elapsed = 0.0
+        #: Off-track recovery (see IRNavPolicy.off_track_dwell_s/.reverse_replay_window_s).
+        self._off_track_reading: tuple[int, int, int, int] | None = None
+        self._off_track_elapsed = 0.0
+        self._command_history: deque[tuple[int, int, float]] = deque()
+        self._command_history_s = 0.0
+        self._reverse_queue: deque[tuple[int, int, float]] = deque()
+        self._reverse_elapsed_in_segment = 0.0
 
     def step(self, reading: IRLineReading, dt: float) -> IRNavCommand:
         if dt < 0:
@@ -372,27 +424,174 @@ class IRLineNav:
         # wheels again. A stop that could be un-stopped by a stray reading is not a stop.
         if self.state is IRNavState.STOPPED:
             return self._halt("route complete")
+
+        # Off-track recovery (2026-08-20): checked before anything else, on the raw reading,
+        # regardless of current state -- except REVERSE itself (can't re-trigger mid-replay)
+        # and the blind junction manoeuvres (JUNCTION_CREEP/JUNCTION_TURN are short, deliberately
+        # sensor-blind, and already have their own timeout; a 2s dwell rarely applies there and
+        # interrupting one mid-manoeuvre with a reverse-replay is more likely to make things
+        # worse than better). See IRNavPolicy.off_track_dwell_s.
+        if self.state in (IRNavState.FOLLOW, IRNavState.SEARCH):
+            self._update_off_track_timer(reading, dt)
+            if self._off_track_elapsed >= self.policy.off_track_dwell_s:
+                self._enter_reverse()
+
         # Feed the junction distance gate. A pivot covers no ground, so it must not count --
-        # and neither does SEARCH: its sweep sub-phases are rotations too (like JUNCTION_TURN,
-        # not "close enough to forward motion"), and a search happening at all means the car's
-        # position is not actually known, so crediting assumed forward progress during it is
-        # exactly the kind of fabricated distance that let a lost car look, on paper, like it
-        # was still making planned progress -- see the carbot.ir_route module docstring,
-        # 2026-08-20. Distance resumes accruing once the line is reacquired and FOLLOW resumes.
-        if self.state not in (IRNavState.JUNCTION_TURN, IRNavState.SEARCH):
+        # and neither does SEARCH or REVERSE: sweeping/replaying are rotations or retraced
+        # ground, not "close enough to forward motion", and a search/reverse happening at all
+        # means the car's position is not actually known, so crediting assumed forward progress
+        # during it is exactly the kind of fabricated distance that let a lost car look, on
+        # paper, like it was still making planned progress -- see the carbot.ir_route module
+        # docstring, 2026-08-20. Distance resumes accruing once the line is reacquired and
+        # FOLLOW resumes.
+        if self.state not in (IRNavState.JUNCTION_TURN, IRNavState.SEARCH, IRNavState.REVERSE):
             self.junctions.travel(dt * self.policy.forward_speed_cm_per_s)
-        if self.state is IRNavState.JUNCTION_TURN:
-            return self._turn_step(reading, dt)
-        if self.state is IRNavState.JUNCTION_CREEP:
-            return self._creep_step(reading, dt)
-        if self.state is IRNavState.SEARCH:
-            return self._search_step(reading, dt)
-        return self._follow_step(reading, dt)
+
+        replaying = self.state is IRNavState.REVERSE
+        if replaying:
+            cmd = self._reverse_step(reading, dt)
+        elif self.state is IRNavState.JUNCTION_TURN:
+            cmd = self._turn_step(reading, dt)
+        elif self.state is IRNavState.JUNCTION_CREEP:
+            cmd = self._creep_step(reading, dt)
+        elif self.state is IRNavState.SEARCH:
+            cmd = self._search_step(reading, dt)
+        else:
+            cmd = self._follow_step(reading, dt)
+
+        # Record what was actually commanded, for reverse-replay -- but not replayed commands
+        # themselves (that would feed the buffer back into itself), keyed on whether *this*
+        # frame was dispatched as a replay, not the (possibly just-changed) state afterward.
+        if not replaying:
+            self._record_command(cmd, dt)
+        return cmd
 
     def _halt(self, note: str) -> IRNavCommand:
         cmd = IRNavCommand(0, 0, note, IRNavState.STOPPED)
         self._last_command = cmd
         return cmd
+
+    # ------------------------------------------------------------ off-track recovery
+    def _update_off_track_timer(self, reading: IRLineReading, dt: float) -> None:
+        """Track how long the *same* off-track reading (0000 or 1111) has been continuous.
+
+        Keyed to a specific reading, not "any qualifying one" -- switching between 0000 and
+        1111 mid-window (e.g. clipping the paper edge) does not represent 2s of sitting still
+        off-track, so it restarts the clock rather than carrying it over.
+        """
+        off_track_bits = ((0, 0, 0, 0), (1, 1, 1, 1))
+        if reading.physical in off_track_bits and reading.physical == self._off_track_reading:
+            self._off_track_elapsed += dt
+        elif reading.physical in off_track_bits:
+            self._off_track_reading = reading.physical
+            self._off_track_elapsed = dt
+        else:
+            self._off_track_reading = None
+            self._off_track_elapsed = 0.0
+
+    def _record_command(self, cmd: IRNavCommand, dt: float) -> None:
+        """Append to the rolling command history used by reverse-replay, trimming anything
+        older than the replay window needs (kept with a small margin, not trimmed exactly to
+        the window, so a slightly-late off-track trigger still has the full window available).
+        """
+        self._command_history.append((cmd.left, cmd.right, dt))
+        self._command_history_s += dt
+        margin_s = self.policy.reverse_replay_window_s + 1.0
+        while self._command_history_s > margin_s and self._command_history:
+            _, _, old_dt = self._command_history.popleft()
+            self._command_history_s -= old_dt
+
+    def _enter_reverse(self) -> None:
+        """Off-track confirmed: snapshot the command history (newest-first) and start
+        replaying it sign-flipped. The history is consumed by this snapshot; a fresh one
+        builds up again once normal driving resumes."""
+        self.state = IRNavState.REVERSE
+        self._reverse_queue = deque(reversed(self._command_history))
+        self._command_history.clear()
+        self._command_history_s = 0.0
+        self._reverse_elapsed_in_segment = 0.0
+        self._off_track_reading = None
+        self._off_track_elapsed = 0.0
+
+    def _reverse_step(self, reading: IRLineReading, dt: float) -> IRNavCommand:
+        """Replay the pre-off-track command history backward, one recorded segment at a time.
+
+        Ends early the moment a non-0000/1111 reading reappears (reacquired something real,
+        resume FOLLOW from here) -- does not wait out the rest of the queue. If the whole
+        window replays with no reacquisition, falls through to the existing sweep SEARCH.
+        """
+        if reading.physical not in ((0, 0, 0, 0), (1, 1, 1, 1)):
+            self.state = IRNavState.FOLLOW
+            self._last_localising = None
+            return self._follow_step(reading, 0.0)
+
+        if not self._reverse_queue:
+            self._enter_search()
+            return self._search_step(reading, 0.0)
+
+        left, right, seg_dt = self._reverse_queue[0]
+        self._reverse_elapsed_in_segment += dt
+        if self._reverse_elapsed_in_segment >= seg_dt:
+            self._reverse_queue.popleft()
+            self._reverse_elapsed_in_segment = 0.0
+        cmd = IRNavCommand(
+            -left,
+            -right,
+            f"reverse-replay: retracing off-track path, {len(self._reverse_queue)} steps left",
+            IRNavState.REVERSE,
+        )
+        self._last_command = cmd
+        return cmd
+
+    # ------------------------------------------------------------ phase tracker
+    def _update_phase_tracker(self, reading: IRLineReading, dt: float) -> None:
+        """(b/c/d) Distinguish "on a straight phase" from "on an arc" by the correction
+        rhythm: sustained `0110` means straight, a recurring non-`0110` correction means an
+        arc. See IRNavPolicy.phase_transition_dwell_s and the 2026-08-20 planning doc. Only
+        called for readings that fell through _approach_step (i.e. not part of an active
+        junction approach) -- see _follow_step.
+        """
+        cm = dt * self.policy.forward_speed_cm_per_s
+        is_straight = reading.physical == (0, 1, 1, 0)
+        if self._phase_mode == "straight":
+            self._straight_cm += cm
+        else:
+            self._arc_cm += cm
+
+        opposes_current_mode = is_straight if self._phase_mode == "arc" else not is_straight
+        if not opposes_current_mode:
+            self._phase_candidate_elapsed = 0.0
+            return
+        self._phase_candidate_elapsed += dt
+        if self._phase_candidate_elapsed < self.policy.phase_transition_dwell_s:
+            return
+        # Confirmed: flip mode, count it, and start the new mode's accumulator fresh.
+        self._phase_transitions += 1
+        self._phase_candidate_elapsed = 0.0
+        if self._phase_mode == "straight":
+            self._phase_mode = "arc"
+            self._arc_cm = 0.0
+        else:
+            self._phase_mode = "straight"
+            self._straight_cm = 0.0
+
+    def _reset_phase_tracker(self) -> None:
+        """Called whenever a junction is accepted -- each leg starts a fresh straight/arc
+        sequence, "straight" by default."""
+        self._phase_mode = "straight"
+        self._straight_cm = 0.0
+        self._arc_cm = 0.0
+        self._phase_transitions = 0
+        self._phase_candidate_elapsed = 0.0
+
+    def _phase_precondition_met(self, pending: RouteJunction) -> bool:
+        """Whether the phase tracker confirms enough of the preceding leg is done to even
+        start matching `pending`'s approach sequence -- see
+        carbot.ir_route.RouteJunction.min_phase_transitions/.min_arc_cm."""
+        return (
+            self._phase_transitions >= pending.min_phase_transitions
+            and self._arc_cm >= pending.min_arc_cm
+        )
 
     def _active_corner_window(self) -> CornerWindow | None:
         """(b/c/d) ARC 1/2/3 corners / 三個轉角弧線. Not a junction -- the pending junction
@@ -464,6 +663,13 @@ class IRLineNav:
           regression: a bare mid-sequence blip steered the car off course before it ever
           reached the actual junction).
         """
+        if not self._phase_precondition_met(pending):
+            # The distance gate alone isn't enough for e/f -- see
+            # carbot.ir_route.RouteJunction.min_phase_transitions/.min_arc_cm. Don't even try
+            # matching this junction's approach until the phase tracker agrees the preceding
+            # leg is actually done; a coincidental early reading otherwise risks the same
+            # premature-match class of bug the distance gate exists to prevent.
+            return None
         approach = pending.approach
         index = self._approach_index
         step = approach[index]
@@ -548,6 +754,7 @@ class IRLineNav:
         junction = self.junctions.accept()
         self._approach_index = 0
         self._approach_cm = 0.0
+        self._reset_phase_tracker()
         if junction.action is JunctionAction.STOP:
             # (h) Final lap: car stops centred on the T junction, task complete.
             # 最後一圈：車身中心停在 T 路口，任務結束。
@@ -589,6 +796,7 @@ class IRLineNav:
         approached = self._approach_step(pending, reading, dt)
         if approached is not None:
             return approached
+        self._update_phase_tracker(reading, dt)
 
         if state.kind is Kind.NOISE:
             # Non-contiguous black: one 2 cm line cannot produce it, so it is

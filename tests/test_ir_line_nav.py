@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 
 from carbot.ir_line_nav import IRLineNav, IRNavPolicy, IRNavState, make_reading
-from carbot.ir_route import JunctionAction, RouteJunction, RoutePlan, SequenceStep
+from carbot.ir_route import TASK1_ROUTE, JunctionAction, RouteJunction, RoutePlan, SequenceStep
 
 # Raw Out1..Out4 tuples -> physical P1..P4 after to_physical (PHYSICAL_ORDER swaps 0,1).
 CENTRED = (1, 0, 1, 0)  # physical 0110 — P2+P3, the only two-sensor line reading
@@ -420,7 +420,10 @@ def test_search_sweeps_left_then_right_then_creeps():
 
 
 def test_search_creep_steps_then_restarts_sweep_cycle():
-    nav = default_nav(search_creep_steps_per_cycle=2)
+    # off_track_dwell_s disabled (huge) -- this test is about the search phase cycle
+    # specifically, not the 2026-08-20 off-track/reverse-replay feature; see
+    # test_off_track_* for that.
+    nav = default_nav(search_creep_steps_per_cycle=2, off_track_dwell_s=100.0)
     gap = make_reading(GAP)
     nav.step(gap, 0.5)  # enters search (transition consumes no search time)
     nav.step(gap, 0.7)  # finishes left sweep (0.648s) -> sweep right
@@ -468,12 +471,217 @@ def test_search_gives_up_and_stops():
 
 
 def test_search_zero_give_up_never_stops():
-    nav = default_nav(search_give_up_s=0.0)
+    # off_track_dwell_s disabled (huge) -- this test runs GAP for 25s straight to check the
+    # give-up=0 case specifically; see test_off_track_* for the 2026-08-20 feature.
+    nav = default_nav(search_give_up_s=0.0, off_track_dwell_s=100.0)
     gap = make_reading(GAP)
     for _ in range(50):
         cmd = nav.step(gap, 0.5)
         assert cmd.state is IRNavState.SEARCH
     assert not (cmd.left == cmd.right == 0)
+
+
+# --------------------------------------------------- 2026-08-20 phase tracker (straight/arc)
+#
+# Distinguishes "on a straight phase" (sustained 0110) from "on an arc" (a repeating
+# non-0110 correction) -- see tasks/ir-sensor-tracking/phase-tracking-and-junction-detection-
+# plan.md. Gates RouteJunction.min_phase_transitions/.min_arc_cm (see below).
+
+
+def test_phase_tracker_accumulates_straight_cm_on_sustained_0110():
+    nav = default_nav()
+    nav.step(make_reading(CENTRED), 0.5)  # 5cm
+    nav.step(make_reading(CENTRED), 0.3)  # +3cm
+    assert nav._phase_mode == "straight"
+    assert nav._straight_cm == pytest.approx(8.0)
+    assert nav._phase_transitions == 0
+
+
+def test_phase_tracker_ignores_a_correction_blip_under_the_dwell():
+    """A non-0110 reading shorter than phase_transition_dwell_s (0.8s default) is noise, not
+    a real arc-correction event -- must not flip the mode, and _straight_cm keeps
+    accumulating straight through it."""
+    nav = default_nav()
+    nav.step(make_reading(CENTRED), 0.5)
+    nav.step(make_reading(DRIFT_LEFT), 0.3)  # 0100, only 0.3s < 0.8s dwell
+    nav.step(make_reading(CENTRED), 0.2)
+    assert nav._phase_mode == "straight"
+    assert nav._phase_transitions == 0
+    assert nav._straight_cm == pytest.approx(10.0)  # (0.5+0.3+0.2)s * 10cm/s, all counted
+
+
+def test_phase_tracker_confirms_arc_after_a_sustained_correction():
+    nav = default_nav()
+    nav.step(make_reading(CENTRED), 0.5)  # _straight_cm = 5.0
+    nav.step(make_reading(DRIFT_LEFT), 0.9)  # >= 0.8s dwell -> confirmed arc
+    assert nav._phase_mode == "arc"
+    assert nav._phase_transitions == 1
+    assert nav._straight_cm == pytest.approx(14.0)  # includes the flip-confirming frame
+    assert nav._arc_cm == 0.0  # just reset on entering arc mode
+
+
+def test_phase_tracker_confirms_return_to_straight():
+    nav = default_nav()
+    nav.step(make_reading(CENTRED), 0.5)
+    nav.step(make_reading(DRIFT_LEFT), 0.9)  # -> arc, transitions=1
+    nav.step(make_reading(CENTRED), 0.9)  # sustained 0110 >= 0.8s -> back to straight
+    assert nav._phase_mode == "straight"
+    assert nav._phase_transitions == 2
+    assert nav._straight_cm == 0.0  # just reset on entering straight mode
+
+
+def test_phase_tracker_resets_when_a_junction_is_accepted():
+    nav = default_nav()
+    nav.step(make_reading(CENTRED), 0.5)
+    nav.step(make_reading(DRIFT_LEFT), 0.9)  # -> arc, transitions=1
+    _reach_next_junction(nav)  # start stem T accepted
+    assert nav._phase_mode == "straight"
+    assert nav._phase_transitions == 0
+    assert nav._straight_cm == 0.0
+    assert nav._arc_cm == 0.0
+
+
+# ------------------------------------------- 2026-08-20 junction preconditions (phase tracker)
+
+
+def test_roundabout_entry_approach_is_gated_by_phase_transitions():
+    """Distance gate alone isn't enough for the roundabout entry -- see
+    carbot.ir_route.RouteJunction.min_phase_transitions."""
+    from carbot.ir_route import TASK1_LOOP_ONLY
+
+    nav = default_nav(route=TASK1_LOOP_ONLY)  # pending: roundabout entry, min_phase_transitions=6
+    assert nav.junctions.pending.min_phase_transitions == 6
+    cmd = nav.step(make_reading(CROSSBAR), 0.1)  # precondition unmet: not even attempted
+    assert "approaching roundabout entry" not in cmd.reason
+    nav._phase_transitions = 6  # precondition satisfied directly (see test_phase_tracker_*)
+    cmd = nav.step(make_reading(CROSSBAR), 0.1)
+    assert "approaching roundabout entry" in cmd.reason
+
+
+def test_roundabout_exit_approach_is_gated_by_arc_cm():
+    """Phase 9 (the roundabout traversal) is one continuous curve -- gated on accumulated
+    _arc_cm, not a mode-flip count. See carbot.ir_route.RouteJunction.min_arc_cm."""
+    plan = RoutePlan(prologue=(), loop=(TASK1_ROUTE.loop[1],))  # pending: roundabout exit
+    nav = default_nav(route=plan)
+    assert nav.junctions.pending.min_arc_cm == 68.0
+    cmd = nav.step(make_reading(RIGHT_BRANCH_0111), 0.1)  # precondition unmet
+    assert "approaching roundabout exit" not in cmd.reason
+    nav._arc_cm = 68.0  # precondition satisfied directly
+    cmd = nav.step(make_reading(RIGHT_BRANCH_0111), 0.1)
+    assert "approaching roundabout exit" in cmd.reason
+
+
+def test_start_t_and_t_junction_have_no_phase_precondition():
+    assert TASK1_ROUTE.prologue[0].min_phase_transitions == 0
+    assert TASK1_ROUTE.prologue[0].min_arc_cm == 0.0
+    assert TASK1_ROUTE.loop[2].min_phase_transitions == 0
+    assert TASK1_ROUTE.loop[2].min_arc_cm == 0.0
+
+
+# --------------------------------------------------- 2026-08-20 off-track recovery (reverse)
+
+
+def test_off_track_timer_ignores_readings_under_the_dwell():
+    nav = default_nav()
+    for _ in range(19):  # 1.9s of continuous 0000, just under the 2.0s default dwell
+        nav.step(make_reading(GAP), 0.1)
+    assert nav.state is IRNavState.SEARCH  # ordinary lost-line search, not reverse yet
+
+
+def test_sustained_0000_triggers_reverse_after_the_dwell():
+    nav = default_nav()
+    nav.step(make_reading(CENTRED), 0.5)  # give it a command history to replay
+    for _ in range(21):  # 2.1s of continuous 0000
+        cmd = nav.step(make_reading(GAP), 0.1)
+    assert nav.state is IRNavState.REVERSE
+    assert "reverse-replay" in cmd.reason
+
+
+def test_sustained_1111_off_paper_also_triggers_reverse():
+    """A junction's own 1111 hold is well under 1s -- 2s sustained can only be carpet beyond
+    the paper's edge, never a real junction. See docs/hardware/ir-tracing-sensor.md."""
+    nav = default_nav()
+    for _ in range(21):
+        nav.step(make_reading(CROSSBAR), 0.1)
+    assert nav.state is IRNavState.REVERSE
+
+
+def test_switching_between_0000_and_1111_restarts_the_off_track_clock():
+    nav = default_nav()
+    for _ in range(15):
+        nav.step(make_reading(GAP), 0.1)
+    cmd = nav.step(make_reading(CROSSBAR), 0.1)  # switched reading -- clock restarts
+    assert cmd.state is not IRNavState.REVERSE
+    for _ in range(15):  # only 1.6s of continuous 1111 since the switch -- not enough yet
+        cmd = nav.step(make_reading(CROSSBAR), 0.1)
+    assert cmd.state is not IRNavState.REVERSE
+
+
+def test_reverse_replay_sign_flips_the_history_newest_first():
+    """Directly seeds the history and enters REVERSE, isolating the queue-ordering mechanism
+    from what real intervening SEARCH/blind-band commands would organically produce during a
+    genuine 2s off-track period (those get recorded too -- this just checks the replay itself
+    plays newest-first, sign-flipped)."""
+    nav = default_nav()
+    nav._command_history.append((150, 110, 0.2))  # older
+    nav._command_history.append((110, 150, 0.2))  # newest
+    nav._command_history_s = 0.4
+    nav._enter_reverse()
+    cmd = nav._reverse_step(make_reading(GAP), 0.05)
+    assert nav.state is IRNavState.REVERSE
+    assert (cmd.left, cmd.right) == (-110, -150)
+
+
+def test_reverse_replay_stops_early_on_reacquiring_a_real_signal():
+    nav = default_nav()
+    nav.step(make_reading(CENTRED), 0.5)
+    for _ in range(21):
+        nav.step(make_reading(GAP), 0.1)
+    assert nav.state is IRNavState.REVERSE
+    cmd = nav.step(make_reading(CENTRED), 0.01)  # reacquired -- stop replaying immediately
+    assert cmd.state is IRNavState.FOLLOW
+    assert cmd.left == cmd.right == 150
+
+
+def test_reverse_replay_falls_through_to_search_once_exhausted():
+    nav = default_nav()
+    nav.step(make_reading(CENTRED), 0.1)  # a thin history -- one short command
+    for _ in range(21):
+        nav.step(make_reading(GAP), 0.1)
+    assert nav.state is IRNavState.REVERSE
+    cmd = None
+    for _ in range(50):  # replay the (short) queue out with continued 0000
+        cmd = nav.step(make_reading(GAP), 0.1)
+        if cmd.state is IRNavState.SEARCH:
+            break
+    assert cmd.state is IRNavState.SEARCH
+
+
+def test_reverse_replay_is_excluded_from_distance_credit():
+    nav = default_nav()
+    nav.step(make_reading(CENTRED), 0.5)
+    for _ in range(21):
+        nav.step(make_reading(GAP), 0.1)
+    assert nav.state is IRNavState.REVERSE
+    before = nav.junctions.cm_since_previous
+    nav.step(make_reading(GAP), 0.1)  # still replaying
+    assert nav.junctions.cm_since_previous == pytest.approx(before)
+
+
+def test_off_track_does_not_trigger_mid_creep_or_turn():
+    """JUNCTION_CREEP/JUNCTION_TURN are short, deliberately sensor-blind manoeuvres with their
+    own timeout -- the off-track check is skipped for them (see IRLineNav.step)."""
+    junction = RouteJunction(
+        "x", JunctionAction.TURN_RIGHT, 0.0,
+        approach=(SequenceStep((1, 1, 1, 1), min_cm=0.0),),
+        creep_cm=50.0, turn_deg=90.0,  # long creep, comfortably over the 2s off-track dwell
+    )
+    nav = _single_junction_nav(junction)
+    nav.step(make_reading(CROSSBAR), 0.1)  # arrival -> JUNCTION_CREEP
+    assert nav.state is IRNavState.JUNCTION_CREEP
+    for _ in range(25):  # 2.5s of blind creep, sensor irrelevant but still reads GAP
+        cmd = nav.step(make_reading(GAP), 0.1)
+    assert cmd.state is IRNavState.JUNCTION_CREEP  # not diverted into REVERSE
 
 
 # ------------------------------------------------------------- policy
@@ -536,14 +744,23 @@ def _reach_next_junction(nav: IRLineNav) -> None:
     """Drive far enough to clear the next distance gate, then walk its real approach
     sequence to completion (always feeding whatever step `_approach_index` is currently
     tracking, so persistence requirements are satisfied step by step in order), then settle
-    out any creep/turn."""
+    out any creep/turn.
+
+    Directly satisfies the pending junction's phase-tracker precondition (see
+    carbot.ir_route.RouteJunction.min_phase_transitions/.min_arc_cm) rather than actually
+    driving the straight/arc pattern that would earn it -- this helper is testing junction
+    arrival, not the phase tracker itself (see test_phase_tracker_* for that).
+    """
     gate = nav.junctions.pending.min_cm_since_previous
     seconds = gate / nav.policy.forward_speed_cm_per_s + 1.0
     for _ in range(int(seconds / 0.01) + 10):
         if nav.state is IRNavState.STOPPED:
             return
         nav.step(make_reading(CENTRED), dt=0.01)
-    approach = nav.junctions.pending.approach
+    pending = nav.junctions.pending
+    nav._phase_transitions = pending.min_phase_transitions
+    nav._arc_cm = pending.min_arc_cm
+    approach = pending.approach
     seen_before = nav.junctions_seen
     for _ in range(4000):
         if nav.junctions_seen > seen_before or nav.state is IRNavState.STOPPED:
@@ -586,7 +803,10 @@ def test_a_junction_read_again_immediately_is_rejected():
     nav = default_nav()
     _reach_next_junction(nav)  # start stem T, accepted
     assert nav.last_junction == "start stem T junction"
-    approach = nav.junctions.pending.approach  # roundabout entry's sequence, too soon
+    pending = nav.junctions.pending  # roundabout entry
+    nav._phase_transitions = pending.min_phase_transitions  # satisfy the precondition directly
+    nav._arc_cm = pending.min_arc_cm
+    approach = pending.approach  # its sequence, too soon for the *distance* gate specifically
     cmd = None
     for _ in range(2000):
         raw = _raw_for(approach[nav._approach_index].bits)

@@ -216,7 +216,7 @@ T_JUNCTION = TASK1_ROUTE.loop[2]
 
 def test_start_stem_t_approach_is_crossbar_then_clear():
     assert [s.bits for s in START_T.approach] == [(1, 1, 1, 1), (0, 0, 0, 0)]
-    assert START_T.approach[0].min_cm == 2.0
+    assert START_T.approach[0].min_cm == 1.9
     assert START_T.creep_cm == 8.5
     assert START_T.turn_deg == 90.0
 

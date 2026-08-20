@@ -147,6 +147,18 @@ class RouteJunction:
     #: timeout (IRNavPolicy.turn_timeout_s). The turn itself ends on TURN_COMPLETE_READING,
     #: not this angle; 0 for CROSS/STOP junctions, which do not turn at all.
     turn_deg: float = 0.0
+    #: Precondition on IRLineNav's straight/arc phase tracker (2026-08-20 planning doc,
+    #: tasks/ir-sensor-tracking/phase-tracking-and-junction-detection-plan.md) -- this
+    #: junction's `approach` sequence is not even attempted until the tracker's mode-flip
+    #: count since the last accepted junction reaches this. 0 = no precondition (the distance
+    #: gate alone decides). Only "roundabout entry" uses this today (Phase 6 + ARC 3 done).
+    min_phase_transitions: int = 0
+    #: Precondition on the phase tracker's accumulated arc distance (`_arc_cm`) since the last
+    #: accepted junction -- for a junction reached only after one long continuous curve (the
+    #: roundabout traversal), where mode-flip counting doesn't apply (it never flips back to
+    #: straight until the exit). 0.0 = no precondition. Only "roundabout exit" uses this today
+    #: (Phase 9's ~84.8cm traversal).
+    min_arc_cm: float = 0.0
 
     @property
     def turn_direction(self) -> int:
@@ -237,7 +249,13 @@ TASK1_ROUTE = RoutePlan(
             "start stem T junction",
             JunctionAction.TURN_RIGHT,
             3.0,
-            approach=(SequenceStep((1, 1, 1, 1), min_cm=2.0), SequenceStep((0, 0, 0, 0))),
+            # 2026-08-20 correction: the raw "2cm" figure very likely included a frame or two
+            # of skewed-entry noise (1110/0111) before a clean symmetric 1111 -- 1.9cm
+            # (midpoint of 1.8-2.0cm) is the real sustained-1111 window. Deliberately NOT the
+            # same value as the roundabout entry's 1.65cm below -- different approach geometry
+            # (head-on stem vs. the entry's own angle), the operator measured them separately
+            # and they are not interchangeable.
+            approach=(SequenceStep((1, 1, 1, 1), min_cm=1.9), SequenceStep((0, 0, 0, 0))),
             creep_cm=8.5,
             turn_deg=90.0,
         ),
@@ -255,6 +273,11 @@ TASK1_ROUTE = RoutePlan(
             ),
             creep_cm=8.0,
             turn_deg=42.5,
+            # Phase 2 -> ARC1 -> Phase4 -> ARC2 -> Phase6 -> ARC3 -> Phase8 is 6 straight/arc
+            # mode flips since the start-stem T (or the previous lap's T-junction cross) --
+            # reaching flip 6 means the tracker is back in straight mode on Phase 8, i.e.
+            # Phase 6 and ARC 3 are both confirmed done. See the 2026-08-20 planning doc.
+            min_phase_transitions=6,
         ),
         # (f) roundabout exit -> Phase 10, right / 圓環出口，右轉
         RouteJunction(
@@ -269,6 +292,12 @@ TASK1_ROUTE = RoutePlan(
             ),
             creep_cm=6.5,
             turn_deg=90.0,
+            # Phase 9 (the roundabout traversal, ~84.8cm) is one continuous curve -- it never
+            # flips back to straight mode until the exit, so mode-flip counting doesn't apply
+            # here the way it does for "roundabout entry" above. 68.0cm (~80% of 84.8cm)
+            # confirms most of the traversal is done without demanding an exact match -- see
+            # the "probabilistic, not exact" governing principle in the planning doc.
+            min_arc_cm=68.0,
         ),
         # (g on lap 2+, h on the final lap) T junction: cross straight through, or --
         # on the last lap -- stop here. Which one applies is decided by
@@ -312,23 +341,28 @@ class CornerWindow:
 
 
 #: 2026-08-20: continuous proportional line-following was not tight enough to track these three
-#: corners -- ARC 1's radius (~2.3cm, back-computed from its 3.6cm arc length over a 90deg
-#: heading change) is smaller than the car's own footprint, so at full speed and steady-state
-#: gains the car ran wide off the curve and off the map before the correction caught up.
-#: These windows slow down and sharpen the correction for that stretch without ever stopping
-#: line tracking or scripting a blind turn -- unlike a T junction, a single continuous curve
-#: gives the sensor everything it needs; it just needs a tighter response to keep up.
+#: corners -- ARC 1's radius (~2.3cm, back-computed from its old, wrong 3.6cm arc-length
+#: estimate over a 90deg heading change) is smaller than the car's own footprint, so at full
+#: speed and steady-state gains the car ran wide off the curve and off the map before the
+#: correction caught up. These windows slow down and sharpen the correction for that stretch
+#: without ever stopping line tracking or scripting a blind turn -- unlike a T junction, a
+#: single continuous curve gives the sensor everything it needs; it just needs a tighter
+#: response to keep up.
 #:
-#: Distances (cm since the pending "roundabout entry" junction's last accept) are derived from
-#: docs/task1-single-source-of-truth.md section 3 (Phase 2 = 16.0, ARC 1 ~3.6, Phase 4 = 19.2,
-#: ARC 2 ~14.2, Phase 6 = 58.5, ARC 3 ~7.2, Phase 8 = 7.5), with a margin that widens for the
-#: later corners because the 10cm/s distance estimate drifts further from the real position the
-#: longer the car has driven since the last confirmed junction. The margins and scale factors
-#: are a first estimate, not a measured constant -- re-tune from real track logs.
+#: Distances (cm since the pending "roundabout entry" junction's last accept) are the operator's
+#: 2026-08-20 direct re-measurement (superseding the original docs/task1-single-source-of-truth.md
+#: section 3 figures, which were wrong for both the straights and the arcs): Phase 2 = 15.5,
+#: ARC 1/2/3 all ~12.0 (same shape, only position differs -- not the old 3.6/14.2/7.2), Phase 4
+#: = 18.0, Phase 6 = 47.0, Phase 8 = 7.5. Cumulative: Phase2 0-15.5, ARC1 15.5-27.5, Phase4
+#: 27.5-45.5, ARC2 45.5-57.5, Phase6 57.5-104.5, ARC3 104.5-116.5, Phase8 116.5-124.0. Margins
+#: below widen for later corners because the 10cm/s distance estimate drifts further from the
+#: real position the longer the car has driven since the last confirmed junction. Margins and
+#: scale factors are a first estimate, not a measured constant -- re-tune from real track logs.
+#: See tasks/ir-sensor-tracking/phase-tracking-and-junction-detection-plan.md.
 TASK1_CORNER_WINDOWS: tuple[CornerWindow, ...] = (
-    CornerWindow("ARC 1 SE corner", "roundabout entry", 12.0, 23.0, 0.6, 0.5),  # (b)
-    CornerWindow("ARC 2 NE corner", "roundabout entry", 33.0, 58.0, 0.6, 0.5),  # (c)
-    CornerWindow("ARC 3 NW corner", "roundabout entry", 102.0, 124.0, 0.6, 0.5),  # (d)
+    CornerWindow("ARC 1 SE corner", "roundabout entry", 13.0, 30.0, 0.6, 0.5),  # (b)
+    CornerWindow("ARC 2 NE corner", "roundabout entry", 42.0, 61.0, 0.6, 0.5),  # (c)
+    CornerWindow("ARC 3 NW corner", "roundabout entry", 101.0, 120.0, 0.6, 0.5),  # (d)
 )
 
 

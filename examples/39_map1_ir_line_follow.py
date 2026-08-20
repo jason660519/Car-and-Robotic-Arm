@@ -153,6 +153,27 @@ def main() -> int:
         default=30.0,
         help="stop the car after this many seconds of searching (0 = never)",
     )
+    parser.add_argument(
+        "--phase-transition-dwell-s",
+        type=float,
+        default=0.8,
+        help="non-0110 reading must persist this long to count as a real arc-correction "
+        "event (straight/arc phase tracker); shorter blips are noise and are ignored",
+    )
+    parser.add_argument(
+        "--off-track-dwell-s",
+        type=float,
+        default=2.0,
+        help="continuous 0000 (blank paper) or 1111 (off the paper onto carpet) for this "
+        "long triggers reverse-replay recovery",
+    )
+    parser.add_argument(
+        "--reverse-replay-window-s",
+        type=float,
+        default=2.0,
+        help="how much recent commanded wheel-speed history to replay backward, sign-flipped, "
+        "during off-track recovery",
+    )
     args = parser.parse_args()
 
     print("=" * 70)
@@ -203,6 +224,9 @@ def main() -> int:
         search_creep_speed_ratio=args.search_creep_speed_ratio,
         search_creep_steps_per_cycle=args.search_creep_steps,
         search_give_up_s=args.search_give_up_s,
+        phase_transition_dwell_s=args.phase_transition_dwell_s,
+        off_track_dwell_s=args.off_track_dwell_s,
+        reverse_replay_window_s=args.reverse_replay_window_s,
     )
     nav = IRLineNav(nav_policy)
 
@@ -223,6 +247,7 @@ def main() -> int:
     line_lost_count = 0
     line_found_count = 0
     search_entries = 0
+    reverse_entries = 0
     last_state = None
     drive_error: NeZhaError | None = None
 
@@ -251,6 +276,8 @@ def main() -> int:
             # Track statistics
             if command.state is IRNavState.SEARCH and last_state is not IRNavState.SEARCH:
                 search_entries += 1
+            if command.state is IRNavState.REVERSE and last_state is not IRNavState.REVERSE:
+                reverse_entries += 1
             last_state = command.state
             if reading.visible:
                 line_found_count += 1
@@ -312,6 +339,7 @@ def main() -> int:
         print(f"  Line visible: {line_found_count} cycles")
         print(f"  Line lost: {line_lost_count} cycles")
         print(f"  Line-recovery searches: {search_entries}")
+        print(f"  Off-track reverse-replays: {reverse_entries}")
         print(f"  Junctions taken: {nav.junctions_seen}  (last: {nav.last_junction or 'none'})")
         print(f"  Junctions rejected by the distance gate: {nav.junctions_rejected}")
         print(f"  Next junction expected: {nav.junctions.pending.name}")
