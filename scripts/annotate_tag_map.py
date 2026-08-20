@@ -13,7 +13,7 @@ Map conventions (see docs/adr/0003-landmark-localization-task1.md):
 
 Run:
     uv run python3 scripts/annotate_tag_map.py \
-        --map assets/reference/task1/2026-08-16-task1-100x70-route-map-corrected.png \
+        --map "tasks/AI-camera-and-ir-sensor-tracking/Map 1 AI-camera-and-ir-sensor-tracking.png" \
         --tag-map scratch/landmarks/task1-tag-map-draft.json \
         --output scratch/landmarks/task1-tag-placement-map.png
 """
@@ -94,7 +94,10 @@ def main() -> int:
     parser.add_argument(
         "--map",
         type=Path,
-        default=Path("assets/reference/task1/2026-08-16-task1-100x70-route-map-corrected.png"),
+        default=Path(
+            "tasks/AI-camera-and-ir-sensor-tracking/"
+            "Map 1 AI-camera-and-ir-sensor-tracking.png"
+        ),
     )
     parser.add_argument(
         "--tag-map", type=Path, default=Path("scratch/landmarks/task1-tag-map-draft.json")

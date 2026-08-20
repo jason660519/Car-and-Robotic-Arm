@@ -16,7 +16,7 @@
 ### 📌 圖說 (Figure Caption)：
 本圖為使用者最新上傳之跑道地圖，經 **90° 逆時針旋轉校正（使中文字體與東西南北方位完全正向）**，並由 OpenCV 透視矩陣校正後之 $1000 \times 700$ 像素正視鳥瞰圖（10:7 標準長方形，10 px = 1 cm）。圖中上方左側附有 **0 cm – 10 cm – 20 cm 實體比例尺 (Scale Bar)**。紅線箭頭與標籤**100% 首尾無縫連貫**地標註任務一 11 個階段之規劃行駛路徑：發車區（底部）、Phase 1 (直行 10.0 cm)、Phase 2 (16.0 cm 東向直線)、ARC 1 (東南角圓弧 ≈4 cm)、Phase 4 (19.2 cm 北向直線)、ARC 2 (東北角圓弧 ≈14 cm)、Phase 6 (58.5 cm 靠北水平直線)、ARC 3 (西北角圓弧 ≈7 cm)、Phase 8 (7.5 cm 圓環入口直線)、Phase 9 圓環 (D=36.0 cm，繞行 3/4 圈 = 84.8 cm，結束朝北)、與 Phase 10 (23.0 cm 返程直線)。**Phase 11（返程入庫）已於 2026-08-19 刪除**，車輛改為直行通過 T 路口連續繞圈。
 
-![Task 1 修正版 100cm x 70cm 路線鳥瞰圖](../assets/reference/task1/2026-08-16-task1-100x70-route-map-corrected.png)
+![Task 1 修正版 100cm x 70cm 路線鳥瞰圖](../tasks/AI-camera-and-ir-sensor-tracking/Map%201%20AI-camera-and-ir-sensor-tracking.png)
 
 > 產生方式：`scratch/task1-fix/draw_corrected_route.py`（以同一張實拍照片、相同透視校正參數重新輸出乾淨底圖，再依實測軌道重繪路線）。
 
