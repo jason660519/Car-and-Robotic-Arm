@@ -67,6 +67,13 @@ def main() -> int:
         help="log every cycle instead of only on state change (very verbose)",
     )
     parser.add_argument(
+        "--log-min-interval-s",
+        type=float,
+        default=0.0,
+        help="with --log-every, skip cycles closer together than this to a previous log line "
+        "(default 0 = every cycle); a state change is still logged immediately regardless",
+    )
+    parser.add_argument(
         "--heartbeat-s",
         type=float,
         default=2.0,
@@ -300,7 +307,8 @@ def main() -> int:
             # buries the transitions that actually matter.
             key = (reading.physical, command.state, command.left, command.right)
             stale = (now - last_log_time) >= args.heartbeat_s
-            if args.log_every or key != last_logged or stale:
+            log_every_due = args.log_every and (now - last_log_time) >= args.log_min_interval_s
+            if log_every_due or key != last_logged or stale:
                 ch_str = "".join(str(c) for c in reading.physical)
                 status = "OK" if reading.visible else "LOST"
                 where = f"{nav.junctions.pending.name[:14]:14s}"
