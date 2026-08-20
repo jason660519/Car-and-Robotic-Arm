@@ -685,6 +685,27 @@ class IRLineNav:
           non-junction mid-sequence blip steered the car off course before it ever reached the
           actual junction).
         """
+        if (
+            pending.arc_trigger_cm > 0
+            and self._phase_mode == "arc"
+            and self._arc_cm >= pending.arc_trigger_cm
+        ):
+            # 2026-08-20, thirteenth pass, real-track: checked BEFORE the phase-transition
+            # precondition below, not after -- a real run needed this trigger exactly when the
+            # transition count was stuck at 3 (never reaching min_phase_transitions=6) because
+            # extended off-track/search excursions along the way kept preventing a clean
+            # sustained-straight confirmation. The discrete transition count is too fragile to
+            # gate a signal this strong: 100+cm of continuous curve cannot be anything but the
+            # roundabout, regardless of how many mode-flips got confirmed on the way there.
+            # _reach_junction's own distance gate (min_cm_since_previous) is still the sanity
+            # check against a premature trigger.
+            #
+            # 2026-08-20, twelfth pass, real-track: Phase 8 does not exist as a real straight
+            # for "roundabout entry" -- ARC 3 blends directly into the roundabout's own curve,
+            # so the approach sequence's symmetric 1111 crossbar below is never reliably
+            # produced. A continuous arc this long cannot still be ARC 3 (~12cm); it must
+            # already be the roundabout. See RouteJunction.arc_trigger_cm.
+            return self._reach_junction(reading)
         if not self._phase_precondition_met(pending):
             # The distance gate alone isn't enough for e/f -- see
             # carbot.ir_route.RouteJunction.min_phase_transitions/.min_arc_cm. Don't even try
@@ -692,17 +713,6 @@ class IRLineNav:
             # leg is actually done; a coincidental early reading otherwise risks the same
             # premature-match class of bug the distance gate exists to prevent.
             return None
-        if (
-            pending.arc_trigger_cm > 0
-            and self._phase_mode == "arc"
-            and self._arc_cm >= pending.arc_trigger_cm
-        ):
-            # 2026-08-20, twelfth pass, real-track: Phase 8 does not exist as a real straight
-            # for "roundabout entry" -- ARC 3 blends directly into the roundabout's own curve,
-            # so the approach sequence's symmetric 1111 crossbar below is never reliably
-            # produced. A continuous arc this long cannot still be ARC 3 (~12cm); it must
-            # already be the roundabout. See RouteJunction.arc_trigger_cm.
-            return self._reach_junction(reading)
         approach = pending.approach
         index = self._approach_index
         step = approach[index]

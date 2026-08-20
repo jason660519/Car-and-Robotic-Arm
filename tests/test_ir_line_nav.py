@@ -364,6 +364,31 @@ def test_arc_trigger_cm_bypasses_the_approach_sequence_once_the_arc_is_long_enou
     assert cmd.state is IRNavState.JUNCTION_CREEP
 
 
+def test_arc_trigger_cm_fires_even_when_min_phase_transitions_is_unmet():
+    """2026-08-20, thirteenth pass, real-track: a run needed the arc trigger exactly when the
+    transition count was stuck at 3, never reaching min_phase_transitions=6, because extended
+    off-track/search excursions along the way kept preventing a clean sustained-straight
+    confirmation. 100+cm of continuous curve cannot be anything but the roundabout regardless
+    of how many mode-flips got confirmed on the way there -- the arc trigger must not be
+    gated behind the same fragile precondition it exists to route around."""
+    junction = RouteJunction(
+        "roundabout entry", JunctionAction.TURN_RIGHT, 0.0,
+        approach=(SequenceStep((1, 1, 1, 1), min_cm=1.0),),  # never fed, never matches
+        creep_cm=8.0, turn_deg=42.5,
+        arc_trigger_cm=20.0,
+        min_phase_transitions=6,  # never satisfied below -- only one flip ever happens
+    )
+    nav = _single_junction_nav(junction)
+    for _ in range(9):  # one flip to arc (pt=1), nowhere near 6
+        cmd = nav.step(make_reading(DRIFT_RIGHT), 0.1)
+    for _ in range(25):
+        cmd = nav.step(make_reading(DRIFT_RIGHT), 0.1)
+        if cmd.state is IRNavState.JUNCTION_CREEP:
+            break
+    assert cmd.state is IRNavState.JUNCTION_CREEP
+    assert nav._phase_transitions < 6
+
+
 def test_roundabout_exit_four_step_sweep_including_noise_classified_reading():
     """0101 is Kind.NOISE, 0100/0110 are ordinary DRIFT/ON_LINE -- none look like a junction
     in isolation, only the order matters."""
