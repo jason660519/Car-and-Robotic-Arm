@@ -110,6 +110,13 @@ def main() -> int:
         "multiple of the nominal timed duration for that junction's expected turn angle",
     )
     parser.add_argument(
+        "--turn-confirm-s",
+        type=float,
+        default=0.08,
+        help="how long TURN_COMPLETE_READING (0110) must be sustained before a closed-loop "
+        "junction turn is considered done, not just seen for one frame",
+    )
+    parser.add_argument(
         "--forward-speed-cm-per-s",
         type=float,
         default=10.0,
@@ -225,6 +232,7 @@ def main() -> int:
         turn_gain=args.turn_gain,
         turn_direction=1 if args.turn_direction == "right" else -1,
         turn_timeout_scale=args.turn_timeout_scale,
+        turn_confirm_s=args.turn_confirm_s,
         forward_speed_cm_per_s=args.forward_speed_cm_per_s,
         search_sweep_deg=args.search_sweep_deg,
         search_creep_step_s=args.search_creep_step_s,

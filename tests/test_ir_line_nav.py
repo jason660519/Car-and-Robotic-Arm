@@ -390,6 +390,30 @@ def test_turn_requires_the_minimum_spin_dead_time_before_trusting_0110():
     assert cmd.state is IRNavState.FOLLOW
 
 
+def test_turn_requires_0110_to_be_sustained_not_a_single_coincidental_frame():
+    """2026-08-20, ninth pass, real-track: a single 0110 frame mid-spin ended a real turn at
+    ~28 degrees of a nominal 90 -- some other feature the sensor swept past briefly happened
+    to read the same bits. At a realistic ~100Hz dt, one frame is nowhere near
+    turn_confirm_s (0.08s default); it must keep turning, and a reading that changes again
+    resets the confirmation clock rather than carrying it over."""
+    nav = _single_junction_nav(_turning_junction(creep_cm=1.0))
+    nav.step(make_reading(CROSSBAR), 0.1)
+    nav.step(make_reading(CROSSBAR), 0.2)  # -> JUNCTION_TURN
+    nav.step(make_reading(FAR_LEFT), 0.5)  # past spin_dead_time_s (0.41 default)
+    cmd = nav.step(make_reading(CENTRED), 0.01)  # one coincidental 0110 frame
+    assert cmd.state is IRNavState.JUNCTION_TURN
+    cmd = nav.step(make_reading(FAR_LEFT), 0.01)  # back to spinning -- resets the confirm clock
+    assert cmd.state is IRNavState.JUNCTION_TURN
+    cmd = nav.step(make_reading(CENTRED), 0.01)
+    assert cmd.state is IRNavState.JUNCTION_TURN  # only 0.01s into confirming again
+    for _ in range(20):  # sustained 0110 for up to 20 * 0.01s = 0.2s > turn_confirm_s
+        cmd = nav.step(make_reading(CENTRED), 0.01)
+        if cmd.state is IRNavState.FOLLOW:
+            break
+    assert cmd.state is IRNavState.FOLLOW
+    assert "line reacquired (0110)" in cmd.reason
+
+
 def test_turn_times_out_if_0110_never_returns():
     """A chassis fault or misalignment that never reproduces 0110 must not spin forever."""
     nav = _single_junction_nav(

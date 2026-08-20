@@ -228,6 +228,11 @@ class IRNavPolicy:
     # one a lost car here would spin forever. turn_timeout_s() multiplies the nominal timed
     # duration for a junction's expected turn_deg (RouteJunction.turn_deg) by this scale.
     turn_timeout_scale: float = 2.0
+    # 2026-08-20, ninth pass, real-track: a single 0110 frame mid-spin ended the start T's
+    # turn at ~28 degrees of a nominal 90 -- some other feature swept past briefly happened to
+    # read the same bits. TURN_COMPLETE_READING must now be sustained this long before the
+    # turn is considered done -- see IRLineNav._turn_step.
+    turn_confirm_s: float = 0.08
     # Forward speed used to convert a RouteJunction's per-junction creep_cm (see
     # carbot.ir_route) into a drive duration. Floor reference was 11.7 cm/s at speed=200 (see
     # docs/progress/2026-08-14-travel-speed-and-coverage.md); on the Map1 paper at speed=150
@@ -320,6 +325,8 @@ class IRNavPolicy:
             raise ValueError("spin_dead_time_s must be non-negative")
         if self.turn_timeout_scale <= 0:
             raise ValueError("turn_timeout_scale must be positive")
+        if self.turn_confirm_s < 0:
+            raise ValueError("turn_confirm_s must be non-negative")
         if self.forward_speed_cm_per_s <= 0:
             raise ValueError("forward_speed_cm_per_s must be positive")
         if self.search_sweep_deg < 0:
@@ -381,6 +388,7 @@ class IRLineNav:
         self._creep_elapsed = 0.0
         self._creep_target_cm = 0.0  # set by _commit_junction before JUNCTION_CREEP is entered
         self._turn_elapsed = 0.0
+        self._turn_confirm_elapsed = 0.0
         self._turn_target_deg = 0.0  # set by _commit_junction before JUNCTION_TURN is entered
         self._search_phase = IRSearchPhase.SWEEP_LEFT
         self._search_elapsed = 0.0  # time in the current search sub-phase
@@ -880,6 +888,7 @@ class IRLineNav:
         if self._creep_elapsed >= duration:
             self.state = IRNavState.JUNCTION_TURN
             self._turn_elapsed = 0.0
+            self._turn_confirm_elapsed = 0.0
             return self._turn_step(reading, 0.0)
         return IRNavCommand(
             self.policy.speed,
@@ -903,15 +912,24 @@ class IRLineNav:
         cleared the old crossbar/curve entirely — checking for that ONE reading, not "any
         channel visible", is what makes closing the loop here safe.
 
-        Two guards: `spin_dead_time_s` as a minimum elapsed time before a 0110 read is trusted
-        (the same "motor hasn't really started moving yet" floor the spin calibration itself
-        uses — guards against a coincidental 0110 in the very first instant), and
-        `turn_timeout_s` as a ceiling in case 0110 never comes back at all (misalignment, a
-        genuine sensor fault) — without it a lost car here would spin forever.
+        Three guards: `spin_dead_time_s` as a minimum elapsed time before a 0110 read is
+        trusted (the same "motor hasn't really started moving yet" floor the spin calibration
+        itself uses — guards against a coincidental 0110 in the very first instant),
+        `turn_confirm_s` as a minimum *sustained* 0110 before it counts (2026-08-20, ninth
+        pass, real-track: a single 0110 frame mid-spin ended the start T's turn at ~0.67s of a
+        nominal 2.24s 90° turn -- ~28°, nowhere near a real crossing -- because some other
+        feature the sensor swept past briefly happened to read the same bits; sustaining it
+        rules out a one-frame coincidence), and `turn_timeout_s` as a ceiling in case 0110
+        never comes back at all (misalignment, a genuine sensor fault) — without it a lost car
+        here would spin forever.
         """
         self._turn_elapsed += dt
         timeout_s = self.policy.turn_timeout_s(self._turn_target_deg)
         if self._turn_elapsed >= self.policy.spin_dead_time_s and reading.physical == TURN_COMPLETE_READING:
+            self._turn_confirm_elapsed += dt
+        else:
+            self._turn_confirm_elapsed = 0.0
+        if self._turn_confirm_elapsed >= self.policy.turn_confirm_s:
             self.state = IRNavState.FOLLOW
             # The pivot's real angle is not otherwise verified, so a 0000 immediately after
             # this must not be resolved with the line position from before the turn: that
