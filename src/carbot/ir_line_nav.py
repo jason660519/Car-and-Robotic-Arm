@@ -644,24 +644,25 @@ class IRLineNav:
 
         Returns a hold command while still mid-sequence, the arrival command
         (`_reach_junction`) once the last step completes, or ``None`` if this reading is not
-        part of the sequence at all — the caller falls through to normal steering.
+        part of the sequence at all — the caller falls through to normal steering, except for
+        `Kind.JUNCTION` readings, which the caller (`_follow_step`) always holds on rather
+        than steers (see its 2026-08-20 fourth-pass note): a junction-shaped reading proved,
+        twice now on real track, unreliable enough that it must never carry its own action —
+        only a phase-tracker input.
 
         A reading that matches neither the current nor the next expected step is handled by
         whether any progress has actually been made yet (``started``: this step's own
         ``min_cm`` partly satisfied, or already past step 0):
 
-        * **Not started** (index 0, no distance accumulated) — `Kind.JUNCTION` readings here
-          are exactly the "badly skewed pass over a curve" case `carbot.ir_geometry` already
-          warns about (2026-08-20 real-track: `0111`/`1110` commonly appear just *before* a
-          real crossbar too, as a skewed approach) — indistinguishable from an ordinary curve
-          at this point, so it must keep steering on it (2026-08-19 regression: holding
-          straight here drove the car off the paper).
-        * **Started** — real progress has been made on a specific junction's sequence, so an
-          unrelated `Kind.JUNCTION` reading here is far more likely a shoulder around the
-          crossbar than a genuine curve; steering on it risks throwing off an approach that
-          is mostly confirmed, so it holds instead and progress resets (2026-08-20 real-track
-          regression: a bare mid-sequence blip steered the car off course before it ever
-          reached the actual junction).
+        * **Not started** (index 0, no distance accumulated) — falls through to `_follow_step`,
+          which holds on `Kind.JUNCTION` and steers normally on anything else (an ordinary
+          curve reading is not junction-shaped and should still steer).
+        * **Started** — real progress has been made on a specific junction's sequence, so a
+          `Kind.JUNCTION` reading here holds *without* resetting that progress (it is more
+          likely a shoulder around the crossbar than a genuine curve, and the sequence may
+          still complete on the next matching frame); anything else resets progress and falls
+          through (2026-08-20 real-track regression: a bare non-junction mid-sequence blip
+          steered the car off course before it ever reached the actual junction).
         """
         if not self._phase_precondition_met(pending):
             # The distance gate alone isn't enough for e/f -- see
@@ -797,6 +798,17 @@ class IRLineNav:
         if approached is not None:
             return approached
         self._update_phase_tracker(reading, dt)
+
+        if state.kind is Kind.JUNCTION:
+            # 2026-08-20, fourth pass, real-track: a lone P1110 partway through the dead-
+            # straight start stem still steered the car left (`_approach_step` returning
+            # None here used to fall through to the generic offset steer below). Per the
+            # operator's direct tracing, a junction-shaped reading that is not part of a
+            # confirmed approach sequence must never carry its own action -- STATE_TABLE's
+            # offset for Kind.JUNCTION entries was only ever assigned by analogy and never
+            # validated for direction. It is only a phase-tracker input (fed above); hold
+            # the previous command instead of steering on it.
+            return self._hold(f"junction-shaped reading, no confirmed approach ({state.label})")
 
         if state.kind is Kind.NOISE:
             # Non-contiguous black: one 2 cm line cannot produce it, so it is

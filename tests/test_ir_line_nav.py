@@ -165,13 +165,16 @@ def test_a_reading_matching_neither_step_resets_and_falls_through():
     assert "step 2/2" in cmd.reason
 
 
-def test_a_skewed_approach_reading_before_the_first_step_still_steers():
+def test_a_skewed_approach_reading_before_the_first_step_holds():
     """2026-08-20 real-track observation: 0111/1110 commonly appear just BEFORE a symmetric
     1111 (and 0001/1000 just before the post-crossbar 0000) as the car approaches a real
     crossbar from a skewed angle -- an ordinary, expected transitional reading, not noise.
-    Before any approach progress has been made (index still 0) it must keep steering on it,
-    same as any other curve -- see test_a_gated_out_junction_still_steers_toward_the_line for
-    the 2026-08-19 regression this preserves."""
+
+    2026-08-20, fourth pass: a real two-lap run put a lone P1110 partway through the
+    dead-straight start stem, and the old "not started -> steer like a curve" rule turned
+    that into a hard left turn. STATE_TABLE's offset for Kind.JUNCTION entries was only ever
+    assigned by analogy and never validated for direction -- it must hold instead, whether or
+    not any approach progress has been made yet."""
     junction = RouteJunction(
         "x", JunctionAction.TURN_RIGHT, 0.0,
         approach=(SequenceStep((1, 1, 1, 1), min_cm=2.0), SequenceStep((0, 0, 0, 0))),
@@ -179,10 +182,10 @@ def test_a_skewed_approach_reading_before_the_first_step_still_steers():
     )
     nav = _single_junction_nav(junction)
     # 1110 ("branch or curve on the left") is Kind.JUNCTION but not this junction's step 0 --
-    # no approach progress has been made yet, so it must still steer.
+    # no approach progress has been made yet, but it must still hold, not steer.
     cmd = nav.step(make_reading((1, 1, 1, 0)), 0.1)
     assert cmd.state is IRNavState.FOLLOW
-    assert cmd.left < cmd.right  # "branch or curve on the left" steers left: right wheel faster
+    assert cmd.left == cmd.right  # held at the initial straight command, not steered
 
 
 def test_a_junction_shaped_reading_that_breaks_a_started_sequence_holds():
