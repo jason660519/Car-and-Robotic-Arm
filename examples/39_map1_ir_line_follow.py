@@ -146,6 +146,16 @@ def main() -> int:
         "--start-phase-transitions -- see RouteJunction.min_arc_cm",
     )
     parser.add_argument(
+        "--start-cm-since-previous",
+        type=float,
+        default=0.0,
+        help="seed the distance-since-last-junction counter at startup, alongside "
+        "--start-phase-transitions -- TASK1_CORNER_WINDOWS (carbot.ir_route) are keyed to "
+        "this distance from the true roundabout entry, so testing a later segment (e.g. "
+        "Phase 6, cumulative 57.5cm) without seeding it lets ARC 1/2/3's corner windows fire "
+        "at the wrong physical spot",
+    )
+    parser.add_argument(
         "--laps",
         type=int,
         default=0,
@@ -266,6 +276,11 @@ def main() -> int:
         # see RouteJunction.min_phase_transitions/.min_arc_cm (carbot.ir_route).
         nav._phase_transitions = args.start_phase_transitions
         nav._arc_cm = args.start_arc_cm
+    if args.start_cm_since_previous:
+        # TASK1_CORNER_WINDOWS are keyed to distance from the true roundabout entry -- without
+        # this, they fire at whatever cm_since_previous happens to be counted up from 0 during
+        # the segment, not the car's real physical position.
+        nav.junctions.cm_since_previous = args.start_cm_since_previous
 
     from carbot import Car, NeZhaError
 
