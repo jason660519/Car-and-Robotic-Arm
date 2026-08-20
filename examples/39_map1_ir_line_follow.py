@@ -117,6 +117,13 @@ def main() -> int:
         "junction turn is considered done, not just seen for one frame",
     )
     parser.add_argument(
+        "--approach-break-confirm-s",
+        type=float,
+        default=0.05,
+        help="how long a genuine ON_LINE/DRIFT reading must be sustained mid-approach before "
+        "it resets a junction's in-progress approach sequence, not just seen for one frame",
+    )
+    parser.add_argument(
         "--forward-speed-cm-per-s",
         type=float,
         default=10.0,
@@ -259,6 +266,7 @@ def main() -> int:
         turn_direction=1 if args.turn_direction == "right" else -1,
         turn_timeout_scale=args.turn_timeout_scale,
         turn_confirm_s=args.turn_confirm_s,
+        approach_break_confirm_s=args.approach_break_confirm_s,
         forward_speed_cm_per_s=args.forward_speed_cm_per_s,
         search_sweep_deg=args.search_sweep_deg,
         search_creep_step_s=args.search_creep_step_s,

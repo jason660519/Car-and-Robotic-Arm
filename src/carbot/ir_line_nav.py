@@ -233,6 +233,13 @@ class IRNavPolicy:
     # read the same bits. TURN_COMPLETE_READING must now be sustained this long before the
     # turn is considered done -- see IRLineNav._turn_step.
     turn_confirm_s: float = 0.08
+    # 2026-08-20, eleventh pass, real-track: the roundabout entry's approach was reset by a
+    # single frame of genuine Kind.ON_LINE/DRIFT (real evidence the car left the junction area,
+    # per the tenth-pass fix) sitting between the 1001 shoulder and the step's own 0000 -- one
+    # frame of it is as likely to be the same transitional shoulder as a real reacquisition.
+    # Require it sustained this long before trusting it enough to reset -- see
+    # IRLineNav._approach_step.
+    approach_break_confirm_s: float = 0.05
     # Forward speed used to convert a RouteJunction's per-junction creep_cm (see
     # carbot.ir_route) into a drive duration. Floor reference was 11.7 cm/s at speed=200 (see
     # docs/progress/2026-08-14-travel-speed-and-coverage.md); on the Map1 paper at speed=150
@@ -327,6 +334,8 @@ class IRNavPolicy:
             raise ValueError("turn_timeout_scale must be positive")
         if self.turn_confirm_s < 0:
             raise ValueError("turn_confirm_s must be non-negative")
+        if self.approach_break_confirm_s < 0:
+            raise ValueError("approach_break_confirm_s must be non-negative")
         if self.forward_speed_cm_per_s <= 0:
             raise ValueError("forward_speed_cm_per_s must be positive")
         if self.search_sweep_deg < 0:
@@ -385,6 +394,7 @@ class IRLineNav:
         #: Progress through the pending junction's approach sequence -- see `_approach_step`.
         self._approach_index = 0
         self._approach_cm = 0.0
+        self._approach_break_elapsed = 0.0
         self._creep_elapsed = 0.0
         self._creep_target_cm = 0.0  # set by _commit_junction before JUNCTION_CREEP is entered
         self._turn_elapsed = 0.0
@@ -696,6 +706,7 @@ class IRLineNav:
         # window -- close enough to completion that a real reading is worth checking again.
         blind = started and remaining_s > 0.1
         if reading.physical == step.bits or blind:
+            self._approach_break_elapsed = 0.0
             self._approach_cm += dt * speed
             note = reading.summary if reading.physical == step.bits else "ignored, blind window"
             if self._approach_cm < step.min_cm:
@@ -720,6 +731,7 @@ class IRLineNav:
             # last approach step happens to be 0000, with zero persistence ever checked.
             self._approach_index += 1
             self._approach_cm = 0.0
+            self._approach_break_elapsed = 0.0
             return self._approach_step(pending, reading, dt)
 
         if started and reading.state.kind not in (Kind.ON_LINE, Kind.DRIFT):
@@ -738,10 +750,27 @@ class IRLineNav:
             # genuine single-line reading (ON_LINE/DRIFT) is real evidence the car is back on
             # ordinary line and should reset progress; anything else near a junction --
             # JUNCTION, NOISE, or the blind 0000/1111 band -- holds instead.
+            self._approach_break_elapsed = 0.0
             return self._hold(f"broke {pending.name}'s approach mid-sequence ({reading.summary})")
         if started:
+            # 2026-08-20, eleventh pass, real-track: the roundabout entry's approach reached
+            # step 2/3 (1001 shoulder) and was then reset by a single frame of Kind.DRIFT
+            # (0001, "far right") between the shoulder and the step's own genuine 0000 -- a
+            # real single-line-shaped reading, so the ON_LINE/DRIFT carve-out above correctly
+            # let it through, but one frame of it is exactly as likely to be part of the same
+            # transitional shoulder as a fresh line reacquisition. Require it to be sustained
+            # for approach_break_confirm_s before trusting it enough to reset -- same
+            # "confirm, don't act on one frame" pattern as turn_confirm_s.
+            self._approach_break_elapsed += dt
+            if self._approach_break_elapsed < self.policy.approach_break_confirm_s:
+                return self._hold(
+                    f"possible break of {pending.name}'s approach, confirming "
+                    f"({reading.summary}) {self._approach_break_elapsed:.2f}/"
+                    f"{self.policy.approach_break_confirm_s:.2f}s"
+                )
             self._approach_index = 0
             self._approach_cm = 0.0
+            self._approach_break_elapsed = 0.0
         return None
 
     def _commit_junction(
@@ -777,6 +806,7 @@ class IRLineNav:
             self.junctions_rejected += 1
             self._approach_index = 0
             self._approach_cm = 0.0
+            self._approach_break_elapsed = 0.0
             # Rejected means "not the junction the route is waiting for", not "no information".
             # What produces these is a curve lighting extra channels, and the state table's
             # offset for them is that curve's direction. Steering must keep running on it:
@@ -791,6 +821,7 @@ class IRLineNav:
         junction = self.junctions.accept()
         self._approach_index = 0
         self._approach_cm = 0.0
+        self._approach_break_elapsed = 0.0
         self._reset_phase_tracker()
         if junction.action is JunctionAction.STOP:
             # (h) Final lap: car stops centred on the T junction, task complete.

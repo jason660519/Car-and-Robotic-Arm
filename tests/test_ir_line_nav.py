@@ -292,6 +292,34 @@ def test_a_lingering_noise_echo_of_a_just_matched_step_does_not_reset_progress()
     assert "step 2/2" in cmd.reason
 
 
+def test_a_single_frame_drift_blip_does_not_reset_near_complete_progress():
+    """2026-08-20, eleventh pass, real-track: the roundabout entry's approach reached step
+    2/3 (the 1001 shoulder) and was reset by a single frame of genuine Kind.DRIFT (0001, "far
+    right") sitting between the shoulder and the step's own 0000 -- a real single-line-shaped
+    reading, so it must be sustained (approach_break_confirm_s) before it is trusted enough to
+    reset, at a realistic ~100Hz dt. A reading that goes back to matching/holding resets the
+    confirmation clock rather than carrying it over."""
+    junction = RouteJunction(
+        "x", JunctionAction.TURN_RIGHT, 0.0,
+        approach=(SequenceStep((1, 1, 1, 1), min_cm=1.0), SequenceStep((0, 0, 0, 0))),
+        creep_cm=5.0, turn_deg=90.0,
+    )
+    nav = _single_junction_nav(junction)
+    nav.step(make_reading(CROSSBAR), 0.1)  # step 0 satisfied -> step 1/2
+    blip = nav.step(make_reading(FAR_RIGHT), 0.01)  # one frame of genuine DRIFT
+    assert blip.state is IRNavState.FOLLOW
+    assert "possible break" in blip.reason
+    # A junction-shaped blip in between resets the confirmation clock, not the approach itself.
+    nav.step(make_reading(RIGHT_BRANCH_0111), 0.01)
+    cmd = nav.step(make_reading(FAR_RIGHT), 0.01)  # confirming again, only 0.01s in
+    assert "possible break" in cmd.reason
+    for _ in range(10):  # sustained DRIFT for up to 10 * 0.01s = 0.1s > approach_break_confirm_s
+        cmd = nav.step(make_reading(FAR_RIGHT), 0.01)
+    # Progress really was reset this time: the crossbar needs the full 1.0cm again, not 0.
+    cmd = nav.step(make_reading(CROSSBAR), 0.05)
+    assert "0.50/1.00cm" in cmd.reason
+
+
 def test_roundabout_entry_shoulder_1001_is_part_of_the_sequence_not_noise():
     """1001 is Kind.NOISE under carbot.ir_geometry, but as the roundabout entry's own 2nd
     approach step it must advance the sequence, not get held as generic noise."""
