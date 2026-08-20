@@ -365,11 +365,19 @@ def main() -> int:
                 ch_str = "".join(str(c) for c in reading.physical)
                 status = "OK" if reading.visible else "LOST"
                 where = f"{nav.junctions.pending.name[:14]:14s}"
+                # pt/ac/cm: phase-tracker transition count, accumulated arc cm, and distance
+                # since the last confirmed junction -- printed always (not just on request) so
+                # a stuck run can be diagnosed against RouteJunction.min_phase_transitions/
+                # .min_arc_cm/.min_cm_since_previous straight from the log, without guessing.
+                diag = (
+                    f"[pt={nav._phase_transitions} ac={nav._arc_cm:.1f}cm "
+                    f"cm={nav.junctions.cm_since_previous:.1f}cm]"
+                )
                 print(
                     f"[{elapsed:6.1f}s] #{frame_index:6d} "
                     f"{status:5s} P{ch_str} {reading.state.kind.value:9s} {where} -> "
                     f"{command.state.value:14s} L{command.left:4d} R{command.right:4d} "
-                    f"| {command.reason}"
+                    f"{diag} | {command.reason}"
                 )
                 last_logged = key
                 last_log_time = now
