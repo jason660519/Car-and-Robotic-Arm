@@ -249,13 +249,17 @@ TASK1_ROUTE = RoutePlan(
             "start stem T junction",
             JunctionAction.TURN_RIGHT,
             3.0,
-            # 2026-08-20 correction: the raw "2cm" figure very likely included a frame or two
-            # of skewed-entry noise (1110/0111) before a clean symmetric 1111 -- 1.9cm
-            # (midpoint of 1.8-2.0cm) is the real sustained-1111 window. Deliberately NOT the
-            # same value as the roundabout entry's 1.65cm below -- different approach geometry
-            # (head-on stem vs. the entry's own angle), the operator measured them separately
-            # and they are not interchangeable.
-            approach=(SequenceStep((1, 1, 1, 1), min_cm=1.9), SequenceStep((0, 0, 0, 0))),
+            # 2026-08-20, sixth pass, real-track: the two-step (1111, then 0000) sequence let
+            # sensor flicker between the two mid-crossbar reset the 1111 accumulation on every
+            # stray 0000 blip -- exactly the readings the 2-second off-track dwell timer was
+            # also counting, so the car oscillated forward/backward at the junction instead of
+            # committing to the turn. Single-step now: 1.5cm of (mostly) sustained 1111 commits
+            # immediately to creep+turn, no longer waiting on a subsequent 0000 at all. Stray
+            # 0000 seen while still accumulating this step is ignored, not a reset -- see
+            # IRLineNav._approach_step. Deliberately NOT the same value as the roundabout
+            # entry's 1.65cm below -- different approach geometry (head-on stem vs. the
+            # entry's own angle), the operator measured them separately.
+            approach=(SequenceStep((1, 1, 1, 1), min_cm=1.5),),
             creep_cm=8.5,
             turn_deg=90.0,
         ),

@@ -674,12 +674,23 @@ class IRLineNav:
         approach = pending.approach
         index = self._approach_index
         step = approach[index]
-        if reading.physical == step.bits:
-            self._approach_cm += dt * self.policy.forward_speed_cm_per_s
+        started = index > 0 or self._approach_cm > 0
+        speed = self.policy.forward_speed_cm_per_s
+        remaining_s = (step.min_cm - self._approach_cm) / speed if speed > 0 else 0.0
+        # 2026-08-20, seventh pass, real-track: even holding-not-resetting on a stray 0000/
+        # junction blip (below) still means every intervening frame's *classification* has to
+        # be right, and it was not -- the crossbar accumulation kept getting interrupted at
+        # the resolution limit. Once a step has genuinely started, ignore what the sensor says
+        # entirely and just accumulate elapsed distance, until the last 0.1s of this step's
+        # window -- close enough to completion that a real reading is worth checking again.
+        blind = started and remaining_s > 0.1
+        if reading.physical == step.bits or blind:
+            self._approach_cm += dt * speed
+            note = reading.summary if reading.physical == step.bits else "ignored, blind window"
             if self._approach_cm < step.min_cm:
                 return self._hold(
                     f"approaching {pending.name}, step {index + 1}/{len(approach)} "
-                    f"({reading.summary}) {self._approach_cm:.2f}/{step.min_cm:.2f}cm"
+                    f"({note}) {self._approach_cm:.2f}/{step.min_cm:.2f}cm"
                 )
             if index == len(approach) - 1:
                 return self._reach_junction(reading)
@@ -687,9 +698,8 @@ class IRLineNav:
             self._approach_cm = 0.0
             return self._hold(
                 f"approaching {pending.name}, step {self._approach_index + 1}/"
-                f"{len(approach)} ({reading.summary})"
+                f"{len(approach)} ({note})"
             )
-        started = index > 0 or self._approach_cm > 0
         if started and index + 1 < len(approach) and reading.physical == approach[index + 1].bits:
             # Fast transition: real progress had already been made (step 0 at least partly
             # matched), and the sensor jumped straight to the next step's reading without a
@@ -701,7 +711,13 @@ class IRLineNav:
             self._approach_cm = 0.0
             return self._approach_step(pending, reading, dt)
 
-        if reading.state.kind is Kind.JUNCTION and started:
+        if started and (reading.state.kind is Kind.JUNCTION or reading.physical == (0, 0, 0, 0)):
+            # 2026-08-20, sixth pass, real-track: a stray 0000 blip mid-crossbar (sensor
+            # flicker right at the sensor's own resolution limit, not the sequence's own
+            # expected 0000 step -- that already matched or fast-transitioned above and never
+            # reaches here) was resetting the start-T's 1111 accumulation on every flicker,
+            # so it never reached its min_cm and the car oscillated at the junction instead of
+            # committing to the turn. Treated the same as a Kind.JUNCTION blip: hold, no reset.
             return self._hold(f"broke {pending.name}'s approach mid-sequence ({reading.summary})")
         if started:
             self._approach_index = 0

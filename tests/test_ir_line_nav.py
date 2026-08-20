@@ -169,6 +169,45 @@ def test_approach_step_completes_and_commits_a_turn():
     assert nav.last_junction == "x"
 
 
+def test_any_reading_is_ignored_during_the_blind_window_not_just_0000_or_junction():
+    """2026-08-20, seventh pass: the 0000/Kind.JUNCTION carve-out wasn't enough -- any
+    misclassified frame mid-crossbar could still interrupt the accumulation. Once a step has
+    genuinely started and more than 0.1s remains before its min_cm is satisfied, every reading
+    is ignored outright (not just 0000/junction-shaped ones) and elapsed distance just
+    accumulates -- including an ordinary CENTRED (0110) reading, which would otherwise read as
+    "back on the line, not approaching a junction at all"."""
+    junction = RouteJunction(
+        "x", JunctionAction.TURN_RIGHT, 0.0,
+        approach=(SequenceStep((1, 1, 1, 1), min_cm=3.0),),
+        creep_cm=5.0, turn_deg=90.0,
+    )
+    nav = _single_junction_nav(junction)
+    nav.step(make_reading(CROSSBAR), 0.15)  # 1.5/3.0cm, 0.15s of 1.5cm remaining -- still blind
+    cmd = nav.step(make_reading(CENTRED), 0.05)  # 0.5cm more; would normally mean "centred"
+    assert cmd.state is IRNavState.FOLLOW
+    assert "blind window" in cmd.reason
+    assert "2.00/3.00cm" in cmd.reason
+
+
+def test_a_stray_0000_blip_mid_crossbar_does_not_reset_the_approach():
+    """2026-08-20, sixth pass, real-track: the start T's single-step crossbar accumulation
+    was reset by a stray 0000 flicker mid-crossbar, so it kept restarting and never reached
+    its min_cm -- the car oscillated at the junction instead of committing to the turn. A
+    0000 that is not this junction's own expected next step must be ignored, not a reset."""
+    junction = RouteJunction(
+        "x", JunctionAction.TURN_RIGHT, 0.0,
+        approach=(SequenceStep((1, 1, 1, 1), min_cm=1.5),),
+        creep_cm=5.0, turn_deg=90.0,
+    )
+    nav = _single_junction_nav(junction)
+    nav.step(make_reading(CROSSBAR), 0.1)  # 1.0/1.5cm
+    blip = nav.step(make_reading(GAP), 0.02)  # stray flicker, not this junction's next step
+    assert blip.state is IRNavState.FOLLOW
+    assert "holding previous" in blip.reason
+    cmd = nav.step(make_reading(CROSSBAR), 0.1)  # resumes from 1.0cm, not reset to 0
+    assert cmd.state is IRNavState.JUNCTION_CREEP
+
+
 def test_a_reading_matching_neither_step_resets_and_falls_through():
     """A stray frame that matches neither the tracked step nor the next one resets progress
     to step 0 and is handled as ordinary FOLLOW (not held as noise)."""
@@ -624,8 +663,13 @@ def test_sustained_0000_triggers_reverse_after_the_dwell():
 
 def test_sustained_1111_off_paper_also_triggers_reverse():
     """A junction's own 1111 hold is well under 1s -- 2s sustained can only be carpet beyond
-    the paper's edge, never a real junction. See docs/hardware/ir-tracing-sensor.md."""
-    nav = default_nav()
+    the paper's edge, never a real junction. See docs/hardware/ir-tracing-sensor.md.
+
+    2026-08-20, sixth pass: the start stem's approach (default_nav's initial pending) is now a
+    single 1.5cm step, so sustained 1111 completes it almost immediately instead of ever
+    idling -- start on the loop instead, where the pending roundabout entry's approach still
+    has two more steps (1001, then 0000) that pure 1111 never satisfies."""
+    nav = default_nav(route=TASK1_LOOP_ONLY)
     for _ in range(21):
         nav.step(make_reading(CROSSBAR), 0.1)
     assert nav.state is IRNavState.REVERSE

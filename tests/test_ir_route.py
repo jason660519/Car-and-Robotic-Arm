@@ -214,9 +214,12 @@ ROUNDABOUT_EXIT = TASK1_ROUTE.loop[1]
 T_JUNCTION = TASK1_ROUTE.loop[2]
 
 
-def test_start_stem_t_approach_is_crossbar_then_clear():
-    assert [s.bits for s in START_T.approach] == [(1, 1, 1, 1), (0, 0, 0, 0)]
-    assert START_T.approach[0].min_cm == 1.9
+def test_start_stem_t_approach_is_a_single_crossbar_step():
+    """2026-08-20, sixth pass: the old two-step (1111, then 0000) sequence let sensor flicker
+    reset the 1111 accumulation on every stray 0000 blip. Single-step now -- 1.5cm of 1111
+    commits straight to creep+turn, no longer waiting on a subsequent 0000."""
+    assert [s.bits for s in START_T.approach] == [(1, 1, 1, 1)]
+    assert START_T.approach[0].min_cm == 1.5
     assert START_T.creep_cm == 8.5
     assert START_T.turn_deg == 90.0
 
