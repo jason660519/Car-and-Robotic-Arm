@@ -810,6 +810,19 @@ class IRLineNav:
             # the previous command instead of steering on it.
             return self._hold(f"junction-shaped reading, no confirmed approach ({state.label})")
 
+        if state.kind is Kind.DRIFT and pending is TASK1_ROUTE.prologue[0]:
+            # 2026-08-20, fifth pass, real-track: P1000 (outer sensor only, the largest DRIFT
+            # offset) mid-stem also steered the car hard left, same failure as the JUNCTION
+            # case above. The start stem is print-straight end to end -- unlike every other
+            # straight leg, it never needs a real DRIFT correction, so any DRIFT reading here
+            # that isn't part of the approach sequence is the "0001/1000 just before the
+            # post-crossbar 0000" transitional artifact this module's docstring already
+            # documents, not genuine physical drift. Every other straight leg (Phase 2/4/6/8/
+            # 10) keeps live DRIFT correction below -- gating those too disabled the basic
+            # steer-toward-the-line behaviour outright (confirmed against
+            # test_follow_steers_toward_the_line).
+            return self._hold(f"start stem, drift reading not part of the approach ({state.label})")
+
         if state.kind is Kind.NOISE:
             # Non-contiguous black: one 2 cm line cannot produce it, so it is
             # undulation, a mis-tuned pot, or a second feature. Never steer.

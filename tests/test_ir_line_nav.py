@@ -13,7 +13,14 @@ from __future__ import annotations
 import pytest
 
 from carbot.ir_line_nav import IRLineNav, IRNavPolicy, IRNavState, make_reading
-from carbot.ir_route import TASK1_ROUTE, JunctionAction, RouteJunction, RoutePlan, SequenceStep
+from carbot.ir_route import (
+    TASK1_LOOP_ONLY,
+    TASK1_ROUTE,
+    JunctionAction,
+    RouteJunction,
+    RoutePlan,
+    SequenceStep,
+)
 
 # Raw Out1..Out4 tuples -> physical P1..P4 after to_physical (PHYSICAL_ORDER swaps 0,1).
 CENTRED = (1, 0, 1, 0)  # physical 0110 — P2+P3, the only two-sensor line reading
@@ -45,26 +52,41 @@ def test_follow_centered_drives_straight():
 def test_follow_steers_toward_the_line():
     # Only P3 lit -> the line sits right of the bar centre, so the car has
     # drifted left and must steer right: slow the right wheel.
-    nav = default_nav()
+    # 2026-08-20, fifth pass: the start stem (default_nav's initial pending) now holds on
+    # DRIFT instead of steering (see IRLineNav._follow_step) -- start on the loop instead so
+    # this exercises the generic DRIFT steering math it is actually testing.
+    nav = default_nav(route=TASK1_LOOP_ONLY)
     cmd = nav.step(make_reading(DRIFT_RIGHT), dt=0.01)
     assert cmd.state is IRNavState.FOLLOW
     assert cmd.right < cmd.left == 150
 
 
 def test_follow_steers_the_mirror_way_for_the_mirror_reading():
-    nav = default_nav()
+    nav = default_nav(route=TASK1_LOOP_ONLY)
     right = nav.step(make_reading(DRIFT_RIGHT), dt=0.01)
-    nav = default_nav()
+    nav = default_nav(route=TASK1_LOOP_ONLY)
     left = nav.step(make_reading(DRIFT_LEFT), dt=0.01)
     assert (right.left, right.right) == (left.right, left.left)
 
 
 def test_outer_sensor_demands_a_harder_correction():
-    nav = default_nav()
+    nav = default_nav(route=TASK1_LOOP_ONLY)
     slight = nav.step(make_reading(DRIFT_RIGHT), dt=0.01)
-    nav = default_nav()
+    nav = default_nav(route=TASK1_LOOP_ONLY)
     hard = nav.step(make_reading(FAR_RIGHT), dt=0.01)
     assert hard.right < slight.right
+
+
+def test_the_start_stem_holds_on_drift_instead_of_steering():
+    """2026-08-20, fifth pass, real-track: a lone P1000 (far left, outer sensor only)
+    partway through the dead-straight start stem steered the car hard left. The stem is
+    print-straight end to end, so any DRIFT reading not part of the T's approach sequence is
+    the docstring's "0001/1000 just before the post-crossbar 0000" transitional artifact, not
+    genuine physical drift -- hold instead."""
+    nav = default_nav()  # default route's initial pending is the start stem T
+    cmd = nav.step(make_reading(FAR_LEFT), dt=0.01)
+    assert cmd.state is IRNavState.FOLLOW
+    assert cmd.left == cmd.right == 150
 
 
 def test_line_lost_enters_search_with_left_sweep():
