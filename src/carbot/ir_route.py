@@ -374,6 +374,16 @@ TASK1_CORNER_WINDOWS: tuple[CornerWindow, ...] = (
     CornerWindow("ARC 1 SE corner", "roundabout entry", 13.0, 30.0, 0.6, 0.5),  # (b)
     CornerWindow("ARC 2 NE corner", "roundabout entry", 42.0, 61.0, 0.6, 0.5),  # (c)
     CornerWindow("ARC 3 NW corner", "roundabout entry", 101.0, 120.0, 0.6, 0.5),  # (d)
+    # 2026-08-20, eleventh pass, real-track: Phase 9 (the roundabout's own 270 degree
+    # traversal) had no corner window at all, so the car corrected at the same strength as a
+    # straight and stayed pinned on the widest DRIFT reading (1000/0001, offset +-3.2cm) the
+    # whole way around -- never recentring to 0110, which made the roundabout exit's own 0111
+    # harder to pick out of the noise. Arc length from the operator's measured inner black-line
+    # diameter: circumference = pi * 33.5cm = 105.24cm, 270/360 of that = 78.93cm. Margins
+    # trimmed off both ends: ~5cm at the start (creep/turn settling) and ~4cm at the end
+    # (leave the exit approach's own crossbar detection unaffected by the sharper turn). Same
+    # scale factors as ARC 1-3, first estimate -- re-tune from real track logs.
+    CornerWindow("roundabout traversal", "roundabout exit", 5.0, 75.0, 0.6, 0.5),  # (f/g)
 )
 
 

@@ -268,6 +268,30 @@ def test_a_junction_shaped_reading_that_breaks_a_started_sequence_holds():
     assert "broke x's approach mid-sequence" in cmd.reason
 
 
+def test_a_lingering_noise_echo_of_a_just_matched_step_does_not_reset_progress():
+    """2026-08-20, tenth pass, real-track: the roundabout entry's approach twice got within
+    one step of completing and was wiped both times by a lingering Kind.NOISE echo of the
+    step just matched (the sensor takes a frame or two to actually clear once the index has
+    already moved on to the next step). Kind.NOISE must hold without resetting, same as
+    Kind.JUNCTION -- only a genuine ON_LINE/DRIFT reading is real evidence of leaving the
+    junction area."""
+    junction = RouteJunction(
+        "x", JunctionAction.TURN_RIGHT, 0.0,
+        approach=(SequenceStep((1, 1, 1, 1), min_cm=2.0), SequenceStep((0, 0, 0, 0))),
+        creep_cm=5.0, turn_deg=90.0,
+    )
+    nav = _single_junction_nav(junction)
+    nav.step(make_reading(CROSSBAR), 0.1)  # step 0 (1111) partway satisfied: 1.0/2.0cm
+    noise = (1, 1, 0, 1)  # physical 1101, Kind.NOISE ("P3 dropped out"), not the current
+    # nor next step's target and not ON_LINE/DRIFT.
+    cmd = nav.step(make_reading(noise), 0.1)
+    assert cmd.state is IRNavState.FOLLOW
+    assert "broke x's approach mid-sequence" in cmd.reason
+    # Progress was preserved (not reset to 0): the crossbar only needs 1.0cm more, not 2.0.
+    cmd = nav.step(make_reading(CROSSBAR), 0.1)
+    assert "step 2/2" in cmd.reason
+
+
 def test_roundabout_entry_shoulder_1001_is_part_of_the_sequence_not_noise():
     """1001 is Kind.NOISE under carbot.ir_geometry, but as the roundabout entry's own 2nd
     approach step it must advance the sequence, not get held as generic noise."""

@@ -130,6 +130,22 @@ def main() -> int:
         "one-time stem T junction is dropped and the first junction is the roundabout entry",
     )
     parser.add_argument(
+        "--start-phase-transitions",
+        type=int,
+        default=0,
+        help="seed the straight/arc phase tracker's transition count at startup, for testing "
+        "a route segment in isolation (e.g. placing the car on Phase 6 with --start-on-loop "
+        "and --start-phase-transitions 6 to satisfy the roundabout entry's own precondition "
+        "without first driving Phase 2 through ARC 2) -- see RouteJunction.min_phase_transitions",
+    )
+    parser.add_argument(
+        "--start-arc-cm",
+        type=float,
+        default=0.0,
+        help="seed the phase tracker's accumulated arc distance at startup, alongside "
+        "--start-phase-transitions -- see RouteJunction.min_arc_cm",
+    )
+    parser.add_argument(
         "--laps",
         type=int,
         default=0,
@@ -244,6 +260,12 @@ def main() -> int:
         reverse_replay_window_s=args.reverse_replay_window_s,
     )
     nav = IRLineNav(nav_policy)
+    if args.start_phase_transitions or args.start_arc_cm:
+        # Segment testing: the car is placed mid-route by hand, so the phase tracker has to
+        # be told what a from-the-start run would have already accumulated by this point --
+        # see RouteJunction.min_phase_transitions/.min_arc_cm (carbot.ir_route).
+        nav._phase_transitions = args.start_phase_transitions
+        nav._arc_cm = args.start_arc_cm
 
     from carbot import Car, NeZhaError
 

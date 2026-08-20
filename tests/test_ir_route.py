@@ -9,9 +9,12 @@ docs/progress/2026-08-20-map1-junction-signal-sequences.md).
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from carbot.ir_route import (
+    TASK1_CORNER_WINDOWS,
     TASK1_LOOP_ONLY,
     TASK1_ROUTE,
     TURN_COMPLETE_READING,
@@ -282,3 +285,18 @@ def test_final_t_junction_reuses_the_t_junctions_approach_sequence():
 
 def test_sequence_step_default_min_cm_is_zero():
     assert SequenceStep((1, 1, 1, 1)).min_cm == 0.0
+
+
+# --------------------------------------------------------------- corner windows
+
+
+def test_roundabout_traversal_window_spans_the_measured_270_degree_arc():
+    """2026-08-20, eleventh pass: 33.5cm inner black-line diameter -> pi*33.5 = 105.24cm
+    circumference, 270/360 of that = 78.93cm -- the window sits inside that with margin at
+    both ends for the entry turn's settling and the exit approach's own crossbar detection."""
+    window = next(w for w in TASK1_CORNER_WINDOWS if w.name == "roundabout traversal")
+    assert window.while_pending == "roundabout exit"
+    arc_cm = math.pi * 33.5 * 270 / 360
+    assert window.start_cm > 0
+    assert window.end_cm < arc_cm
+    assert window.end_cm - window.start_cm == pytest.approx(70.0)

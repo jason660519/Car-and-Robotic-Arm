@@ -665,12 +665,15 @@ class IRLineNav:
         * **Not started** (index 0, no distance accumulated) — falls through to `_follow_step`,
           which holds on `Kind.JUNCTION` and steers normally on anything else (an ordinary
           curve reading is not junction-shaped and should still steer).
-        * **Started** — real progress has been made on a specific junction's sequence, so a
-          `Kind.JUNCTION` reading here holds *without* resetting that progress (it is more
-          likely a shoulder around the crossbar than a genuine curve, and the sequence may
-          still complete on the next matching frame); anything else resets progress and falls
-          through (2026-08-20 real-track regression: a bare non-junction mid-sequence blip
-          steered the car off course before it ever reached the actual junction).
+        * **Started** — real progress has been made on a specific junction's sequence, so
+          anything that is not a genuine single-line reading (`Kind.ON_LINE`/`Kind.DRIFT`)
+          holds *without* resetting that progress (2026-08-20, tenth pass: a lingering
+          `Kind.NOISE` echo of the step just matched wiped the roundabout entry's approach
+          twice, both times one step short of completing); only `Kind.ON_LINE`/`Kind.DRIFT` --
+          real evidence the car is back on ordinary line, not still near the junction --
+          resets progress and falls through (2026-08-20 real-track regression: a bare
+          non-junction mid-sequence blip steered the car off course before it ever reached the
+          actual junction).
         """
         if not self._phase_precondition_met(pending):
             # The distance gate alone isn't enough for e/f -- see
@@ -719,13 +722,22 @@ class IRLineNav:
             self._approach_cm = 0.0
             return self._approach_step(pending, reading, dt)
 
-        if started and (reading.state.kind is Kind.JUNCTION or reading.physical == (0, 0, 0, 0)):
+        if started and reading.state.kind not in (Kind.ON_LINE, Kind.DRIFT):
             # 2026-08-20, sixth pass, real-track: a stray 0000 blip mid-crossbar (sensor
             # flicker right at the sensor's own resolution limit, not the sequence's own
             # expected 0000 step -- that already matched or fast-transitioned above and never
             # reaches here) was resetting the start-T's 1111 accumulation on every flicker,
             # so it never reached its min_cm and the car oscillated at the junction instead of
-            # committing to the turn. Treated the same as a Kind.JUNCTION blip: hold, no reset.
+            # committing to the turn.
+            # 2026-08-20, tenth pass, real-track: the JUNCTION-or-0000 carve-out was still too
+            # narrow -- the roundabout entry's approach twice got within one step of
+            # completing (1.61/1.65cm of the crossbar; 0.10/0.20cm into the 1001 shoulder) and
+            # was wiped both times by a *lingering* Kind.NOISE echo of the step just matched
+            # (a JUNCTION/DRIFT reading takes a frame or two to actually clear once the step
+            # it belongs to has already been counted and the index has moved on). Only a
+            # genuine single-line reading (ON_LINE/DRIFT) is real evidence the car is back on
+            # ordinary line and should reset progress; anything else near a junction --
+            # JUNCTION, NOISE, or the blind 0000/1111 band -- holds instead.
             return self._hold(f"broke {pending.name}'s approach mid-sequence ({reading.summary})")
         if started:
             self._approach_index = 0
